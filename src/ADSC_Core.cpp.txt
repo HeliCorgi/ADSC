@@ -1,0 +1,47 @@
+#include "ADSC_Core.h"
+#include <iostream>
+#include <cmath>
+#include <atomic>
+
+ADSC_Core::ADSC_Core() {
+    state.fuel[0] = state.fuel[1] = state.fuel[2] = 7.2;
+    state.mass_total = 20.0 + 7.2;
+    state.inertia_tensor = Eigen::Matrix3d::Identity() * 0.55;
+    Kp << 0.1, 0.1, 0.1;
+    Ki << 0.01, 0.01, 0.01;
+    Kd << 0.05, 0.05, 0.05;
+}
+
+double ADSC_Core::get_fuel() const {
+    volatile double v0 = state.fuel[0], v1 = state.fuel[1], v2 = state.fuel[2];
+    if (v0 == v1) return v0;
+    if (v0 == v2) return v0;
+    return v1;
+}
+
+void ADSC_Core::set_fuel(double f) {
+    if (f < 0.0) f = 0.0;
+    state.fuel[0] = state.fuel[1] = state.fuel[2] = f;
+    std::atomic_thread_fence(std::memory_order_release);
+}
+
+void ADSC_Core::update_gains_and_linearization() {
+    Eigen::Matrix3d I_reg = state.inertia_tensor + Eigen::Matrix3d::Identity() * 1e-6;
+    log_incident("ADCS", "Inertia regularized", I_reg.determinant());
+}
+
+void ADSC_Core::post_capture_stabilization(bool captured, double debris_mass, const Eigen::Vector3d& v_rel_vec) {
+    if (!captured || v_rel_vec.norm() > max_v_rel) return;
+    state.mass_total += debris_mass;
+    update_gains_and_linearization();
+    log_incident("CAPTURE", "Debris mass", debris_mass);
+}
+
+bool ADSC_Core::deorbit_protocol() {
+    // 地上局の承認が必要（将来拡張用）
+    return false; 
+}
+
+void ADSC_Core::log_incident(const std::string& category, const std::string& message, double value) {
+    std::cerr << "[ADSC][" << category << "] " << message << " = " << value << std::endl;
+}

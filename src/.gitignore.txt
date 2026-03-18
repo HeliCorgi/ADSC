@@ -1,0 +1,18 @@
+# C++ binaries
+*.o
+*.out
+build/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Data logs
+data/capture_history_log.csv

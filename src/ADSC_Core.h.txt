@@ -1,0 +1,39 @@
+#pragma once
+#include <Eigen/Dense>
+#include <vector>
+#include <string>
+
+class ADSC_Core {
+public:
+    static constexpr int N = 6;
+    ADSC_Core();
+
+    void initOrbit(double altitude_m, double inclination_rad);
+    void predict(double dt, const Eigen::Vector3d& accel, bool trigger_ejection = false);
+    void update(const Eigen::Vector3d& z_cam, const Eigen::Vector3d& z_lidar,
+                const Eigen::Vector3d& R_diag_cam, const Eigen::Vector3d& R_diag_lidar,
+                const Eigen::Vector3d& accel_meas, double accel_threshold,
+                bool& collision_detected, bool low_light = false);
+    bool deorbit_protocol();
+    void post_capture_stabilization(bool captured, double debris_mass, const Eigen::Vector3d& v_rel_vec);
+    void compute_ADCS_torque(Eigen::Vector3d& torque_out);
+    void apply_delta_v(double dv);
+    double get_fuel() const;
+    void set_fuel(double f);
+
+private:
+    struct State {
+        Eigen::Matrix<double, N, 1> x;
+        Eigen::Matrix<double, N, N> S;
+        volatile double fuel[3]; // 宇宙線対策の3重化
+        double mass_total;
+        Eigen::Matrix3d inertia_tensor;
+    } state;
+
+    Eigen::Vector3d Kp, Ki, Kd;
+    const double M_dry = 20.0;
+    const double max_v_rel = 0.50;
+
+    void update_gains_and_linearization();
+    void log_incident(const std::string& category, const std::string& message, double value = 0.0);
+};
