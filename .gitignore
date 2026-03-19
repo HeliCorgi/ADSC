@@ -1,0 +1,39 @@
+# Build artifacts
+build/
+cmake-build-*/
+*.o
+*.obj
+*.exe
+*.out
+adsc_v121
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*.code-workspace
+
+# OS generated
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Logs / temporary
+*.log
+*.tmp
+*.bak
+*.backup
+
+# Python (将来拡張用)
+__pycache__/
+*.pyc
+venv/
+.venv/
