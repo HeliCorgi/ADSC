@@ -1,32 +1,32 @@
 # ADSC v1.21 – Active Debris Self-Cleanup  
 **Pollux Guidance Reality Final Edition**
 
-**低コスト・自律型デブリ除去**を目的とした20 kg級小型衛星のコア制御プロトタイプ。  
-v1.21ではv1.20の指摘（UKF計算負荷、PCM運用時間、v_rel達成確率）を事実ベースで完全修正し、**TRL 5–6到達可能な現実運用レベル**に到達しました。
+**Low-cost, autonomous space debris removal** prototype for a 20 kg-class small satellite.  
+v1.21 is a major reality update based on v1.20 review feedback, significantly improving operational feasibility.
 
 **Praise the Corgi.**
 
-## 主な特徴（v1.21 Reality Final）
+### Key Features (v1.21 Reality Final)
 
-- TMR + CRC + volatile + メモリバリア燃料管理（宇宙線耐性）
-- **7状態 MAG-Adaptive SR-UKF**（状態数9→7に圧縮、Sigma点15個、RAD5545でdt=0.01 s安定運用可能）
-- Dead-band Sliding Mode DACS（死帯幅0.015 rad ≈ 0.86°）
-- 未知攪乱乗数（質量誤差・大気抵抗ゆらぎ推定）
-- PCMパッシブ熱管理（容量5000 J、最大安全運用4時間に拡張＋放射冷却フィン想定）
-- Human-in-the-Loop Deorbit Protocol（自律優先＋緊急時のみ地上承認）
-- 慣性テンソル正則化（ε = 1e-6）
-- 緊急回避機動（物理的斥力＋接近速度相殺）
-- **捕獲速度閾値現実化**：max_v_rel = 0.15 m/s（RemoveDEBRIS実証値0.075–0.12 m/sを安全マージン付きで設定）
+- TMR + CRC + volatile + memory barrier fuel management (radiation-hardened)
+- **7-state MAG-Adaptive SR-UKF** (reduced from 9 states, 15 sigma points, stable at dt=0.01 s on RAD5545-class CPU)
+- Dead-band Sliding Mode DACS (deadband = 0.015 rad ≈ 0.86°)
+- Disturbance multiplier estimation (mass error and atmospheric drag variation)
+- PCM passive thermal management (5000 J capacity, extended to 4 hours safe operation with radiator fins)
+- Human-in-the-Loop Deorbit Protocol (autonomous by default, ground approval only in emergency)
+- Inertia tensor regularization (ε = 1e-6)
+- Emergency safe abort maneuver (repulsive direction + radial velocity cancellation)
+- **Realistic capture velocity limit**: max_v_rel = 0.15 m/s (based on RemoveDEBRIS demonstrated values 0.075–0.12 m/s with safety margin)
 
-## 機体構成（予定・実証技術ベース）
+### Planned Satellite Configuration (Based on Proven Technologies)
 
-- 捕獲機構：高強度Kevlarネット（面積25 m²）＋低密度エアロゲルパッド＋アルミハニカム構造（RemoveDEBRIS実証技術を参考）
-- 相対速度運用制限：0.15 m/s以下（厳守）
-- 推進系：Cold-gas / Ionハイブリッド（Isp 280–2500 s）
-- 計算機：RAD5545級耐放射線CPU想定（3.7 GFLOPS実測値で7状態UKFを安定運用）
-- 熱管理：相変化材料（PCM）5000 J＋放射冷却フィン（NASA CubeSat実例を基に運用時間4時間確保）
+- Capture system: High-strength Kevlar net (25 m²) + low-density aerogel pad + aluminum honeycomb (inspired by RemoveDEBRIS)
+- Relative velocity limit: ≤ 0.15 m/s (strictly enforced)
+- Propulsion: Cold-gas / Ion hybrid (Isp 280–2500 s)
+- Onboard computer: RAD5545-class radiation-hardened CPU (target 3.7 GFLOPS)
+- Thermal management: Phase Change Material (PCM) 5000 J + radiator fins (4-hour operation target)
 
-## ビルド方法
+### Build Instructions
 
 ```bash
 git clone https://github.com/Heli/ADSC.git
@@ -38,16 +38,32 @@ cmake --build .
 ./adsc_v121
 ```
 
-### 依存関係
-- C++17 以上
-- Eigen3（ヘッダオンリー）
+### Dependencies
 
-## 現在の成熟度（TRL目安）
+- C++17 or later
+- Eigen3 (header-only)
 
-TRL 5–6相当（コンポーネント／サブシステム検証レベル）
+### Technology Readiness Level (TRL) Assessment – Honest Review
 
-RemoveDEBRIS実証データ（ネット捕獲相対速度0.075–0.12 m/s）、RAD5545実測性能（3.7 GFLOPS）、NASA CubeSat PCM実例（gallium系数千J規模）を基に現実化したため、地上HILS・真空チャンバ試験で即検証可能。
-TRL 7（宇宙環境実証）にはセンサ誤差モデル＋HILS追加が必要。
+**TRL 5–6** (Component / Subsystem Validation in Relevant Environment)  
+- Strengths: State reduction, realistic deadband, increased PCM capacity, and v_rel = 0.15 m/s are well-aligned with RemoveDEBRIS flight data, RAD5545 performance measurements, and NASA CubeSat PCM examples.
+- Weaknesses remaining:
+  - MAGNAV fallback is still limited in accuracy and should be treated as a last-resort backup.
+  - Thermal model does not yet include full eclipse/sunlight thermal balance.
+  - DACS impulse (0.5 N·s) is on the low side compared to typical cold-gas thrusters (1–3 N·s).
+  - Guidance loop for achieving v_rel ≤ 0.15 m/s is not yet implemented (MPC/iLQR recommended).
+
+**Overall**: TRL 6 is achievable with HILS and vacuum chamber testing.  
+TRL 7 (space environment demonstration) will require sensor error modeling, thermal balance simulation, and DACS impulse tuning.  
+TRL 8–9 (flight proven) is still 1–2 years away depending on budget and testing campaign.
+
+### Disclaimer
+
+This project is an **open-source conceptual prototype for educational and research purposes only**.  
+Actual spaceflight hardware requires formal design review, qualification, and compliance with international space law (IADC Guidelines, UN COPUOS).  
+No military or re-entry vehicle applications are intended or supported.
+
+This repository is released as open-source research on peaceful active debris removal technology.
 
 ## Disclaimer（法的免責）
 

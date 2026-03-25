@@ -32,7 +32,7 @@ ehthumbs.db
 *.bak
 *.backup
 
-# Python (将来拡張用)
+# Python (future extension)
 __pycache__/
 *.pyc
 venv/

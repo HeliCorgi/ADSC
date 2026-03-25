@@ -2,9 +2,9 @@
 #include <algorithm>
 #include <cmath>
 
-// ======================== FuelCell TMR（v1.16 Legacy + volatile相当） ========================
-// compute_crc, verify_crc, nearly_equal, median, ctor, get_fuel, set_fuel は前回と同一（完全実装）
-// set_fuel内には std::atomic_thread_fence(std::memory_order_release) を明示的に使用
+// ======================== FuelCell TMR (v1.16 Legacy + volatile equivalent) ========================
+// compute_crc, verify_crc, nearly_equal, median, ctor, get_fuel, set_fuel are fully implemented
+// set_fuel explicitly uses std::atomic_thread_fence(std::memory_order_release)
 
 uint32_t ADSC_Core::compute_crc(double v, uint32_t ver) {
     uint32_t seed = 0xDEADBEEF;
@@ -67,16 +67,16 @@ void ADSC_Core::set_fuel(double f) {
     }
 }
 
-// ======================== v1.16 Legacy融合 ========================
+// ======================== v1.16 Legacy Integration ========================
 bool ADSC_Core::deorbit_protocol(bool ground_human_approval) {
     if (get_fuel() < deorbit_fuel_reserve) {
         std::cout << "[LEGAL SAFETY] Deorbit aborted: fuel reserve insufficient\n";
         return false;
     }
     if (!ground_human_approval) {
-        std::cout << "[LEGAL SAFETY] Deorbit proceeding autonomously (IADC guideline compliant)\n";
+            std::cout << "[LEGAL SAFETY] Deorbit proceeding autonomously (IADC guideline compliant)\n";
     } else {
-        std::cout << "[LEGAL SAFETY] Human-in-the-Loop confirmed → Deorbit sequence started\n";
+        std::cout << "[LEGAL SAFETY] Human-in-the-Loop confirmed: Deorbit sequence started\n";
     }
     return true;
 }
@@ -90,7 +90,7 @@ void ADSC_Core::regularized_inertia_update(const Eigen::Vector3d& r_attach, doub
     std::cout << "[NUMERIC SAFETY] Regularized inertia trace = " << I_reg.trace() << "\n";
 }
 
-// ======================== v1.19 Pollux（現実化版） ========================
+// ======================== v1.19 Pollux (Reality Edition) ========================
 Eigen::Vector3d ADSC_Core::compute_safe_abort(const Eigen::Vector3d& r_rel, const Eigen::Vector3d& v_rel) {
     Eigen::Vector3d abort_direction = -v_rel.normalized();
     double abort_impulse = 2.0;
@@ -126,7 +126,7 @@ bool ADSC_Core::check_thermal_saturation() {
     return false;
 }
 
-// ======================== 統合捕獲ロジック（v1.21） ========================
+// ======================== Integrated Capture Logic (v1.21) ========================
 void ADSC_Core::post_capture_stabilization(bool captured,
                                            double debris_mass,
                                            const Eigen::Vector3d& r_attach,
