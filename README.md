@@ -195,14 +195,22 @@ ending the 120 s run at 0.00043 deg/s and 0.098°. The feedforward-honesty bound
 printed by `./build/test_sync`.
 
 Reproducible WP3 numbers (regenerate with `./build/adsc_sim`, scenario 6): the
-installer mission reaches all phases (approach → sync → attach → depart) for a
-catalog-A-mass target, with a **contact-energy budget of 0.333 J** (29.6 kg
-servicer at 0.15 m/s) — the no-fragmentation-at-contact argument. The sail-only
-decay trade (solar-max..solar-min range, to the 180 km handoff) shows catalog A
-(≈ 9 t, 840 km) needs an impractically large sail for the 25-year guideline
-while catalog B (≈ 1.4 t, 750 km) closes with a far smaller one; representative
-rows are printed by the sim (see the trade table) and bracket open trade T1
-(drag sail vs electrodynamic tether).
+installer mission reaches all phases (approach corridor closest 424.3 m → sync
+at 16.87 s → attach → depart, bounded coast 400 m) for a catalog-A-mass target,
+with a **contact-energy budget of 0.333 J** (29.6 kg servicer at 0.15 m/s) — the
+no-fragmentation-at-contact argument. The sail-only decay trade to the 180 km
+handoff (range = solar max .. solar min) makes the honest structure concrete:
+
+| target | 100 m² sail | 1000 m² sail | sail area for 25 yr |
+|---|---|---|---|
+| A: SL-16, ≈9 t, 840 km | 33.7 .. 538.8 yr | 3.4 .. 53.9 yr | **135 .. 2155 m²** |
+| B: SL-8, ≈1.4 t, 750 km | 1.8 .. 28.8 yr | 0.2 .. 2.9 yr | **7 .. 115 m²** |
+
+Sail-only closes for the lighter/lower class B (tens of m²) but **not** for the
+heavy, high stage A (hundreds-to-thousands of m² — impractical): the honest
+negative that brackets open trade T1 (drag sail vs electrodynamic tether). The
+EDT parametric study spans, e.g., 36.1 yr at 50 m/day down to 1.2 yr at
+1500 m/day of along-track decay.
 
 ## Disclaimer / 免責
 
