@@ -83,6 +83,283 @@ SyncReport run_tumble_sync(const Config& cfg,
     return rep;
 }
 
+EstimatedSyncReport run_estimated_sync(const Config& cfg,
+                                       const Eigen::Quaterniond& q_target0,
+                                       const Eigen::Vector3d&    w_target0,
+                                       const Eigen::Quaterniond& q_servicer0,
+                                       const Vector6d&           x_trans0,
+                                       double max_sim_time_s) {
+    EstimatedSyncReport rep;
+    const double dt = cfg.control_dt;
+    const double rad2deg = 180.0 / kPi;
+
+    // One fixed-seed Gaussian source drives EVERYTHING random: sensor noise,
+    // matched truth process noise, and sampled initial estimate errors (R6).
+    GaussianSource rng(cfg.est_seed);
+
+    // ------------------------------------------------------------------
+    // TRUTH world. Read only by the sensor models below and by the
+    // error-statistics / acceptance-criteria recorder at the bottom of the
+    // loop. It is never handed to the controller.
+    // ------------------------------------------------------------------
+    RigidBody truth_target(cfg.target_inertia_diag.asDiagonal(), q_target0,
+                           w_target0);
+    RigidBody truth_servicer(Eigen::Matrix3d::Identity() * cfg.base_inertia,
+                             q_servicer0, Eigen::Vector3d::Zero());
+    Vector6d truth_trans = x_trans0;
+
+    const CwModel cw =
+        CwModel::from_orbit(kEarthRadius + cfg.target_altitude_km * 1000.0);
+    const Eigen::Matrix3d I_t = truth_target.inertia();
+    const Eigen::Matrix3d I_t_inv = I_t.inverse();
+    const Eigen::Matrix3d I_servicer =
+        Eigen::Matrix3d::Identity() * cfg.base_inertia;
+
+    // ------------------------------------------------------------------
+    // Filters, initialized truth + sampled error ~ N(0, P0) so the
+    // consistency statistics are meaningful from the first step.
+    // ------------------------------------------------------------------
+    const double s_att = cfg.est_init_att_sigma_rad;
+    const double s_wt  = cfg.est_init_wt_sigma_rad_s;
+
+    Eigen::Matrix<double, 6, 6> P0_trans = Eigen::Matrix<double, 6, 6>::Zero();
+    P0_trans.block<3, 3>(0, 0) = cfg.est_init_pos_sigma_m *
+                                 cfg.est_init_pos_sigma_m *
+                                 Eigen::Matrix3d::Identity();
+    P0_trans.block<3, 3>(3, 3) = cfg.est_init_vel_sigma_m_s *
+                                 cfg.est_init_vel_sigma_m_s *
+                                 Eigen::Matrix3d::Identity();
+    Vector6d x0_est = truth_trans;
+    x0_est.head<3>() += rng.sample3(cfg.est_init_pos_sigma_m);
+    x0_est.tail<3>() += rng.sample3(cfg.est_init_vel_sigma_m_s);
+    TranslationEkf ekf(cw, x0_est, P0_trans);
+
+    const Eigen::Quaterniond q_rel_true0 =
+        (q_target0.conjugate() * q_servicer0).normalized();
+    Eigen::Matrix<double, 6, 6> P0_rel = Eigen::Matrix<double, 6, 6>::Zero();
+    P0_rel.block<3, 3>(0, 0) = s_att * s_att * Eigen::Matrix3d::Identity();
+    P0_rel.block<3, 3>(3, 3) = s_wt * s_wt * Eigen::Matrix3d::Identity();
+    // The filter's "known" target inertia is the same (regularized) tensor the
+    // truth target actually propagates with — the known-inertia assumption is
+    // exact in this simulation and documented as a limitation in the README.
+    // Initial-error draws are hoisted into named locals: function-argument
+    // evaluation order is unspecified, and the RNG draw order must be fixed
+    // for the run to be reproducible across compilers (R6).
+    const Eigen::Vector3d e_own0 = rng.sample3(s_att);
+    const Eigen::Vector3d e_rel0 = rng.sample3(s_att);
+    const Eigen::Vector3d e_wt0  = rng.sample3(s_wt);
+    AttitudeMekf mekf((q_servicer0 * quat_exp(e_own0)).normalized(),
+                      s_att * s_att * Eigen::Matrix3d::Identity(),
+                      (q_rel_true0 * quat_exp(e_rel0)).normalized(),
+                      w_target0 + e_wt0, P0_rel, I_t);
+
+    const SlidingModeController ctrl(cfg.sync_gains);
+
+    // Measurement cadences in control steps.
+    const int st_every  = static_cast<int>(1.0 / (cfg.st_rate_hz * dt) + 0.5);
+    const int vis_every = static_cast<int>(1.0 / (cfg.vision_rate_hz * dt) + 0.5);
+    const int rng_every = static_cast<int>(1.0 / (cfg.ranging_rate_hz * dt) + 0.5);
+    const double dt_ranging = rng_every * dt;
+
+    // Accumulators.
+    double criteria_start = -1.0;
+    double max_rate = 0.0, max_att = 0.0;
+    double rate_err_deg_s = 0.0, att_err_deg = 0.0;
+    double sum_own2 = 0.0, sum_rel2 = 0.0, sum_wt2 = 0.0;
+    long   n_att = 0;
+    double sum_pos2 = 0.0, sum_vel2 = 0.0;
+    long   n_pos = 0;
+    double nees_t = 0.0, nees_o = 0.0, nees_r = 0.0;
+    double nis_t = 0.0, nis_s = 0.0, nis_v = 0.0;
+    double p_min = std::numeric_limits<double>::max();
+    double p_asym = 0.0;
+
+    const auto track_p = [&](const Eigen::MatrixXd& P) {
+        Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> es(P);
+        p_min = std::min(p_min, es.eigenvalues().minCoeff());
+        p_asym = std::max(p_asym,
+                          (P - P.transpose()).cwiseAbs().maxCoeff());
+    };
+
+    const int steps = static_cast<int>(max_sim_time_s / dt + 0.5);
+    double t = 0.0;
+    for (int k = 0; k < steps; ++k) {
+        const bool in_window = t >= cfg.est_stats_start_s;
+
+        // --- Sensor sampling + measurement updates at time t --------------
+        if (k % st_every == 0) {
+            const Eigen::Quaterniond q_st =
+                (truth_servicer.attitude() *
+                 quat_exp(rng.sample3(cfg.st_sigma_rad))).normalized();
+            const double nis = mekf.update_star_tracker(q_st, cfg.st_sigma_rad);
+            track_p(mekf.P_own());
+            if (in_window) {
+                nis_s += nis;
+                const Eigen::Vector3d e =
+                    quat_residual(mekf.q_own(), truth_servicer.attitude());
+                nees_o += e.dot(mekf.P_own().ldlt().solve(e));
+                ++rep.n_st;
+            }
+        }
+        if (k % vis_every == 0) {
+            const Eigen::Quaterniond q_rel_true =
+                (truth_target.attitude().conjugate() *
+                 truth_servicer.attitude()).normalized();
+            const Eigen::Quaterniond q_vis =
+                (q_rel_true * quat_exp(rng.sample3(cfg.vision_sigma_rad)))
+                    .normalized();
+            const double nis = mekf.update_vision(q_vis, cfg.vision_sigma_rad);
+            track_p(mekf.P_rel());
+            if (in_window) {
+                nis_v += nis;
+                // Error in the filter's own convention (truth "minus" estimate
+                // for BOTH blocks) — mixing signs across blocks would flip the
+                // cross-covariance terms and corrupt the NEES.
+                Vector6d e;
+                e.head<3>() = quat_residual(mekf.q_rel(), q_rel_true);
+                e.tail<3>() = truth_target.rate() - mekf.w_target();
+                nees_r += e.dot(mekf.P_rel().ldlt().solve(e));
+                ++rep.n_vis;
+            }
+        }
+        if (k % rng_every == 0) {
+            if (k > 0) {
+                // Truth coast over one ranging interval with matched
+                // velocity process noise, then the filter prediction.
+                truth_trans = cw.propagate(truth_trans, dt_ranging);
+                truth_trans.tail<3>() += rng.sample3(cfg.trans_vel_noise_m_s);
+                ekf.predict(dt_ranging, cfg.trans_vel_noise_m_s);
+            }
+            const Eigen::Vector3d r_true = truth_trans.head<3>();
+            const double z_range =
+                r_true.norm() + cfg.range_bias_m + cfg.range_sigma_m * rng.sample();
+            const Eigen::Vector3d z_los =
+                r_true.normalized() +
+                Eigen::Vector3d::Constant(cfg.los_bias) +
+                rng.sample3(cfg.los_sigma);
+            const double nis =
+                ekf.update(z_range, z_los, cfg.range_sigma_m, cfg.los_sigma);
+            track_p(ekf.covariance());
+            if (in_window) {
+                nis_t += nis;
+                const Vector6d e = ekf.state() - truth_trans;
+                nees_t += e.dot(ekf.covariance().ldlt().solve(e));
+                ++rep.n_trans;
+                sum_pos2 += (ekf.state().head<3>() - r_true).squaredNorm();
+                sum_vel2 +=
+                    (ekf.state().tail<3>() - truth_trans.tail<3>()).squaredNorm();
+                ++n_pos;
+            }
+        }
+
+        // --- Control from ESTIMATES ONLY -----------------------------------
+        // The gyro reading is both the controller's rate input and the
+        // filter's propagation input (one sample per step).
+        const Eigen::Vector3d w_g =
+            truth_servicer.rate() +
+            Eigen::Vector3d::Constant(cfg.gyro_bias_rad_s) +
+            rng.sample3(cfg.gyro_sigma_rad_s);
+
+        EstimatedState est;
+        est.q_own    = mekf.q_own();
+        est.w_own    = w_g;
+        est.q_target = (mekf.q_own() * mekf.q_rel().conjugate()).normalized();
+        est.w_target = mekf.w_target();
+        est.w_target_dot =
+            I_t_inv * (-(mekf.w_target().cross(I_t * mekf.w_target())));
+        est.rel_translation = ekf.state();
+
+        const Eigen::Vector3d tau =
+            ctrl.torque(I_servicer, est.q_own, est.w_own, est.q_target,
+                        est.w_target, est.w_target_dot);
+
+        // --- Truth propagation over [t, t+dt] ------------------------------
+        truth_servicer.step(tau, dt);
+        truth_target.step(I_t * rng.sample3(cfg.wt_disturb_sigma), dt);
+        mekf.predict(w_g, dt, cfg.gyro_sigma_rad_s, cfg.wt_disturb_sigma);
+        t += dt;
+
+        // --- Truth-evaluated criteria + estimation-error statistics --------
+        const Eigen::Quaterniond q_e =
+            (truth_target.attitude().conjugate() * truth_servicer.attitude())
+                .normalized();
+        const Eigen::Vector3d w_rel =
+            truth_servicer.rate() - q_e.conjugate() * truth_target.rate();
+        rate_err_deg_s = w_rel.norm() * rad2deg;
+        att_err_deg =
+            2.0 * std::acos(std::min(1.0, std::abs(q_e.w()))) * rad2deg;
+
+        const bool ok = rate_err_deg_s < cfg.sync_rate_tol_deg_s &&
+                        att_err_deg   < cfg.sync_att_tol_deg;
+        if (!rep.sync.synced) {
+            if (ok) {
+                if (criteria_start < 0.0) criteria_start = t;
+            } else {
+                criteria_start = -1.0;
+            }
+        }
+        if (!rep.sync.synced && criteria_start >= 0.0 &&
+            t - criteria_start >= cfg.sync_hold_s) {
+            rep.sync.synced      = true;
+            rep.sync.sync_time_s = criteria_start;
+        }
+        if (rep.sync.synced) {
+            max_rate = std::max(max_rate, rate_err_deg_s);
+            max_att  = std::max(max_att,  att_err_deg);
+        }
+
+        if (t >= cfg.est_stats_start_s) {
+            const double e_own =
+                quat_residual(mekf.q_own(), truth_servicer.attitude()).norm();
+            const Eigen::Quaterniond q_rel_true =
+                (truth_target.attitude().conjugate() *
+                 truth_servicer.attitude()).normalized();
+            const double e_rel =
+                quat_residual(mekf.q_rel(), q_rel_true).norm();
+            const double e_wt =
+                (mekf.w_target() - truth_target.rate()).norm();
+            sum_own2 += e_own * e_own;
+            sum_rel2 += e_rel * e_rel;
+            sum_wt2  += e_wt * e_wt;
+            ++n_att;
+            rep.final_att_rel_deg = e_rel * rad2deg;
+            rep.final_wt_deg_s    = e_wt * rad2deg;
+        }
+    }
+
+    rep.sync.max_rate_err_deg_s   = max_rate;
+    rep.sync.max_att_err_deg      = max_att;
+    rep.sync.final_rate_err_deg_s = rate_err_deg_s;
+    rep.sync.final_att_err_deg    = att_err_deg;
+    rep.sync.sim_time_s           = t;
+
+    if (n_att > 0) {
+        rep.rms_att_own_deg = std::sqrt(sum_own2 / n_att) * rad2deg;
+        rep.rms_att_rel_deg = std::sqrt(sum_rel2 / n_att) * rad2deg;
+        rep.rms_wt_deg_s    = std::sqrt(sum_wt2 / n_att) * rad2deg;
+    }
+    if (n_pos > 0) {
+        rep.rms_pos_m   = std::sqrt(sum_pos2 / n_pos);
+        rep.rms_vel_m_s = std::sqrt(sum_vel2 / n_pos);
+        rep.final_pos_m = (ekf.state().head<3>() - truth_trans.head<3>()).norm();
+    }
+    if (rep.n_trans > 0) {
+        rep.nees_trans_mean = nees_t / rep.n_trans;
+        rep.nis_trans_mean  = nis_t / rep.n_trans;
+    }
+    if (rep.n_st > 0) {
+        rep.nees_own_mean = nees_o / rep.n_st;
+        rep.nis_st_mean   = nis_s / rep.n_st;
+    }
+    if (rep.n_vis > 0) {
+        rep.nees_rel_mean = nees_r / rep.n_vis;
+        rep.nis_vis_mean  = nis_v / rep.n_vis;
+    }
+    rep.p_min_eig  = p_min;
+    rep.p_max_asym = p_asym;
+    return rep;
+}
+
 Mission::Mission(const Config& cfg)
     : cfg_(cfg),
       cw_(CwModel::from_orbit(kEarthRadius + cfg.target_altitude_km * 1000.0)),

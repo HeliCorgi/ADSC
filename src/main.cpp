@@ -9,7 +9,7 @@
 int main() {
     using namespace adsc;
 
-    std::printf("=== ADSC v4 (WP3) — Active Debris Self-Cleanup ===\n\n");
+    std::printf("=== ADSC v4 (WP4) — Active Debris Self-Cleanup ===\n\n");
 
     Mission mission;
     std::printf("Dry mass        : %.2f kg\n", mission.config().dry_mass_kg);
@@ -225,6 +225,61 @@ int main() {
             std::printf("    delta-a %6.0f m/day : %8.1f days (%.2f yr)\n",
                         rate, days, days / 365.25);
         }
+    }
+
+    // --- Scenario 7 (WP4): estimate-driven sync under sensor noise ----------
+    // The tracking controller consumes ONLY the EstimatedState produced by the
+    // translation EKF + attitude MEKF from noisy sensors (fixed seed, R6);
+    // truth is used solely for the acceptance criteria and error statistics.
+    // Same constants as tests/test_estimator.cpp.
+    {
+        const Config cfg = mission.config();
+        const double deg2rad = kPi / 180.0;
+
+        const Eigen::Quaterniond q_t0 = Eigen::Quaterniond::Identity();
+        const Eigen::Vector3d w_t0 = cfg.sync_target_rate_deg_s * deg2rad *
+                                     Eigen::Vector3d(0.4, 0.7, -0.59).normalized();
+        const Eigen::Quaterniond q_c0(Eigen::AngleAxisd(
+            40.0 * deg2rad, Eigen::Vector3d(1.0, 0.5, -0.2).normalized()));
+        const CwModel cw =
+            CwModel::from_orbit(kEarthRadius + cfg.target_altitude_km * 1000.0);
+        const Vector6d x_trans0 =
+            cw.ellipse_state(SafetyEllipse{400.0, 400.0, 0.0}, 0.7);
+
+        const EstimatedSyncReport rep =
+            run_estimated_sync(cfg, q_t0, w_t0, q_c0, x_trans0, 120.0);
+
+        std::printf("\n[WP4] estimate-driven tumble sync under sensor noise "
+                    "(seed %u)\n", static_cast<unsigned>(cfg.est_seed));
+        std::printf("  sensors            : gyro %.0e rad/s, ST %.0e rad @%.0f Hz, "
+                    "vision %.0e rad @%.0f Hz, range %.2f m + LOS %.0e @%.0f Hz\n",
+                    cfg.gyro_sigma_rad_s, cfg.st_sigma_rad, cfg.st_rate_hz,
+                    cfg.vision_sigma_rad, cfg.vision_rate_hz,
+                    cfg.range_sigma_m, cfg.los_sigma, cfg.ranging_rate_hz);
+        std::printf("  synced (truth)     : %s at %.2f s\n",
+                    rep.sync.synced ? "yes" : "NO", rep.sync.sync_time_s);
+        if (rep.sync.synced) {
+            std::printf("  after dwell        : max |w_rel| %.4f deg/s (tol %.1f), "
+                        "max att err %.4f deg (tol %.1f)\n",
+                        rep.sync.max_rate_err_deg_s, cfg.sync_rate_tol_deg_s,
+                        rep.sync.max_att_err_deg, cfg.sync_att_tol_deg);
+        }
+        std::printf("  estimation RMS     : own att %.4f deg, rel att %.4f deg, "
+                    "w_t %.5f deg/s\n", rep.rms_att_own_deg, rep.rms_att_rel_deg,
+                    rep.rms_wt_deg_s);
+        std::printf("  translation RMS    : pos %.3f m, vel %.5f m/s "
+                    "(final pos err %.3f m)\n",
+                    rep.rms_pos_m, rep.rms_vel_m_s, rep.final_pos_m);
+        std::printf("  final errors       : rel att %.4f deg, w_t %.5f deg/s\n",
+                    rep.final_att_rel_deg, rep.final_wt_deg_s);
+        std::printf("  NIS  (consistency) : trans %.3f/4 (N=%d), ST %.3f/3 (N=%d), "
+                    "vision %.3f/3 (N=%d)\n",
+                    rep.nis_trans_mean, rep.n_trans, rep.nis_st_mean, rep.n_st,
+                    rep.nis_vis_mean, rep.n_vis);
+        std::printf("  NEES (consistency) : trans %.3f/6, own %.3f/3, rel %.3f/6\n",
+                    rep.nees_trans_mean, rep.nees_own_mean, rep.nees_rel_mean);
+        std::printf("  P health           : min eig %.3e, max asymmetry %.3e\n",
+                    rep.p_min_eig, rep.p_max_asym);
     }
 
     std::printf("\n=== simulation complete ===\n");

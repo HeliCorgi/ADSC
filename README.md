@@ -13,11 +13,12 @@ state's object. Governing value: **claims must match implementation** — every
 number in this README is regenerable by running committed code.
 
 **v4 status (work-package based):** WP1 (relative orbital motion + passive
-safety), the F1/F2 honesty follow-ups, WP2 (tumble synchronization), and WP3
-(attach event + kit decay trades, with the mission reflowed into
-approach→sync→attach→depart phases) are implemented on top of the v2.0 GNC
-core. WP4–WP7 (estimator/sensors, campaign Monte-Carlo, cost model, evidence
-pack) are **not yet** implemented — see the roadmap below.
+safety), the F1/F2 honesty follow-ups, WP2 (tumble synchronization), WP3
+(attach event + kit decay trades, mission reflowed into
+approach→sync→attach→depart phases), and WP4 (estimator + sensor models — the
+control loop now runs on estimates, not truth) are implemented on top of the
+v2.0 GNC core. WP5–WP7 (campaign Monte-Carlo, cost model, evidence pack) are
+**not yet** implemented — see the roadmap below.
 
 **What changed from v1.21 → v2.0:** the v1.21 README named an SR-UKF and a
 sliding-mode DACS, but the source only declared unused state and printed status
@@ -87,6 +88,23 @@ implemented; v3 continues that discipline.
   guideline. The honest result — sail-only on a ~9 t stage at ~840 km needs an
   impractically large sail while the lighter/lower class can close — is the
   deliverable that motivates trade T1. Unit-tested (`tests/test_decay.cpp`).
+- **Estimator + sensor models (WP4)** (`estimator`): the sync control loop now
+  consumes **estimates, not truth** — enforced structurally: the controller is
+  handed an `EstimatedState` only, and truth is read solely by the sensor
+  models and the error-statistics recorder. Two decoupled filters (assumptions
+  documented in the header): a **translation EKF** on the 6-state LVLH relative
+  motion (prediction = the analytic WP1 CW state-transition matrix; 10 Hz range
+  + line-of-sight **unit-vector** measurements — az/el is avoided because its
+  Jacobian is singular at boresight while `d(r/|r|)/dr = (I−r̂r̂ᵀ)/|r|` is
+  regular everywhere), and a **multiplicative attitude EKF** (3-component
+  small-angle error states, covariance 3×3/6×6; an additive quaternion EKF is
+  deliberately not used) with gyro-propagated own attitude + star-tracker
+  updates and a 2 Hz vision relative-pose channel estimating `q_rel` and the
+  target rate `w_t`. Covariance updates are Joseph-form + symmetrized; the
+  tests check P symmetry and positive definiteness over a full run, and a
+  **NEES/NIS consistency watchdog** (fixed seed, χ² bands) rejects the
+  classic fake of inflating Q/R until acceptance passes. All randomness is one
+  fixed-seed `mt19937` + explicit Box-Muller (bit-stable across platforms).
 - **First-order PCM thermal budget** integrated over the control loop.
 - **Deorbit gating**: autonomous by default, human-in-the-loop only on the
   emergency path, blocked below the fuel reserve.
@@ -98,9 +116,14 @@ verify rather than a claim in prose.
 
 ## What is explicitly NOT implemented (honest scope)
 
-- **No state estimator.** There is no UKF/SR-UKF, no MAGNAV, no sensor model.
-  The controller runs on the true state from the simulator. Adding an estimator
-  is the obvious next step.
+- **Estimator scope is deliberately narrow (WP4).** The target inertia is
+  assumed **known** for the torque-free feedforward and the MEKF model — exact
+  in this simulation, but a real mission needs inertia identification. Sensor
+  models are Gaussian abstractions (no outliers, no dropouts, no star-tracker
+  occlusion, no vision pose ambiguity); gyro/rangefinder biases exist as
+  Config knobs but are **not estimated** (the consistency tests assume the
+  zero defaults). The translation state is estimated and consistency-tested
+  but not used for control — there is still no translation guidance.
 - **Continuous-torque DACS approximation**, not a discrete-impulse thruster
   allocator with real minimum-impulse-bit quantization.
 - **Sync-hold relies on the continuous-torque approximation** (WP2 observation):
@@ -113,9 +136,10 @@ verify rather than a claim in prose.
   approach→sync→attach→depart phases, but there is still no translation guidance
   law that actively flies the approach to contact — approach safety is a passive
   corridor check and attach happens at the gated closing speed. The
-  v_rel ≤ 0.15 m/s limit is enforced as a gate, not produced by guidance, and
-  all states (including the target attitude/rate the sync loop consumes) are
-  truth from the simulator — no estimator/sensors until WP4.
+  v_rel ≤ 0.15 m/s limit is enforced as a gate, not produced by guidance. As of
+  WP4 the attitude-sync loop consumes estimates from noisy sensors; the
+  truth-driven variants remain in the test suite as the control-law regression
+  references.
 - **Decay model is first-order and single-object** (WP3): quasi-circular drag
   decay over an exponential atmosphere with a single altitude-independent
   solar-cycle factor (a coarse proxy — the real swing is altitude-dependent);
@@ -134,14 +158,17 @@ verify rather than a claim in prose.
 
 ## TRL assessment (honest)
 
-This is a **software prototype at roughly TRL 3–4**: the algorithms run in a
-self-contained numerical simulation. The earlier "TRL 5–6" framing was not
-supportable from code that did no computation. WP1 adds runnable relative-motion
-kinematics and a passive-safety check, WP2 a tracking controller demonstrated in
-simulation, and WP3 an attach/decay trade study — but the TRL is **unchanged**:
-the control loops still consume true states, the decay/attach models are
-first-order, and reaching TRL 5–6 would need at minimum a state estimator, a
-sensor/actuator error model, and hardware-in-the-loop testing.
+**TRL 4 — for the GNC software element only**: with WP4 the attitude-sync GNC
+element (tracking controller + estimator + sensor models) runs closed loop **on
+estimated states** in a laboratory/simulation environment, with filter
+consistency verified (NEES/NIS) rather than assumed. That is the element-level
+TRL 4 definition; the earlier "TRL 5–6" framing (v1.21) was not supportable and
+WP1–WP3 stayed at 3–4 because control consumed true states. Scope caveats,
+stated plainly: **TRL 4 applies to the GNC software element, not the system** —
+system-level TRL is undefined and not claimed here. Reaching TRL 5 for the
+element requires real-time processor-in-the-loop execution on representative
+hardware (see the WP7.7 flight-software migration annex direction in the spec),
+which this repo deliberately does not attempt.
 
 ## Build
 
@@ -153,16 +180,16 @@ cd ADSC
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release   # add -DADSC_WERROR=ON for R3
 cmake --build build
 ./build/adsc_sim
-ctest --test-dir build      # fuel-store + relmotion + sync + decay + mission (fail in any build type)
+ctest --test-dir build      # fuel_store/relmotion/sync/decay/mission/estimator (fail in any build type)
 ```
 
 ## Layout
 
 ```
 include/adsc/   public headers (fuel_store, dynamics, controller, thermal,
-                relmotion, decay, mission)
+                relmotion, decay, estimator, mission)
 src/            implementations + main.cpp simulation driver
-tests/          fuel-store + relmotion + sync + decay + mission unit tests
+tests/          fuel-store, relmotion, sync, decay, mission, estimator tests
 .github/        CI (Ubuntu + Eigen: cmake build + ctest, warnings-as-errors)
 adsc-specification-v4.md   active spec (work packages, hard rules, locked decisions)
 ```
@@ -175,7 +202,9 @@ adsc-specification-v4.md   active spec (work packages, hard rules, locked decisi
   feedforward against a precessing target).
 - **WP3 — Attach event + kit decay trades** ✅ implemented (contact-energy
   budget; sail vs EDT decay trade with honest negative results).
-- **WP4 — Estimator + sensor models** (control on estimates, not truth).
+- **WP4 — Estimator + sensor models** ✅ implemented (translation EKF +
+  multiplicative attitude EKF; control on estimates; NEES/NIS consistency
+  watchdog).
 - **WP5 — Campaign Monte-Carlo** (dispersions; success / abort / keep-out rates).
 - **WP6 — Parametric cost model** (relative units; the amortization curve).
 - **WP7 — Evidence pack** (generated English report; the actual product).
@@ -211,6 +240,17 @@ heavy, high stage A (hundreds-to-thousands of m² — impractical): the honest
 negative that brackets open trade T1 (drag sail vs electrodynamic tether). The
 EDT parametric study spans, e.g., 36.1 yr at 50 m/day down to 1.2 yr at
 1500 m/day of along-track decay.
+
+Reproducible WP4 numbers (regenerate with `./build/adsc_sim`, scenario 7; fixed
+seed 20260703): driven purely by estimates under sensor noise, sync is achieved
+on the **truth** state at **17.07 s** with post-dwell max |w_rel| = 0.0130 deg/s
+(tol 0.1) and max attitude error = 0.0848° (tol 2°). Estimation RMS over the
+stats window: own attitude 0.0020°, relative attitude 0.0341°, target rate
+0.00106 deg/s, relative position 0.038 m, velocity 0.0011 m/s. Filter
+consistency: NIS 3.944/4 (translation, N=800), 3.063/3 (star tracker, N=400),
+3.190/3 (vision, N=160); NEES 7.796/6, 2.660/3, 4.066/6 — all inside their
+documented χ² bands; covariance health min eigenvalue 1.3×10⁻¹², max asymmetry
+exactly 0.
 
 ## Disclaimer / 免責
 
