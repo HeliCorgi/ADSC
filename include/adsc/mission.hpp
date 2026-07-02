@@ -10,8 +10,9 @@
 
 namespace adsc {
 
-// Vehicle and mission constants for a 20 kg-class ADR chaser. Grouped here so
-// nothing is a bare literal buried in the logic.
+// Vehicle and mission constants for a small ADR servicer (~27 kg dry, ~34 kg
+// wet as configured below). Grouped here so nothing is a bare literal buried
+// in the logic.
 struct Config {
     double dry_mass_kg          = 27.2;
     double base_inertia         = 0.55;   // isotropic seed [kg m^2]
@@ -25,12 +26,37 @@ struct Config {
     double target_altitude_km   = 825.0;   // PLACEHOLDER: SL-16-class band (D2) [km]
     double keep_out_radius_m    = 200.0;   // approach keep-out sphere radius [m]
 
+    // F1: post-abort coast verification sweep (numerical check parameters,
+    // not physical placeholders).
+    double abort_coast_check_periods = 2.0;  // horizon [target orbital periods]
+    double abort_coast_check_dt_s    = 1.0;  // RK4 step for the range sweep [s]
+
     double control_dt           = 0.01;   // GNC loop step [s]
     double pcm_capacity_j       = 5000.0;
     double max_safe_time_s      = 14400.0; // 4 h
     double avionics_power_w     = 1.2;     // steady heat into PCM [W]
 
     double regularization_eps   = 1e-6;
+};
+
+// Outcome of a safe-abort computation (F1). The commanded impulse is capped at
+// Config::abort_dv. When the cap binds, the along-track drift is not fully
+// nulled and the bounded-orbit guarantee is lost — so instead of implying
+// safety, the result carries the *verified* minimum range of the actual
+// post-burn thrust-off coast.
+struct SafeAbort {
+    enum class Status {
+        Clean,   // full impulse delivered: drift-free safety ellipse
+        Capped   // |dv| hit Config::abort_dv: residual drift remains
+    };
+
+    Eigen::Vector3d dv = Eigen::Vector3d::Zero();  // commanded impulse [m/s]
+    Status status = Status::Clean;
+
+    // Minimum range to the target over the post-burn coast, propagated for
+    // Config::abort_coast_check_periods orbital periods at
+    // Config::abort_coast_check_dt_s. Reported for Clean and Capped alike. [m]
+    double coast_min_range_m = 0.0;
 };
 
 // Outcome of a post-capture stabilization run.
@@ -50,12 +76,14 @@ class Mission {
 public:
     explicit Mission(const Config& cfg = {});
 
-    // Safe-abort impulse (WP1): a Clohessy-Wiltshire delta-v that places the
-    // servicer on a drift-free natural-motion relative orbit (bounded "safety
-    // ellipse") through the current position, so a thrust-off coast stays clear
-    // of the target. Magnitude is capped at Config::abort_dv.
-    Eigen::Vector3d compute_safe_abort(const Eigen::Vector3d& r_rel,
-                                       const Eigen::Vector3d& v_rel) const;
+    // Safe-abort impulse (WP1 + F1): a Clohessy-Wiltshire delta-v toward a
+    // drift-free natural-motion relative orbit (bounded "safety ellipse")
+    // through the current position. The impulse magnitude is capped at
+    // Config::abort_dv; when the cap binds the result is flagged Capped and
+    // the bounded-orbit property no longer holds. In both cases the returned
+    // coast_min_range_m is the verified minimum range of the post-burn coast.
+    SafeAbort compute_safe_abort(const Eigen::Vector3d& r_rel,
+                                 const Eigen::Vector3d& v_rel) const;
 
     // Point-mass parallel-axis inertia contribution from a captured body at
     // r_attach, applied to the vehicle inertia (with regularization).

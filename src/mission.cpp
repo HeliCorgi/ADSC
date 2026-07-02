@@ -17,22 +17,43 @@ double Mission::fuel_kg() {
     return fuel_.read().value;
 }
 
-Eigen::Vector3d Mission::compute_safe_abort(const Eigen::Vector3d& r_rel,
-                                            const Eigen::Vector3d& v_rel) const {
-    // Re-expressed as a Clohessy-Wiltshire impulse (WP1). We null the secular
-    // along-track drift (target vy = -2 n x) and the radial/cross-track rates
-    // that would otherwise inflate the relative orbit, leaving a bounded,
-    // drift-free "safety ellipse" through the current position: a thrust-off
-    // coast then revisits the current standoff instead of closing in. The
-    // impulse magnitude is capped at the thruster budget (Config::abort_dv).
+SafeAbort Mission::compute_safe_abort(const Eigen::Vector3d& r_rel,
+                                      const Eigen::Vector3d& v_rel) const {
+    // Clohessy-Wiltshire abort impulse (WP1). We null the secular along-track
+    // drift (target vy = -2 n x) and the radial/cross-track rates that would
+    // otherwise inflate the relative orbit, leaving a bounded, drift-free
+    // "safety ellipse" through the current position: a thrust-off coast then
+    // revisits the current standoff instead of closing in.
+    SafeAbort out;
     const double n = cw_.n();
     const Eigen::Vector3d v_target(0.0, -2.0 * n * r_rel.x(), 0.0);
     Eigen::Vector3d dv = v_target - v_rel;
 
+    // F1: cap at the thruster budget. A capped impulse leaves residual drift,
+    // so the bounded-orbit guarantee is lost and we say so.
     const double dv_max = cfg_.abort_dv;  // impulse-magnitude cap [m/s]
     const double mag = dv.norm();
-    if (mag > dv_max && mag > 1e-12) dv = (dv_max / mag) * dv;
-    return dv;
+    if (mag > dv_max && mag > 1e-12) {
+        dv = (dv_max / mag) * dv;
+        out.status = SafeAbort::Status::Capped;
+    }
+    out.dv = dv;
+
+    // F1: verify the actual post-burn coast instead of implying safety. Clean
+    // or capped, the honest product is the propagated minimum range.
+    Vector6d x;
+    x << r_rel, (v_rel + dv);
+    double min_range = rel_range(x);
+    const double horizon = cfg_.abort_coast_check_periods * cw_.period();
+    const double dt = cfg_.abort_coast_check_dt_s;
+    double t = 0.0;
+    while (t < horizon) {
+        x = cw_.propagate_rk4(x, dt, dt);
+        min_range = std::min(min_range, rel_range(x));
+        t += dt;
+    }
+    out.coast_min_range_m = min_range;
+    return out;
 }
 
 void Mission::update_inertia_on_capture(const Eigen::Vector3d& r_attach,

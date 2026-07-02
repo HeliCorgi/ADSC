@@ -1,15 +1,22 @@
-# ADSC v3 — Active Debris Self-Cleanup
+# ADSC v4 — Active Debris Self-Cleanup
 
-A C++17 GNC **numerical simulator** for an installer-type active-debris-removal
-(ADR) servicer for large derelict upper stages. This is a **conceptual prototype
-for education and research**, not flight software. Governing value: **claims must
-match implementation** — every number in this README is regenerable by running
-committed code.
+A C++17 GNC **numerical simulator** for an installer-type active-debris-remediation
+(ADR) servicer, framed as **Kessler-precursor removal**: the collisional cascade's
+fuel is the population of massive derelict upper stages in congested orbital bands —
+fragments are the symptom — so the servicer targets the objects that would become
+the next fragment clouds, attaches a passive deorbit kit, and departs. ADSC is an
+**open, reproducible evidence package** for that architecture (spec:
+`adsc-specification-v4.md`), not flight software and not a mission proposal. It
+assumes the operator is, or is contracted/consented by, the launching state of the
+target; nothing in this repo assumes or enables unconsented approach to another
+state's object. Governing value: **claims must match implementation** — every
+number in this README is regenerable by running committed code.
 
-**v3 status (work-package based):** WP1 (relative orbital motion + passive
-safety) is implemented on top of the v2.0 GNC core. WP2–WP5 (tumble sync,
-attach/kit-decay, estimator/sensors, campaign Monte-Carlo) are **not yet**
-implemented — see the roadmap below.
+**v4 status (work-package based):** WP1 (relative orbital motion + passive
+safety) and the F1/F2 honesty follow-ups are implemented on top of the v2.0 GNC
+core. WP2–WP7 (tumble sync, attach/kit-decay, estimator/sensors, campaign
+Monte-Carlo, cost model, evidence pack) are **not yet** implemented — see the
+roadmap below.
 
 **What changed from v1.21 → v2.0:** the v1.21 README named an SR-UKF and a
 sliding-mode DACS, but the source only declared unused state and printed status
@@ -39,10 +46,13 @@ implemented; v3 continues that discipline.
   construction and a passively-safe approach-corridor generator. Unit-tested,
   including a ≥100-point thrust-off coast that stays outside the keep-out sphere
   over ≥2 orbital periods (D5 passive safety).
-- **CW safe-abort**: `compute_safe_abort` returns a Clohessy-Wiltshire impulse
-  that places the servicer on a drift-free relative orbit (a bounded safety
-  ellipse) through the current position, capped at the thruster budget, so a
-  thrust-off coast stays clear of the target.
+- **CW safe-abort with capped-impulse honesty (F1)**: `compute_safe_abort`
+  returns a Clohessy-Wiltshire impulse toward a drift-free relative orbit (a
+  bounded safety ellipse) through the current position, capped at the thruster
+  budget. The result carries a `Clean`/`Capped` status plus the **verified**
+  minimum range of the propagated post-burn coast — when the cap binds, the
+  bounded-orbit guarantee is lost and the code reports the actual coast range
+  instead of implying safety. Unit-tested, including a capped case.
 - **First-order PCM thermal budget** integrated over the control loop.
 - **Deorbit gating**: autonomous by default, human-in-the-loop only on the
   emergency path, blocked below the fuel reserve.
@@ -68,6 +78,13 @@ verify rather than a claim in prose.
   enforced as a gate, not produced by guidance, and the relative state is treated
   as truth (no estimator/sensors until WP4).
 - **No attach/kit-decay model** (WP3): no drag-sail/EDT deorbit modelling.
+- **Passive-safety claims are model-scoped (F2).** The keep-out and
+  safety-ellipse guarantees are exact only in the linear Clohessy–Wiltshire
+  model: circular target orbit, no J2, no differential drag, small separations.
+  J2 and differential drag erode drift-free safety ellipses over time, and the
+  CW linearization error grows with separation — so every passive-safety number
+  in this README holds in the model, not in the real environment. A real
+  mission would re-verify all coasts against a higher-fidelity propagator.
 - Numbers for mass, inertia, power, PCM capacity and the target orbit/keep-out
   are plausible placeholders, not derived from a specific bus or target design.
 
@@ -101,15 +118,20 @@ include/adsc/   public headers (fuel_store, dynamics, controller, thermal,
 src/            implementations + main.cpp simulation driver
 tests/          fuel-store + relmotion unit tests
 .github/        CI (Ubuntu + Eigen: cmake build + ctest, warnings-as-errors)
+adsc-specification-v4.md   active spec (work packages, hard rules, locked decisions)
 ```
 
-## Roadmap (v3 work packages)
+## Roadmap (v4 work packages — see `adsc-specification-v4.md`)
 
 - **WP1 — Relative orbital motion + passive safety** ✅ implemented.
+- **F1/F2 — Capped-abort honesty + model-scope note** ✅ implemented.
 - **WP2 — Tumble synchronization** (tracking SMC against a tumbling target).
-- **WP3 — Attach event + kit decay model** (drag-sail / EDT trade).
+- **WP3 — Attach event + kit decay trades** (drag-sail / EDT; honest negative
+  results are deliverables).
 - **WP4 — Estimator + sensor models** (control on estimates, not truth).
 - **WP5 — Campaign Monte-Carlo** (dispersions; success / abort / keep-out rates).
+- **WP6 — Parametric cost model** (relative units; the amortization curve).
+- **WP7 — Evidence pack** (generated English report; the actual product).
 
 Reproducible WP1 numbers (regenerate with `./build/adsc_sim`): for the 825 km
 reference orbit, mean motion n ≈ 1.03×10⁻³ rad/s and period ≈ 6084 s; the closest

@@ -2,6 +2,7 @@
 // explicit `return 1` on failure (R4: tests must fail in every build type, not
 // only where assert() is live), so this behaves identically in Debug and
 // Release. All inputs are fixed constants (R6: reproducible, no RNG).
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <limits>
@@ -118,8 +119,10 @@ int main() {
             samples, worst, keep_out);
     }
 
-    // 5. Safe-abort re-expression: applying the CW abort impulse from a standoff
-    //    with an inward closing rate yields a coast that stays outside keep-out.
+    // 5. Safe-abort, uncapped (Clean): applying the CW abort impulse from a
+    //    standoff with an inward closing rate yields a coast that stays outside
+    //    keep-out, and the reported coast_min_range_m matches an independent
+    //    propagation.
     {
         const Mission m;
         const Config cfg = m.config();
@@ -128,13 +131,14 @@ int main() {
 
         const Eigen::Vector3d r_rel(40.0, -500.0, 15.0);
         const Eigen::Vector3d v_rel(-0.05, 0.02, -0.01);  // closing
-        const Eigen::Vector3d dv = m.compute_safe_abort(r_rel, v_rel);
+        const SafeAbort ab = m.compute_safe_abort(r_rel, v_rel);
+        CHECK(ab.status == SafeAbort::Status::Clean);
 
         Vector6d x;
-        x << r_rel, (v_rel + dv);
+        x << r_rel, (v_rel + ab.dv);
 
-        const double horizon = 2.0 * cwm.period();
-        const double dt = 1.0;
+        const double horizon = cfg.abort_coast_check_periods * cwm.period();
+        const double dt = cfg.abort_coast_check_dt_s;
         double local_min = rel_range(x);
         double t = 0.0;
         while (t < horizon) {
@@ -143,6 +147,48 @@ int main() {
             t += dt;
         }
         CHECK(local_min > cfg.keep_out_radius_m);
+        CHECK(std::abs(local_min - ab.coast_min_range_m) < 1e-6);
+    }
+
+    // 6. Safe-abort, capped (F1): a geometry whose drift-nulling impulse
+    //    exceeds the budget. The function must flag Capped, deliver exactly the
+    //    capped magnitude, leave a genuine residual drift rate, and report a
+    //    coast minimum range that an independent propagation reproduces —
+    //    honesty instead of an implied bounded-orbit guarantee.
+    {
+        const Mission m;
+        const Config cfg = m.config();
+        const CwModel cwm =
+            CwModel::from_orbit(kEarthRadius + cfg.target_altitude_km * 1000.0);
+
+        // At x = 1200 m the drift-nulling delta-v is |-2 n x| ~ 2.48 m/s,
+        // above the 2.0 m/s budget.
+        const Eigen::Vector3d r_rel(1200.0, 0.0, 0.0);
+        const Eigen::Vector3d v_rel(0.0, 0.0, 0.0);
+        CHECK(2.0 * cwm.n() * r_rel.x() > cfg.abort_dv);  // premise of the case
+
+        const SafeAbort ab = m.compute_safe_abort(r_rel, v_rel);
+        CHECK(ab.status == SafeAbort::Status::Capped);
+        CHECK(std::abs(ab.dv.norm() - cfg.abort_dv) < 1e-9);
+
+        // Residual along-track rate w.r.t. the drift-free condition vy = -2nx:
+        // the capped burn does NOT null the drift.
+        const double vy_resid = ab.dv.y() + 2.0 * cwm.n() * r_rel.x();
+        CHECK(std::abs(vy_resid) > 0.1);
+
+        // The reported coast range is a real propagated number, not a promise.
+        Vector6d x;
+        x << r_rel, (v_rel + ab.dv);
+        const double horizon = cfg.abort_coast_check_periods * cwm.period();
+        const double dt = cfg.abort_coast_check_dt_s;
+        double local_min = rel_range(x);
+        double t = 0.0;
+        while (t < horizon) {
+            x = cwm.propagate_rk4(x, dt, dt);
+            local_min = std::min(local_min, rel_range(x));
+            t += dt;
+        }
+        CHECK(std::abs(local_min - ab.coast_min_range_m) < 1e-6);
     }
 
     std::printf("relmotion: all tests passed\n");
