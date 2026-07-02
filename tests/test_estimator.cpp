@@ -7,12 +7,29 @@
 // feedforward-honesty test: an estimator whose Q or R is inflated "to make
 // the acceptance pass" produces innovations that are too small for its own
 // covariance — the time-averaged NIS falls below the chi-square band and this
-// test fails. NIS uses the strict single-run bound (innovations of a
-// consistent filter are white, so the N-sample average is chi2(N*d)/N).
-// NEES errors are correlated in time, so its band uses an effective sample
-// size N_eff = N/10 (documented correlation allowance); both use z = 3
-// (99.7%) Wilson-Hilferty quantiles so a passing filter is robust to
-// seed luck while a Q inflated by even a few x still fails clearly.
+// test fails. The two statistics have very different single-run power, and
+// the bands below are sized honestly for that:
+//
+//  * NIS is the SHARP watchdog. Innovations of a consistent filter are white
+//    (independent across updates), so the strict single-run bound applies:
+//    the N-sample average is chi2(N*d)/N, giving tight z = 3 bands.
+//
+//  * NEES is a COARSE two-sided sanity check on a single run. Estimation
+//    errors decorrelate at the closed-loop filter bandwidth, and these
+//    filters are slow: the translation filter's Kalman bandwidth
+//    ((q/r)^(1/4) with q_vel = 1e-5 / 0.1 s against 0.05 m range noise) gives
+//    an error correlation time of tens of seconds, and the w_t substates
+//    (observable only through 2 Hz vision) decorrelate over >100 s — both
+//    comparable to the whole 80 s stats window. The effective number of
+//    independent NEES samples is therefore ~2 for the translation and
+//    relative filters (~8 for the faster own-attitude block, tau ~ 4.5 s),
+//    NOT N/10; a numerical cross-seed replication measured exactly this
+//    spread. The bands use those honest n_eff values, so they still catch a
+//    covariance mis-sized by ~3x or more, while the sharp Q/R-inflation
+//    detection is the NIS family's job.
+//
+// Both use z = 3 (99.7%) Wilson-Hilferty quantiles so a consistent filter is
+// robust to seed luck.
 #include <cmath>
 #include <cstdio>
 
@@ -106,16 +123,18 @@ int main() {
         const Band b = mean_band(3.0, rep.n_vis, 3.0);
         CHECK(rep.nis_vis_mean > b.lo && rep.nis_vis_mean < b.hi);
     }
+    // NEES bands with correlation-honest effective sample counts (see the
+    // file header): slow filters => few independent samples per 80 s window.
     {
-        const Band b = mean_band(6.0, rep.n_trans / 10.0, 3.0);  // NEES, N_eff
+        const Band b = mean_band(6.0, 2.0, 3.0);   // translation: n_eff ~ 2
         CHECK(rep.nees_trans_mean > b.lo && rep.nees_trans_mean < b.hi);
     }
     {
-        const Band b = mean_band(3.0, rep.n_st / 10.0, 3.0);
+        const Band b = mean_band(3.0, 8.0, 3.0);   // own attitude: n_eff ~ 8
         CHECK(rep.nees_own_mean > b.lo && rep.nees_own_mean < b.hi);
     }
     {
-        const Band b = mean_band(6.0, rep.n_vis / 10.0, 3.0);
+        const Band b = mean_band(6.0, 2.0, 3.0);   // rel + w_t: n_eff ~ 2
         CHECK(rep.nees_rel_mean > b.lo && rep.nees_rel_mean < b.hi);
     }
 

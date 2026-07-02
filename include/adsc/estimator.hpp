@@ -63,9 +63,11 @@ namespace adsc {
 // Determinism (R6): all randomness comes from ONE std::mt19937 with a fixed
 // seed, converted to Gaussians by an explicit Box-Muller transform. The
 // std::normal_distribution algorithm is implementation-defined (results would
-// differ across standard libraries), so it is not used; the mt19937 output
-// sequence itself IS pinned by the C++ standard, making every run bit-stable
-// across platforms.
+// differ across standard libraries), so it is not used; the mt19937 integer
+// sequence IS pinned by the C++ standard. Residual caveat, stated honestly:
+// Box-Muller goes through libm log/sin/cos, which may differ in the last ulp
+// across C libraries — runs are bit-stable for a given toolchain (CI is the
+// reference), and draw-for-draw reproducible everywhere.
 // ============================================================================
 
 // Deterministic Gaussian source: std::mt19937 raw draws (the engine's output

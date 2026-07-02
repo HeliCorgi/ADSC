@@ -142,11 +142,16 @@ EstimatedSyncReport run_estimated_sync(const Config& cfg,
     // The filter's "known" target inertia is the same (regularized) tensor the
     // truth target actually propagates with — the known-inertia assumption is
     // exact in this simulation and documented as a limitation in the README.
-    AttitudeMekf mekf(
-        (q_servicer0 * quat_exp(rng.sample3(s_att))).normalized(),
-        s_att * s_att * Eigen::Matrix3d::Identity(),
-        (q_rel_true0 * quat_exp(rng.sample3(s_att))).normalized(),
-        w_target0 + rng.sample3(s_wt), P0_rel, I_t);
+    // Initial-error draws are hoisted into named locals: function-argument
+    // evaluation order is unspecified, and the RNG draw order must be fixed
+    // for the run to be reproducible across compilers (R6).
+    const Eigen::Vector3d e_own0 = rng.sample3(s_att);
+    const Eigen::Vector3d e_rel0 = rng.sample3(s_att);
+    const Eigen::Vector3d e_wt0  = rng.sample3(s_wt);
+    AttitudeMekf mekf((q_servicer0 * quat_exp(e_own0)).normalized(),
+                      s_att * s_att * Eigen::Matrix3d::Identity(),
+                      (q_rel_true0 * quat_exp(e_rel0)).normalized(),
+                      w_target0 + e_wt0, P0_rel, I_t);
 
     const SlidingModeController ctrl(cfg.sync_gains);
 
@@ -229,7 +234,9 @@ EstimatedSyncReport run_estimated_sync(const Config& cfg,
             const double z_range =
                 r_true.norm() + cfg.range_bias_m + cfg.range_sigma_m * rng.sample();
             const Eigen::Vector3d z_los =
-                r_true.normalized() + rng.sample3(cfg.los_sigma);
+                r_true.normalized() +
+                Eigen::Vector3d::Constant(cfg.los_bias) +
+                rng.sample3(cfg.los_sigma);
             const double nis =
                 ekf.update(z_range, z_los, cfg.range_sigma_m, cfg.los_sigma);
             track_p(ekf.covariance());

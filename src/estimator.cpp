@@ -32,7 +32,10 @@ double joseph_update(Eigen::Matrix<double, N, 1>& correction,
     const Eigen::Matrix<double, N, N> IKH =
         Eigen::Matrix<double, N, N>::Identity() - K * H;
     P = IKH * P * IKH.transpose() + K * R * K.transpose();
-    P = 0.5 * (P + P.transpose());  // enforce symmetry every update
+    // Enforce symmetry every update. .eval() breaks the aliasing of P with
+    // P.transpose() on the RHS (in-place evaluation would blend already-
+    // overwritten entries and NOT produce a symmetric matrix).
+    P = (0.5 * (P + P.transpose())).eval();
 
     return z_res.dot(S_inv * z_res);
 }
@@ -93,7 +96,7 @@ void TranslationEkf::predict(double dt, double q_vel_sigma) {
     Q.block<3, 3>(3, 3) =
         q_vel_sigma * q_vel_sigma * Eigen::Matrix3d::Identity();
     P_ = phi * P_ * phi.transpose() + Q;
-    P_ = 0.5 * (P_ + P_.transpose());
+    P_ = (0.5 * (P_ + P_.transpose())).eval();  // .eval(): avoid self-aliasing
 }
 
 double TranslationEkf::update(double range_meas, const Eigen::Vector3d& los_meas,
@@ -170,7 +173,7 @@ void AttitudeMekf::predict(const Eigen::Vector3d& w_g, double dt,
     const double q_ang = gyro_sigma * gyro_sigma * dt * dt;
     P_own_ = phi_own * P_own_ * phi_own.transpose() +
              q_ang * Eigen::Matrix3d::Identity();
-    P_own_ = 0.5 * (P_own_ + P_own_.transpose());
+    P_own_ = (0.5 * (P_own_ + P_own_.transpose())).eval();
 
     // Relative block: [dtheta_rel; dw_t] with
     //   dtheta_dot = -[w_g]x dtheta - C(q_rel)^T dw_t - n_g
@@ -190,7 +193,7 @@ void AttitudeMekf::predict(const Eigen::Vector3d& w_g, double dt,
     Q.block<3, 3>(3, 3) = wt_accel_sigma * wt_accel_sigma * dt * dt *
                           Eigen::Matrix3d::Identity();
     P_rel_ = phi_rel * P_rel_ * phi_rel.transpose() + Q;
-    P_rel_ = 0.5 * (P_rel_ + P_rel_.transpose());
+    P_rel_ = (0.5 * (P_rel_ + P_rel_.transpose())).eval();
 }
 
 double AttitudeMekf::update_star_tracker(const Eigen::Quaterniond& q_meas,

@@ -87,6 +87,7 @@ struct Config {
     double range_sigma_m       = 0.05;     // rangefinder noise [m]
     double range_bias_m        = 0.0;      // unestimated bias knob [m]
     double los_sigma           = 5.0e-4;   // LOS unit-vector noise per axis [-]
+    double los_bias            = 0.0;      // unestimated LOS bias knob per axis [-]
     double wt_disturb_sigma    = 1.0e-6;   // target random ang. accel [rad/s^2]
     double trans_vel_noise_m_s = 1.0e-5;   // per-step relative vel noise [m/s]
     double st_rate_hz          = 5.0;      // star-tracker update rate [Hz]
