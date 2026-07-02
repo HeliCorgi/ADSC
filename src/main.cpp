@@ -3,12 +3,13 @@
 #include <limits>
 #include <vector>
 
+#include "adsc/decay.hpp"
 #include "adsc/mission.hpp"
 
 int main() {
     using namespace adsc;
 
-    std::printf("=== ADSC v4 (WP2) — Active Debris Self-Cleanup ===\n\n");
+    std::printf("=== ADSC v4 (WP3) — Active Debris Self-Cleanup ===\n\n");
 
     Mission mission;
     std::printf("Dry mass        : %.2f kg\n", mission.config().dry_mass_kg);
@@ -148,6 +149,82 @@ int main() {
         }
         std::printf("  final |w_rel|      : %.5f deg/s\n", rep.final_rate_err_deg_s);
         std::printf("  final att error    : %.5f deg\n", rep.final_att_err_deg);
+    }
+
+    // --- Scenario 6 (WP3): installer mission + kit decay trades -------------
+    // The full approach->sync->attach->depart flow for a catalog-A-mass target
+    // (GNC phases at the configured reference orbit), then the sail-only decay
+    // trade table and the EDT parametric study. All numbers regenerate here.
+    {
+        const Config cfg = mission.config();
+        const double deg2rad = kPi / 180.0;
+
+        const Eigen::Quaterniond q_t0 = Eigen::Quaterniond::Identity();
+        const Eigen::Vector3d w_t0 = cfg.sync_target_rate_deg_s * deg2rad *
+                                     Eigen::Vector3d(0.4, 0.7, -0.59).normalized();
+        const Eigen::Quaterniond q_c0(Eigen::AngleAxisd(
+            40.0 * deg2rad, Eigen::Vector3d(1.0, 0.5, -0.2).normalized()));
+
+        const DebrisCatalog A = catalog_A();
+        const MissionReport m =
+            mission.run_installer_mission(A.mass_kg, q_t0, w_t0, q_c0, 120.0);
+
+        std::printf("\n[WP3] installer mission (target: %s, %.0f kg)\n",
+                    A.name, A.mass_kg);
+        std::printf("  approach : corridor closest %.1f m %s\n",
+                    m.approach_closest_m, m.approach_safe ? "(safe)" : "(UNSAFE)");
+        std::printf("  sync     : %s at %.2f s\n",
+                    m.synced ? "achieved" : "FAILED", m.sync_time_s);
+        std::printf("  attach   : clamp %.2f m/s, contact energy %.3f J; servicer "
+                    "%.1f->%.1f kg, target A/m %.4f m^2/kg\n",
+                    m.attach.contact_speed_m_s, m.attach.contact_energy_j,
+                    m.attach.servicer_mass_before_kg, m.attach.servicer_mass_after_kg,
+                    m.attach.target_area_over_mass);
+        std::printf("  depart   : bounded coast min %.1f m %s\n",
+                    m.depart_coast_min_m, m.departed ? "(safe)" : "(UNSAFE)");
+        std::printf("  mission  : %s\n", m.success ? "COMPLETE" : "incomplete");
+
+        // Sail-only decay trade table. T4: report the solar min..max RANGE,
+        // never a point value. Years grow with solar-min (thin) atmosphere.
+        std::printf("\n[WP3] sail-only decay trade (years to %.0f km; range = "
+                    "solar max .. solar min)\n", cfg.reentry_handoff_altitude_km);
+        const double areas[] = {25.0, 50.0, 100.0, 200.0, 500.0, 1000.0};
+        const DebrisCatalog cats[] = {catalog_A(), catalog_B()};
+        for (const DebrisCatalog& c : cats) {
+            std::printf("  %s (%.0f kg, %.0f km):\n", c.name, c.mass_kg, c.altitude_km);
+            for (double area : areas) {
+                const double y_fast = sail_decay_years(
+                    c, area, cfg.kit_mass_kg, cfg.drag_cd,
+                    cfg.reentry_handoff_altitude_km, cfg.solar_max_density_factor);
+                const double y_slow = sail_decay_years(
+                    c, area, cfg.kit_mass_kg, cfg.drag_cd,
+                    cfg.reentry_handoff_altitude_km, cfg.solar_min_density_factor);
+                std::printf("    sail %6.0f m^2 : %9.1f .. %9.1f yr%s\n", area,
+                            y_fast, y_slow, y_slow > 25.0 ? "  (>25 at solar min)" : "");
+            }
+            const double a25_fast = area_for_target_years(
+                c, 25.0, cfg.kit_mass_kg, cfg.drag_cd,
+                cfg.reentry_handoff_altitude_km, cfg.solar_max_density_factor);
+            const double a25_slow = area_for_target_years(
+                c, 25.0, cfg.kit_mass_kg, cfg.drag_cd,
+                cfg.reentry_handoff_altitude_km, cfg.solar_min_density_factor);
+            std::printf("    area for 25-yr guideline: %.0f .. %.0f m^2 "
+                        "(solar max .. solar min)\n", a25_fast, a25_slow);
+        }
+        std::printf("  -> sail-only closes for the lighter/lower class but not for "
+                    "the heavy high stage: open trade T1 (sail vs EDT).\n");
+
+        // EDT parametric study (R10 placeholder; a knob, not a claim).
+        std::printf("\n[WP3] EDT parametric study for %s (deorbit time vs a-decay knob)\n",
+                    A.name);
+        const double a0 = kEarthRadius + A.altitude_km * 1000.0;
+        const double a_stop = kEarthRadius + cfg.reentry_handoff_altitude_km * 1000.0;
+        const double rates[] = {50.0, 150.0, 500.0, 1500.0};  // [m/day]
+        for (double rate : rates) {
+            const double days = edt_deorbit_days(a0, a_stop, rate);
+            std::printf("    delta-a %6.0f m/day : %8.1f days (%.2f yr)\n",
+                        rate, days, days / 365.25);
+        }
     }
 
     std::printf("\n=== simulation complete ===\n");
