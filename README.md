@@ -241,6 +241,17 @@ negative that brackets open trade T1 (drag sail vs electrodynamic tether). The
 EDT parametric study spans, e.g., 36.1 yr at 50 m/day down to 1.2 yr at
 1500 m/day of along-track decay.
 
+Reproducible WP4 numbers (regenerate with `./build/adsc_sim`, scenario 7; fixed
+seed 20260703): driven purely by estimates under sensor noise, sync is achieved
+on the **truth** state at **17.07 s** with post-dwell max |w_rel| = 0.0130 deg/s
+(tol 0.1) and max attitude error = 0.0848° (tol 2°). Estimation RMS over the
+stats window: own attitude 0.0020°, relative attitude 0.0341°, target rate
+0.00106 deg/s, relative position 0.038 m, velocity 0.0011 m/s. Filter
+consistency: NIS 3.944/4 (translation, N=800), 3.063/3 (star tracker, N=400),
+3.190/3 (vision, N=160); NEES 7.796/6, 2.660/3, 4.066/6 — all inside their
+documented χ² bands; covariance health min eigenvalue 1.3×10⁻¹², max asymmetry
+exactly 0.
+
 ## Disclaimer / 免責
 
 Conceptual prototype for peaceful ADR research and education only. Real flight
