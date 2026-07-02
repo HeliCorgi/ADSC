@@ -31,6 +31,24 @@ struct Config {
     double abort_coast_check_periods = 2.0;  // horizon [target orbital periods]
     double abort_coast_check_dt_s    = 1.0;  // RK4 step for the range sweep [s]
 
+    // WP2: tumble synchronization. The target inertia is deliberately
+    // asymmetric so its torque-free rate vector precesses (an isotropic body
+    // tumbles at constant rate, which would make tracking trivially easy);
+    // only the ratios matter for torque-free motion, not the absolute scale.
+    double sync_target_rate_deg_s = 2.0;    // PLACEHOLDER: tumble rate, spec range 0.5-5 [deg/s]
+    Eigen::Vector3d target_inertia_diag{1.0, 0.6, 0.3};  // PLACEHOLDER principal moments [kg m^2]
+
+    // WP2 acceptance thresholds (spec section 5).
+    double sync_rate_tol_deg_s = 0.1;   // |w_rel| tolerance [deg/s]
+    double sync_att_tol_deg    = 2.0;   // attitude-error tolerance [deg]
+    double sync_hold_s         = 30.0;  // dwell the criteria must hold [s]
+
+    // WP2 sync-phase DACS gains: holding sync on a precessing target needs a
+    // finer firing deadband than the detumble phase (coasting inside the
+    // deadband lets the relative rate drift at the target's angular
+    // acceleration, so the deadband bounds the hold error). PLACEHOLDER values.
+    SlidingModeController::Gains sync_gains{0.6, 0.08, 0.03, 3.0e-4, 0.05};
+
     double control_dt           = 0.01;   // GNC loop step [s]
     double pcm_capacity_j       = 5000.0;
     double max_safe_time_s      = 14400.0; // 4 h
@@ -58,6 +76,35 @@ struct SafeAbort {
     // Config::abort_coast_check_dt_s. Reported for Clean and Capped alike. [m]
     double coast_min_range_m = 0.0;
 };
+
+// Outcome of a tumble-synchronization run (WP2).
+struct SyncReport {
+    bool   synced = false;        // criteria held for sync_hold_s within the run
+    double sync_time_s = 0.0;     // start of the first completed hold window
+    // Maximum errors observed AFTER the dwell window completed (from
+    // sync_time_s + sync_hold_s to the end of the run). The dwell itself is
+    // certified by the criteria staying satisfied throughout; these fields
+    // track whether sync degrades after it is declared.
+    double max_rate_err_deg_s = 0.0;
+    double max_att_err_deg    = 0.0;
+    double final_rate_err_deg_s = 0.0;
+    double final_att_err_deg    = 0.0;
+    double sim_time_s = 0.0;
+};
+
+// WP2: closed-loop tumble synchronization. The target tumbles torque-free
+// (asymmetric inertia from cfg.target_inertia_diag, so its rate precesses);
+// the servicer (isotropic inertia cfg.base_inertia) tracks it with the
+// tracking SMC under cfg.sync_gains, with torque-free feedforward computed
+// from the target's own (regularized) inertia. Attitude error is the
+// principal rotation angle 2*acos(|q_e0|); rate error is |w - C(q_e)^T w_t|.
+// Deterministic: fixed inputs, no randomness (R6).
+SyncReport run_tumble_sync(const Config& cfg,
+                           const Eigen::Quaterniond& q_target0,
+                           const Eigen::Vector3d&    w_target0,
+                           const Eigen::Quaterniond& q_servicer0,
+                           const Eigen::Vector3d&    w_servicer0,
+                           double max_sim_time_s);
 
 // Outcome of a post-capture stabilization run.
 struct StabilizationReport {

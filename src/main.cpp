@@ -8,7 +8,7 @@
 int main() {
     using namespace adsc;
 
-    std::printf("=== ADSC v4 (WP1+F1) — Active Debris Self-Cleanup ===\n\n");
+    std::printf("=== ADSC v4 (WP2) — Active Debris Self-Cleanup ===\n\n");
 
     Mission mission;
     std::printf("Dry mass        : %.2f kg\n", mission.config().dry_mass_kg);
@@ -109,6 +109,45 @@ int main() {
         std::printf("  closest approach   : %.1f m -> %s (keep-out %.1f m)\n",
                     worst, worst > keep_out ? "PASSIVELY SAFE" : "VIOLATION",
                     keep_out);
+    }
+
+    // --- Scenario 5 (WP2): tumble synchronization ---------------------------
+    // A torque-free tumbling target (asymmetric inertia, so the rate vector
+    // precesses) tracked by the servicer with the tracking SMC and torque-free
+    // feedforward. Fixed initial conditions, same scenario as the acceptance
+    // test in tests/test_sync.cpp (R6).
+    {
+        const Config cfg = mission.config();
+        const double deg2rad = kPi / 180.0;
+
+        const Eigen::Quaterniond q_t0 = Eigen::Quaterniond::Identity();
+        const Eigen::Vector3d w_t0 =
+            cfg.sync_target_rate_deg_s * deg2rad *
+            Eigen::Vector3d(0.4, 0.7, -0.59).normalized();
+        const Eigen::Quaterniond q_c0(
+            Eigen::AngleAxisd(40.0 * deg2rad,
+                              Eigen::Vector3d(1.0, 0.5, -0.2).normalized()));
+
+        const SyncReport rep = run_tumble_sync(
+            cfg, q_t0, w_t0, q_c0, Eigen::Vector3d::Zero(), 120.0);
+
+        std::printf("\n[WP2] tumble synchronization (target %.1f deg/s, precessing)\n",
+                    cfg.sync_target_rate_deg_s);
+        std::printf("  target inertia diag: %.2f / %.2f / %.2f kg m^2 (PLACEHOLDER ratios)\n",
+                    cfg.target_inertia_diag.x(), cfg.target_inertia_diag.y(),
+                    cfg.target_inertia_diag.z());
+        std::printf("  initial offset     : 40.0 deg attitude, zero rate\n");
+        std::printf("  synced             : %s\n", rep.synced ? "yes" : "NO");
+        if (rep.synced) {
+            std::printf("  sync achieved at   : %.2f s (criteria then held %.0f s)\n",
+                        rep.sync_time_s, cfg.sync_hold_s);
+            std::printf("  after dwell        : max |w_rel| %.4f deg/s (tol %.1f), "
+                        "max att err %.4f deg (tol %.1f)\n",
+                        rep.max_rate_err_deg_s, cfg.sync_rate_tol_deg_s,
+                        rep.max_att_err_deg, cfg.sync_att_tol_deg);
+        }
+        std::printf("  final |w_rel|      : %.5f deg/s\n", rep.final_rate_err_deg_s);
+        std::printf("  final att error    : %.5f deg\n", rep.final_att_err_deg);
     }
 
     std::printf("\n=== simulation complete ===\n");

@@ -9,6 +9,12 @@ namespace adsc {
 //   Kinematics: q_dot   = 1/2 * q (x) [0, w]
 // Integrated with fixed-step RK4. The inertia tensor can be updated in place
 // after debris capture.
+//
+// Quaternion convention (R8, stated once for the whole project): Eigen
+// Quaterniond, Hamilton product, storage order (x, y, z, w) — always
+// construct/read via the named accessors (.w(), .vec(), .coeffs()), never via
+// positional storage assumptions. q maps body-frame vectors into the parent
+// (inertial) frame; the body rate w sits on the right of the kinematics above.
 class RigidBody {
 public:
     RigidBody(const Eigen::Matrix3d& inertia,

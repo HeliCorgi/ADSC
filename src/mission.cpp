@@ -1,8 +1,85 @@
 #include "adsc/mission.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 namespace adsc {
+
+SyncReport run_tumble_sync(const Config& cfg,
+                           const Eigen::Quaterniond& q_target0,
+                           const Eigen::Vector3d&    w_target0,
+                           const Eigen::Quaterniond& q_servicer0,
+                           const Eigen::Vector3d&    w_servicer0,
+                           double max_sim_time_s) {
+    SyncReport rep;
+
+    RigidBody target(cfg.target_inertia_diag.asDiagonal(), q_target0, w_target0);
+    RigidBody servicer(Eigen::Matrix3d::Identity() * cfg.base_inertia,
+                       q_servicer0, w_servicer0);
+    const SlidingModeController ctrl(cfg.sync_gains);
+
+    // Torque-free feedforward uses the same (regularized) inertia the target
+    // actually propagates with, so the model and the plant cannot disagree.
+    const Eigen::Matrix3d I_t     = target.inertia();
+    const Eigen::Matrix3d I_t_inv = I_t.inverse();
+
+    const double rad2deg = 180.0 / kPi;
+
+    double criteria_start = -1.0;  // window start; -1 = criteria not held
+    double max_rate = 0.0, max_att = 0.0;
+    double rate_err_deg_s = 0.0, att_err_deg = 0.0;
+
+    double t = 0.0;
+    while (t < max_sim_time_s) {
+        const Eigen::Vector3d w_t = target.rate();
+        const Eigen::Vector3d w_t_dot = I_t_inv * (-(w_t.cross(I_t * w_t)));
+
+        const Eigen::Vector3d tau = ctrl.torque(
+            servicer.inertia(), servicer.attitude(), servicer.rate(),
+            target.attitude(), w_t, w_t_dot);
+
+        servicer.step(tau, cfg.control_dt);
+        target.step(Eigen::Vector3d::Zero(), cfg.control_dt);
+        t += cfg.control_dt;
+
+        // Errors: principal rotation angle and relative body rate.
+        const Eigen::Quaterniond q_e =
+            (target.attitude().conjugate() * servicer.attitude()).normalized();
+        const Eigen::Vector3d w_rel =
+            servicer.rate() - q_e.conjugate() * target.rate();
+        rate_err_deg_s = w_rel.norm() * rad2deg;
+        att_err_deg = 2.0 * std::acos(std::min(1.0, std::abs(q_e.w()))) * rad2deg;
+
+        const bool ok = rate_err_deg_s < cfg.sync_rate_tol_deg_s &&
+                        att_err_deg   < cfg.sync_att_tol_deg;
+        if (!rep.synced) {
+            if (ok) {
+                if (criteria_start < 0.0) criteria_start = t;
+            } else {
+                criteria_start = -1.0;  // window broken before the dwell
+            }
+        }
+        if (!rep.synced && criteria_start >= 0.0 &&
+            t - criteria_start >= cfg.sync_hold_s) {
+            rep.synced      = true;
+            rep.sync_time_s = criteria_start;
+        }
+        // Post-dwell hold quality: every sample inside the dwell already
+        // satisfied the criteria (or the window would have reset), so the
+        // informative maximum is the one AFTER sync is declared.
+        if (rep.synced) {
+            max_rate = std::max(max_rate, rate_err_deg_s);
+            max_att  = std::max(max_att,  att_err_deg);
+        }
+    }
+
+    rep.max_rate_err_deg_s   = max_rate;
+    rep.max_att_err_deg      = max_att;
+    rep.final_rate_err_deg_s = rate_err_deg_s;
+    rep.final_att_err_deg    = att_err_deg;
+    rep.sim_time_s           = t;
+    return rep;
+}
 
 Mission::Mission(const Config& cfg)
     : cfg_(cfg),
