@@ -13,10 +13,10 @@ state's object. Governing value: **claims must match implementation** — every
 number in this README is regenerable by running committed code.
 
 **v4 status (work-package based):** WP1 (relative orbital motion + passive
-safety) and the F1/F2 honesty follow-ups are implemented on top of the v2.0 GNC
-core. WP2–WP7 (tumble sync, attach/kit-decay, estimator/sensors, campaign
-Monte-Carlo, cost model, evidence pack) are **not yet** implemented — see the
-roadmap below.
+safety), the F1/F2 honesty follow-ups, and WP2 (tumble synchronization) are
+implemented on top of the v2.0 GNC core. WP3–WP7 (attach/kit-decay,
+estimator/sensors, campaign Monte-Carlo, cost model, evidence pack) are **not
+yet** implemented — see the roadmap below.
 
 **What changed from v1.21 → v2.0:** the v1.21 README named an SR-UKF and a
 sliding-mode DACS, but the source only declared unused state and printed status
@@ -33,10 +33,23 @@ implemented; v3 continues that discipline.
   tested (`tests/test_fuel_store.cpp`).
 - **Rigid-body attitude dynamics** (`dynamics`): quaternion kinematics + Euler's
   equation with a full inertia tensor, integrated with fixed-step RK4.
-- **Sliding-mode attitude controller** (`controller`): a genuine quaternion
-  sliding surface `s = w + λ·sign(q₀)·q_v` with a boundary layer (saturation
-  instead of `sign` to suppress chatter), plus a per-axis DACS deadband and
-  torque clamp.
+- **Sliding-mode attitude controller, tracking form (WP2)** (`controller`): a
+  quaternion sliding surface on the *relative* motion, `s = w_e +
+  λ·sign(q_e0)·q_ev` with `w_e = w − C(q_e)ᵀ·w_t`, boundary layer (saturation
+  instead of `sign` to suppress chatter), per-axis DACS deadband and torque
+  clamp, and target-motion feedforward: the target's torque-free acceleration
+  `ẇ_t = I_t⁻¹(−w_t × I_t w_t)` plus the transport term `−w_e × C(q_e)ᵀw_t`.
+  Regulation (v2 detumble) is the `w_t = 0` special case and its code path is
+  kept verbatim so the quoted regression numbers cannot drift; the equivalence
+  is asserted in `tests/test_sync.cpp`.
+- **Tumble synchronization (WP2)** (`run_tumble_sync`): closed-loop sync
+  against a torque-free tumbling target with deliberately asymmetric inertia
+  (so the rate vector precesses — an isotropic target would tumble at constant
+  rate and make tracking trivially easy). Acceptance — |w_rel| < 0.1 deg/s and
+  attitude error < 2° held 30 s — is asserted in `tests/test_sync.cpp`, plus a
+  **feedforward-honesty test** that disables the reaching term (k = 0) so SMC
+  robustness cannot mask a wrong feedforward: on a perfectly synchronized start
+  the sliding variable must stay parked near zero with nothing to rescue it.
 - **Point-mass inertia update** on capture (parallel-axis), with numerical
   regularization before inversion.
 - **Relative orbital motion** (`relmotion`, WP1): Clohessy-Wiltshire (Hill)
@@ -71,12 +84,14 @@ verify rather than a claim in prose.
   allocator with real minimum-impulse-bit quantization.
 - **Thermal model is a single lumped PCM bucket** — no eclipse/sunlight
   radiative balance, no per-node conduction.
-- **No closed-loop rendezvous guidance / tumble sync yet.** WP1 delivers CW/Hill
-  relative dynamics plus *passively-safe* hold ellipses and an approach corridor,
-  but no guidance law flies the approach to contact and no tumble
-  synchronization exists (WP2). The v_rel ≤ 0.15 m/s capture limit is still
-  enforced as a gate, not produced by guidance, and the relative state is treated
-  as truth (no estimator/sensors until WP4).
+- **No closed-loop rendezvous guidance yet.** WP1 delivers CW/Hill relative
+  dynamics plus *passively-safe* hold ellipses and an approach corridor, and
+  WP2 adds attitude tumble synchronization — but no translation guidance law
+  flies the approach to contact, and the approach→sync→attach→depart mission
+  flow arrives with WP3+. The v_rel ≤ 0.15 m/s capture limit is still enforced
+  as a gate, not produced by guidance, and all states (including the target's
+  attitude and rate consumed by the sync loop) are truth from the simulator —
+  no estimator/sensors until WP4.
 - **No attach/kit-decay model** (WP3): no drag-sail/EDT deorbit modelling.
 - **Passive-safety claims are model-scoped (F2).** The keep-out and
   safety-ellipse guarantees are exact only in the linear Clohessy–Wiltshire
@@ -93,9 +108,10 @@ verify rather than a claim in prose.
 This is a **software prototype at roughly TRL 3–4**: the algorithms run in a
 self-contained numerical simulation. The earlier "TRL 5–6" framing was not
 supportable from code that did no computation. WP1 adds runnable relative-motion
-kinematics and a passive-safety check, but the TRL is **unchanged** — reaching
-TRL 5–6 would still need at minimum a state estimator, a sensor/actuator error
-model, and hardware-in-the-loop testing.
+kinematics and a passive-safety check, and WP2 a tracking controller
+demonstrated in simulation — but the TRL is **unchanged**: the control loops
+still consume true states, and reaching TRL 5–6 would need at minimum a state
+estimator, a sensor/actuator error model, and hardware-in-the-loop testing.
 
 ## Build
 
@@ -107,7 +123,7 @@ cd ADSC
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release   # add -DADSC_WERROR=ON for R3
 cmake --build build
 ./build/adsc_sim
-ctest --test-dir build      # fuel-store + relmotion unit tests (fail in any build type)
+ctest --test-dir build      # fuel-store + relmotion + sync unit tests (fail in any build type)
 ```
 
 ## Layout
@@ -116,7 +132,7 @@ ctest --test-dir build      # fuel-store + relmotion unit tests (fail in any bui
 include/adsc/   public headers (fuel_store, dynamics, controller, thermal,
                 relmotion, mission)
 src/            implementations + main.cpp simulation driver
-tests/          fuel-store + relmotion unit tests
+tests/          fuel-store + relmotion + sync (WP2) unit tests
 .github/        CI (Ubuntu + Eigen: cmake build + ctest, warnings-as-errors)
 adsc-specification-v4.md   active spec (work packages, hard rules, locked decisions)
 ```
@@ -125,7 +141,8 @@ adsc-specification-v4.md   active spec (work packages, hard rules, locked decisi
 
 - **WP1 — Relative orbital motion + passive safety** ✅ implemented.
 - **F1/F2 — Capped-abort honesty + model-scope note** ✅ implemented.
-- **WP2 — Tumble synchronization** (tracking SMC against a tumbling target).
+- **WP2 — Tumble synchronization** ✅ implemented (tracking SMC with torque-free
+  feedforward against a precessing target).
 - **WP3 — Attach event + kit decay trades** (drag-sail / EDT; honest negative
   results are deliverables).
 - **WP4 — Estimator + sensor models** (control on estimates, not truth).

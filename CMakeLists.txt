@@ -54,3 +54,7 @@ add_test(NAME fuel_store COMMAND test_fuel_store)
 add_executable(test_relmotion tests/test_relmotion.cpp)
 target_link_libraries(test_relmotion PRIVATE adsc_core adsc_flags)
 add_test(NAME relmotion COMMAND test_relmotion)
+
+add_executable(test_sync tests/test_sync.cpp)
+target_link_libraries(test_sync PRIVATE adsc_core adsc_flags)
+add_test(NAME sync COMMAND test_sync)
