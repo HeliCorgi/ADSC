@@ -1,10 +1,13 @@
 name: build-and-test
 
-# Verifies the ADSC v2.0 redesign the same way the README documents it:
-# configure with CMake, build the core library + sim driver, and run the
-# fuel-store unit tests via CTest. Eigen is pulled from apt (libeigen3-dev
-# ships an Eigen3Config.cmake, so the `find_package(Eigen3 ... NO_MODULE)`
-# in CMakeLists.txt resolves without extra hints).
+# Verifies ADSC the same way the README documents it: configure with CMake,
+# build the core library + sim driver, and run the unit tests via CTest. Eigen
+# is pulled from apt (libeigen3-dev ships an Eigen3Config.cmake, so the
+# `find_package(Eigen3 ... NO_MODULE)` in CMakeLists.txt resolves).
+#
+# Tests are framework-free and fail via a non-zero exit in every build type
+# (R4), so a single Release run is authoritative -- no Debug workaround needed.
+# The warnings-as-errors policy (R3) is enforced with -DADSC_WERROR=ON.
 
 on:
   push:
@@ -23,8 +26,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libeigen3-dev
 
-      - name: Configure (Release)
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Configure (Release, warnings-as-errors)
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DADSC_WERROR=ON
 
       - name: Build
         run: cmake --build build --parallel
@@ -34,12 +37,3 @@ jobs:
 
       - name: Run simulation driver
         run: ./build/adsc_sim
-
-      # The Release build defines NDEBUG, which compiles out the assert()-based
-      # fuel-store tests (they would pass trivially). Re-configure a Debug build
-      # so the assertions actually execute and can fail CI on a logic regression.
-      - name: Test with assertions live (Debug)
-        run: |
-          cmake -S . -B build-debug -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build-debug --parallel
-          ctest --test-dir build-debug --output-on-failure

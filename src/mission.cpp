@@ -6,6 +6,7 @@ namespace adsc {
 
 Mission::Mission(const Config& cfg)
     : cfg_(cfg),
+      cw_(CwModel::from_orbit(kEarthRadius + cfg.target_altitude_km * 1000.0)),
       fuel_(cfg.initial_fuel_kg),
       body_(Eigen::Matrix3d::Identity() * cfg.base_inertia,
             Eigen::Quaterniond::Identity(),
@@ -18,16 +19,20 @@ double Mission::fuel_kg() {
 
 Eigen::Vector3d Mission::compute_safe_abort(const Eigen::Vector3d& r_rel,
                                             const Eigen::Vector3d& v_rel) const {
-    // Radial (repulsive) component: push away from the debris. Velocity
-    // component: cancel the closing motion. Guard both against zero norm so a
-    // stationary or perfectly-aligned geometry never produces a NaN.
-    Eigen::Vector3d radial(0, 0, 0);
-    if (r_rel.norm() > 1e-9) radial = r_rel.normalized();
+    // Re-expressed as a Clohessy-Wiltshire impulse (WP1). We null the secular
+    // along-track drift (target vy = -2 n x) and the radial/cross-track rates
+    // that would otherwise inflate the relative orbit, leaving a bounded,
+    // drift-free "safety ellipse" through the current position: a thrust-off
+    // coast then revisits the current standoff instead of closing in. The
+    // impulse magnitude is capped at the thruster budget (Config::abort_dv).
+    const double n = cw_.n();
+    const Eigen::Vector3d v_target(0.0, -2.0 * n * r_rel.x(), 0.0);
+    Eigen::Vector3d dv = v_target - v_rel;
 
-    Eigen::Vector3d cancel(0, 0, 0);
-    if (v_rel.norm() > 1e-9) cancel = -v_rel.normalized();
-
-    return cfg_.abort_dv * (0.5 * radial + 0.5 * cancel);
+    const double dv_max = cfg_.abort_dv;  // impulse-magnitude cap [m/s]
+    const double mag = dv.norm();
+    if (mag > dv_max && mag > 1e-12) dv = (dv_max / mag) * dv;
+    return dv;
 }
 
 void Mission::update_inertia_on_capture(const Eigen::Vector3d& r_attach,

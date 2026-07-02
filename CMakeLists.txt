@@ -1,38 +1,56 @@
 cmake_minimum_required(VERSION 3.16)
-project(ADSC VERSION 2.0 LANGUAGES CXX)
+project(ADSC VERSION 3.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# R3: zero-warning policy. OFF by default so a future compiler's new diagnostics
+# do not break local/downstream builds; CI turns it ON (-DADSC_WERROR=ON).
+option(ADSC_WERROR "Treat compiler warnings as errors (R3 zero-warning policy)" OFF)
+
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 
-# Core GNC library (dynamics, control, TMR store, thermal, mission logic).
+# Shared warning / optimization flags applied to every first-party target so the
+# R3 zero-warning policy is enforced uniformly. Eigen headers arrive via the
+# imported Eigen3::Eigen target and are treated as SYSTEM includes, so they do
+# not trip -Werror.
+add_library(adsc_flags INTERFACE)
+target_compile_options(adsc_flags INTERFACE
+    -Wall -Wextra -Wpedantic
+    $<$<CONFIG:Debug>:-g>
+    # -O3 only in Release. -march=native is intentionally NOT set: the flight
+    # target is a RAD5545 (PowerPC), so tuning for the x86 build host is wrong.
+    # Set an explicit target march in the cross-compile toolchain file instead.
+    $<$<CONFIG:Release>:-O3>
+    $<$<BOOL:${ADSC_WERROR}>:-Werror>
+)
+
+# Core GNC library (dynamics, control, TMR store, thermal, relative motion,
+# mission logic).
 add_library(adsc_core
     src/fuel_store.cpp
     src/dynamics.cpp
     src/controller.cpp
     src/thermal.cpp
+    src/relmotion.cpp
     src/mission.cpp
 )
 target_include_directories(adsc_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(adsc_core PUBLIC Eigen3::Eigen)
-
-target_compile_options(adsc_core PRIVATE
-    -Wall -Wextra -Wpedantic
-    $<$<CONFIG:Debug>:-g>
-    # NOTE: -O3 only. -march=native is intentionally NOT set: the flight target
-    # is a RAD5545 (PowerPC), so tuning for the x86 build host is wrong. Set an
-    # explicit target march in the cross-compile toolchain file instead.
-    $<$<CONFIG:Release>:-O3>
-)
+target_link_libraries(adsc_core PRIVATE adsc_flags)
 
 # Simulation driver.
 add_executable(adsc_sim src/main.cpp)
-target_link_libraries(adsc_sim PRIVATE adsc_core)
+target_link_libraries(adsc_sim PRIVATE adsc_core adsc_flags)
 
 # Tests.
 enable_testing()
+
 add_executable(test_fuel_store tests/test_fuel_store.cpp)
-target_link_libraries(test_fuel_store PRIVATE adsc_core)
+target_link_libraries(test_fuel_store PRIVATE adsc_core adsc_flags)
 add_test(NAME fuel_store COMMAND test_fuel_store)
+
+add_executable(test_relmotion tests/test_relmotion.cpp)
+target_link_libraries(test_relmotion PRIVATE adsc_core adsc_flags)
+add_test(NAME relmotion COMMAND test_relmotion)

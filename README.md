@@ -1,16 +1,21 @@
-# ADSC v2.0 — Active Debris Self-Cleanup
+# ADSC v3 — Active Debris Self-Cleanup
 
-A C++17 GNC prototype for a 20 kg-class active-debris-removal (ADR) chaser.
-This is a **conceptual prototype for education and research** — a redesign of the
-earlier "reality edition" that closes the gap between what the README claimed and
-what the code actually did.
+A C++17 GNC **numerical simulator** for an installer-type active-debris-removal
+(ADR) servicer for large derelict upper stages. This is a **conceptual prototype
+for education and research**, not flight software. Governing value: **claims must
+match implementation** — every number in this README is regenerable by running
+committed code.
 
-**What changed from v1.21:** the previous version named an SR-UKF and a
-sliding-mode DACS in the README, but the source only declared unused state and
-printed status lines — there was no estimator, no control law, and no dynamics
-loop, so no claim about stability could be checked. v2.0 replaces the prints
-with an actual closed-loop simulation and states plainly what is and isn't
-implemented.
+**v3 status (work-package based):** WP1 (relative orbital motion + passive
+safety) is implemented on top of the v2.0 GNC core. WP2–WP5 (tumble sync,
+attach/kit-decay, estimator/sensors, campaign Monte-Carlo) are **not yet**
+implemented — see the roadmap below.
+
+**What changed from v1.21 → v2.0:** the v1.21 README named an SR-UKF and a
+sliding-mode DACS, but the source only declared unused state and printed status
+lines — no estimator, no control law, no dynamics loop. v2.0 replaced the prints
+with an actual closed-loop simulation and stated plainly what is and isn't
+implemented; v3 continues that discipline.
 
 ## What is actually implemented
 
@@ -27,8 +32,17 @@ implemented.
   torque clamp.
 - **Point-mass inertia update** on capture (parallel-axis), with numerical
   regularization before inversion.
-- **Guarded safe-abort**: repulsive (radial) + closing-velocity-cancellation
-  impulse, both terms protected against near-zero geometry (no NaN escape).
+- **Relative orbital motion** (`relmotion`, WP1): Clohessy-Wiltshire (Hill)
+  linear dynamics about a circular target orbit in the LVLH frame, with **both**
+  an analytic state-transition matrix and a fixed-step RK4 integrator
+  (cross-validated against each other). Includes drift-free "safety ellipse"
+  construction and a passively-safe approach-corridor generator. Unit-tested,
+  including a ≥100-point thrust-off coast that stays outside the keep-out sphere
+  over ≥2 orbital periods (D5 passive safety).
+- **CW safe-abort**: `compute_safe_abort` returns a Clohessy-Wiltshire impulse
+  that places the servicer on a drift-free relative orbit (a bounded safety
+  ellipse) through the current position, capped at the thruster budget, so a
+  thrust-off coast stays clear of the target.
 - **First-order PCM thermal budget** integrated over the control loop.
 - **Deorbit gating**: autonomous by default, human-in-the-loop only on the
   emergency path, blocked below the fuel reserve.
@@ -47,19 +61,24 @@ verify rather than a claim in prose.
   allocator with real minimum-impulse-bit quantization.
 - **Thermal model is a single lumped PCM bucket** — no eclipse/sunlight
   radiative balance, no per-node conduction.
-- **No orbital/relative-motion dynamics** (no CW/Hill propagation, no guidance
-  loop to *achieve* v_rel ≤ 0.15 m/s — that limit is enforced as a gate, not
-  produced by guidance).
-- Numbers for mass, inertia, power and PCM capacity are plausible placeholders,
-  not derived from a specific bus design.
+- **No closed-loop rendezvous guidance / tumble sync yet.** WP1 delivers CW/Hill
+  relative dynamics plus *passively-safe* hold ellipses and an approach corridor,
+  but no guidance law flies the approach to contact and no tumble
+  synchronization exists (WP2). The v_rel ≤ 0.15 m/s capture limit is still
+  enforced as a gate, not produced by guidance, and the relative state is treated
+  as truth (no estimator/sensors until WP4).
+- **No attach/kit-decay model** (WP3): no drag-sail/EDT deorbit modelling.
+- Numbers for mass, inertia, power, PCM capacity and the target orbit/keep-out
+  are plausible placeholders, not derived from a specific bus or target design.
 
 ## TRL assessment (honest)
 
 This is a **software prototype at roughly TRL 3–4**: the algorithms run in a
 self-contained numerical simulation. The earlier "TRL 5–6" framing was not
-supportable from code that did no computation. Reaching TRL 5–6 would need at
-minimum a state estimator, a sensor/actuator error model, and hardware-in-the-loop
-testing.
+supportable from code that did no computation. WP1 adds runnable relative-motion
+kinematics and a passive-safety check, but the TRL is **unchanged** — reaching
+TRL 5–6 would still need at minimum a state estimator, a sensor/actuator error
+model, and hardware-in-the-loop testing.
 
 ## Build
 
@@ -68,19 +87,34 @@ Requires a C++17 compiler and Eigen 3.3+.
 ```
 git clone https://github.com/HeliCorgi/ADSC.git
 cd ADSC
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release   # add -DADSC_WERROR=ON for R3
 cmake --build build
 ./build/adsc_sim
-ctest --test-dir build      # runs the fuel-store unit tests
+ctest --test-dir build      # fuel-store + relmotion unit tests (fail in any build type)
 ```
 
 ## Layout
 
 ```
-include/adsc/   public headers (fuel_store, dynamics, controller, thermal, mission)
+include/adsc/   public headers (fuel_store, dynamics, controller, thermal,
+                relmotion, mission)
 src/            implementations + main.cpp simulation driver
-tests/          fuel-store unit tests
+tests/          fuel-store + relmotion unit tests
+.github/        CI (Ubuntu + Eigen: cmake build + ctest, warnings-as-errors)
 ```
+
+## Roadmap (v3 work packages)
+
+- **WP1 — Relative orbital motion + passive safety** ✅ implemented.
+- **WP2 — Tumble synchronization** (tracking SMC against a tumbling target).
+- **WP3 — Attach event + kit decay model** (drag-sail / EDT trade).
+- **WP4 — Estimator + sensor models** (control on estimates, not truth).
+- **WP5 — Campaign Monte-Carlo** (dispersions; success / abort / keep-out rates).
+
+Reproducible WP1 numbers (regenerate with `./build/adsc_sim`): for the 825 km
+reference orbit, mean motion n ≈ 1.03×10⁻³ rad/s and period ≈ 6084 s; the closest
+thrust-off approach across the sampled corridor is ≈ 424 m — comfortably outside
+the 200 m keep-out sphere.
 
 ## Disclaimer / 免責
 

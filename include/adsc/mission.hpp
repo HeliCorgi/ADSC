@@ -5,6 +5,7 @@
 #include "adsc/controller.hpp"
 #include "adsc/dynamics.hpp"
 #include "adsc/fuel_store.hpp"
+#include "adsc/relmotion.hpp"
 #include "adsc/thermal.hpp"
 
 namespace adsc {
@@ -18,7 +19,11 @@ struct Config {
     double deorbit_reserve_kg   = 1.2;
 
     double max_v_rel            = 0.15;    // capture closing-speed cap [m/s]
-    double abort_dv             = 2.0;     // safe-abort delta-v scale [m/s]
+    double abort_dv             = 2.0;     // safe-abort impulse cap [m/s]
+
+    // WP1: relative orbital motion (LVLH about the target's circular orbit).
+    double target_altitude_km   = 825.0;   // PLACEHOLDER: SL-16-class band (D2) [km]
+    double keep_out_radius_m    = 200.0;   // approach keep-out sphere radius [m]
 
     double control_dt           = 0.01;   // GNC loop step [s]
     double pcm_capacity_j       = 5000.0;
@@ -45,8 +50,10 @@ class Mission {
 public:
     explicit Mission(const Config& cfg = {});
 
-    // Repulsive (radial) + closing-velocity-cancellation abort impulse. Both
-    // terms are guarded against near-zero vectors so no NaN can escape.
+    // Safe-abort impulse (WP1): a Clohessy-Wiltshire delta-v that places the
+    // servicer on a drift-free natural-motion relative orbit (bounded "safety
+    // ellipse") through the current position, so a thrust-off coast stays clear
+    // of the target. Magnitude is capped at Config::abort_dv.
     Eigen::Vector3d compute_safe_abort(const Eigen::Vector3d& r_rel,
                                        const Eigen::Vector3d& v_rel) const;
 
@@ -75,6 +82,7 @@ public:
 
 private:
     Config      cfg_;
+    CwModel     cw_;    // relative-motion model for the target orbit (WP1)
     FuelStore   fuel_;
     RigidBody   body_;
     SlidingModeController ctrl_;
