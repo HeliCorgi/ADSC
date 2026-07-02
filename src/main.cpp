@@ -8,7 +8,7 @@
 int main() {
     using namespace adsc;
 
-    std::printf("=== ADSC v3 (WP1) — Active Debris Self-Cleanup ===\n\n");
+    std::printf("=== ADSC v4 (WP1+F1) — Active Debris Self-Cleanup ===\n\n");
 
     Mission mission;
     std::printf("Dry mass        : %.2f kg\n", mission.config().dry_mass_kg);
@@ -22,8 +22,18 @@ int main() {
         auto rep = mission.post_capture_stabilization(
             true, 2.4, Eigen::Vector3d(0, 0, 0.15), r_rel, v_fast,
             Eigen::Vector3d(0.05, -0.04, 0.03));
-        std::printf("[Scenario 1] closing speed %.3f m/s -> %s\n\n",
+        std::printf("[Scenario 1] closing speed %.3f m/s -> %s\n",
                     v_fast.norm(), rep.aborted ? "ABORT (safe maneuver)" : "captured");
+
+        // F1 honesty: report what the abort impulse actually buys. At contact
+        // range a clean CW abort only bounds the relative orbit through the
+        // current position — it does not create separation.
+        const SafeAbort ab = mission.compute_safe_abort(r_rel, v_fast);
+        std::printf("  abort impulse |dv|   : %.3f m/s (%s)\n", ab.dv.norm(),
+                    ab.status == SafeAbort::Status::Capped ? "CAPPED" : "clean");
+        std::printf("  post-burn coast min  : %.3f m over %.0f periods\n\n",
+                    ab.coast_min_range_m,
+                    mission.config().abort_coast_check_periods);
     }
 
     // --- Scenario 2: valid capture -> closed-loop detumble -----------------
