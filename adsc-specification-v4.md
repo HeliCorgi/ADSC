@@ -186,6 +186,11 @@ passive-safety claims are model-scoped. One honest paragraph, no hedging fog.
   `w_e = w − C(q_e)·w_t`, surface `s = w_e + λ·sign(q_e0)·q_ev`, target-motion
   feedforward. Public API change → R1 note. Regulation must remain as the
   `w_t = 0` special case; the v2 detumble scenario stays as a regression.
+  (Convention: `C(q_e)` is the textbook reference→body DCM, so `C(q_e)·w_t`
+  rotates the target rate into the servicer body frame. In the codebase's Eigen
+  Hamilton quaternions — mapping body→inertial, with `q_e = q_t* ⊗ q` — that
+  rotation is `q_e.conjugate() * w_t`, so the WP2 implementation writes
+  `w_e = w − q_e.conjugate()·w_t`: the same quantity.)
 - **Acceptance:** |w_rel| < 0.1 deg/s and attitude error < 2° held 30 s
   (defaults, configurable) against a tumbling target; asserted in a test with
   fixed constants.

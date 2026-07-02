@@ -49,6 +49,25 @@ struct Config {
     // acceleration, so the deadband bounds the hold error). PLACEHOLDER values.
     SlidingModeController::Gains sync_gains{0.6, 0.08, 0.03, 3.0e-4, 0.05};
 
+    // WP3: kit + deorbit-decay trades. PLACEHOLDER physical values (R10).
+    double kit_mass_kg          = 2.4;    // installed deorbit-kit mass [kg]
+    double kit_sail_area_m2     = 120.0;  // installed drag-sail area [m^2]
+    double drag_cd              = 2.2;    // free-molecular drag coefficient [-]
+    // Stop altitude: below ~150-200 km the orbit decays within days regardless
+    // of A/m, so decay is integrated to a handoff altitude and the object is
+    // handed to rapid reentry; integrating lower adds negligible time.
+    double reentry_handoff_altitude_km = 180.0;
+    // Solar-cycle density scaling (T4): decay figures are reported over the
+    // min..max range, never a point value.
+    double solar_min_density_factor = 0.5;  // solar-min density scaling
+    double solar_max_density_factor = 8.0;  // solar-max density scaling
+
+    // WP3 installer-mission GNC tuning (R10; the corridor matches the WP1 demo).
+    double approach_rho_far_m     = 1200.0;  // outer corridor hold amplitude [m]
+    double approach_rho_near_m    = 300.0;   // inner corridor hold amplitude [m]
+    int    approach_holds         = 10;      // corridor hold-ellipse count
+    double depart_standoff_factor = 2.0;     // depart hold range / keep-out radius
+
     double control_dt           = 0.01;   // GNC loop step [s]
     double pcm_capacity_j       = 5000.0;
     double max_safe_time_s      = 14400.0; // 4 h
@@ -119,6 +138,42 @@ struct StabilizationReport {
     double inertia_trace  = 0.0;
 };
 
+// WP3: the installer mission runs as a sequence of phases. Contact only happens
+// after synchronization holds for the dwell; the servicer never tows (D1) — it
+// installs a passive deorbit kit and departs.
+enum class Phase { Approach, Sync, Attach, Depart, Complete, Aborted };
+
+// Outcome of the attach (clamp) event (WP3).
+struct AttachReport {
+    bool   clamped = false;
+    double contact_speed_m_s = 0.0;
+    // Contact kinetic energy 0.5 * m * v^2 at the gated closing speed, with m
+    // the servicer contact mass (bus dry + kit). For the multi-tonne target the
+    // reduced mass ~ servicer mass, so this is a conservative upper bound. The
+    // budget exists to show a compliant, geometry-keyed clamp (D4) at
+    // max_v_rel does not have the energy to shed MLI/paint and manufacture new
+    // debris (contact-honesty acceptance, spec v4.1 WP3). [J]
+    double contact_energy_j = 0.0;
+    double servicer_mass_before_kg = 0.0;  // bus dry + kit (carries the kit)
+    double servicer_mass_after_kg  = 0.0;  // bus dry (kit handed over)
+    double target_mass_after_kg    = 0.0;  // target + kit
+    double target_area_after_m2    = 0.0;  // installed sail area
+    double target_area_over_mass   = 0.0;  // A/m after attach [m^2/kg]
+};
+
+// Outcome of a full installer mission run (WP3).
+struct MissionReport {
+    Phase  reached = Phase::Approach;   // furthest phase reached
+    bool   approach_safe = false;       // corridor holds clear the keep-out
+    double approach_closest_m = 0.0;    // guaranteed corridor min range [m]
+    bool   synced = false;              // tumble sync achieved (WP2 gate)
+    double sync_time_s = 0.0;
+    AttachReport attach;
+    bool   departed = false;            // safe departure onto a bounded orbit
+    double depart_coast_min_m = 0.0;    // min range of the post-departure coast [m]
+    bool   success = false;             // reached Depart with every gate passed
+};
+
 class Mission {
 public:
     explicit Mission(const Config& cfg = {});
@@ -137,9 +192,25 @@ public:
     void update_inertia_on_capture(const Eigen::Vector3d& r_attach,
                                    double debris_mass);
 
-    // Runs the closed-loop detumble/hold after a capture attempt and reports
-    // what actually happened. If the closing speed is over the cap, it aborts
-    // instead of capturing.
+    // WP3 installer mission: approach -> sync -> attach -> depart. The servicer
+    // verifies its passively-safe approach corridor, synchronizes with the
+    // tumbling target (WP2 gate), clamps and installs the deorbit kit (losing
+    // the kit mass; the target gains kit mass and sail area), then departs onto
+    // a bounded relative orbit. Deterministic (R6); the target orbit for the
+    // GNC phases is the configured reference orbit (cfg.target_altitude_km),
+    // while target_mass_kg is the catalog target's mass for the attach transfer.
+    MissionReport run_installer_mission(double target_mass_kg,
+                                        const Eigen::Quaterniond& q_target0,
+                                        const Eigen::Vector3d&    w_target0,
+                                        const Eigen::Quaterniond& q_servicer0,
+                                        double max_sync_time_s = 120.0);
+
+    // Legacy v2 detumble demonstration, retained as a regression reference (its
+    // settle time is a quoted number, spec section 2): closes the loop after a
+    // capture and reports the settle time / final rate, or aborts if the closing
+    // speed exceeds the cap. NOTE: the installer paradigm (run_installer_mission)
+    // does NOT detumble the multi-tonne target — it synchronizes with the tumble
+    // and installs a kit. This entry point stays for the regression pin only.
     StabilizationReport post_capture_stabilization(bool captured,
                                                    double debris_mass,
                                                    const Eigen::Vector3d& r_attach,

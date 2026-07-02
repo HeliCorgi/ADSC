@@ -34,6 +34,7 @@ add_library(adsc_core
     src/controller.cpp
     src/thermal.cpp
     src/relmotion.cpp
+    src/decay.cpp
     src/mission.cpp
 )
 target_include_directories(adsc_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -58,3 +59,11 @@ add_test(NAME relmotion COMMAND test_relmotion)
 add_executable(test_sync tests/test_sync.cpp)
 target_link_libraries(test_sync PRIVATE adsc_core adsc_flags)
 add_test(NAME sync COMMAND test_sync)
+
+add_executable(test_decay tests/test_decay.cpp)
+target_link_libraries(test_decay PRIVATE adsc_core adsc_flags)
+add_test(NAME decay COMMAND test_decay)
+
+add_executable(test_mission tests/test_mission.cpp)
+target_link_libraries(test_mission PRIVATE adsc_core adsc_flags)
+add_test(NAME mission COMMAND test_mission)

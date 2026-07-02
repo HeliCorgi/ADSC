@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
+#include <vector>
 
 namespace adsc {
 
@@ -197,6 +199,70 @@ StabilizationReport Mission::post_capture_stabilization(
 
     rep.sim_time_s  = t;
     rep.final_rate  = body_.rate().norm();
+    return rep;
+}
+
+MissionReport Mission::run_installer_mission(double target_mass_kg,
+                                             const Eigen::Quaterniond& q_target0,
+                                             const Eigen::Vector3d&    w_target0,
+                                             const Eigen::Quaterniond& q_servicer0,
+                                             double max_sync_time_s) {
+    MissionReport rep;
+
+    // --- Approach: the passively-safe corridor must clear the keep-out. The
+    //     per-hold guaranteed minimum range bounds every thrust-off coast (the
+    //     full coast verification is WP1's job, pinned in test_relmotion).
+    const std::vector<SafetyEllipse> corridor =
+        approach_corridor(cfg_.approach_rho_far_m, cfg_.approach_rho_near_m,
+                          cfg_.keep_out_radius_m, cfg_.approach_holds);
+    double closest = std::numeric_limits<double>::max();
+    for (const SafetyEllipse& hold : corridor) {
+        closest = std::min(closest, hold.min_range());
+    }
+    rep.approach_closest_m = corridor.empty() ? 0.0 : closest;
+    rep.approach_safe = !corridor.empty() && closest > cfg_.keep_out_radius_m;
+    rep.reached = Phase::Approach;
+    if (!rep.approach_safe) {
+        rep.reached = Phase::Aborted;
+        return rep;
+    }
+
+    // --- Sync: gate on tumble synchronization (WP2). ---
+    const SyncReport sync = run_tumble_sync(
+        cfg_, q_target0, w_target0, q_servicer0, Eigen::Vector3d::Zero(),
+        max_sync_time_s);
+    rep.synced      = sync.synced;
+    rep.sync_time_s = sync.sync_time_s;
+    rep.reached     = Phase::Sync;
+    if (!rep.synced) {
+        rep.reached = Phase::Aborted;
+        return rep;
+    }
+
+    // --- Attach: clamp at the gated closing speed and hand over the kit. The
+    //     servicer loses the kit mass; the target gains kit mass and sail area
+    //     (its A/m changes), which feeds the WP3 decay trades.
+    AttachReport& at = rep.attach;
+    at.clamped            = true;
+    at.contact_speed_m_s  = cfg_.max_v_rel;
+    const double m_contact = cfg_.dry_mass_kg + cfg_.kit_mass_kg;
+    at.contact_energy_j        = 0.5 * m_contact * cfg_.max_v_rel * cfg_.max_v_rel;
+    at.servicer_mass_before_kg = m_contact;
+    at.servicer_mass_after_kg  = cfg_.dry_mass_kg;
+    at.target_mass_after_kg    = target_mass_kg + cfg_.kit_mass_kg;
+    at.target_area_after_m2    = cfg_.kit_sail_area_m2;
+    at.target_area_over_mass   = cfg_.kit_sail_area_m2 / at.target_mass_after_kg;
+    rep.reached = Phase::Attach;
+
+    // --- Depart: transfer to a bounded, keep-out-clearing relative orbit
+    //     (a safe standoff hold at depart_standoff_factor x the keep-out). ---
+    const Eigen::Vector3d r_depart(
+        0.0, -cfg_.depart_standoff_factor * cfg_.keep_out_radius_m, 0.0);
+    const SafeAbort ab = compute_safe_abort(r_depart, Eigen::Vector3d::Zero());
+    rep.depart_coast_min_m = ab.coast_min_range_m;
+    rep.departed = ab.coast_min_range_m > cfg_.keep_out_radius_m;
+    rep.reached  = rep.departed ? Phase::Complete : Phase::Depart;
+    rep.success  = rep.approach_safe && rep.synced && at.clamped && rep.departed;
     return rep;
 }
 

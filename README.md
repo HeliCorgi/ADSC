@@ -13,10 +13,11 @@ state's object. Governing value: **claims must match implementation** — every
 number in this README is regenerable by running committed code.
 
 **v4 status (work-package based):** WP1 (relative orbital motion + passive
-safety), the F1/F2 honesty follow-ups, and WP2 (tumble synchronization) are
-implemented on top of the v2.0 GNC core. WP3–WP7 (attach/kit-decay,
-estimator/sensors, campaign Monte-Carlo, cost model, evidence pack) are **not
-yet** implemented — see the roadmap below.
+safety), the F1/F2 honesty follow-ups, WP2 (tumble synchronization), and WP3
+(attach event + kit decay trades, with the mission reflowed into
+approach→sync→attach→depart phases) are implemented on top of the v2.0 GNC
+core. WP4–WP7 (estimator/sensors, campaign Monte-Carlo, cost model, evidence
+pack) are **not yet** implemented — see the roadmap below.
 
 **What changed from v1.21 → v2.0:** the v1.21 README named an SR-UKF and a
 sliding-mode DACS, but the source only declared unused state and printed status
@@ -66,6 +67,26 @@ implemented; v3 continues that discipline.
   minimum range of the propagated post-burn coast — when the cap binds, the
   bounded-orbit guarantee is lost and the code reports the actual coast range
   instead of implying safety. Unit-tested, including a capped case.
+- **Installer mission flow (WP3)** (`run_installer_mission`): the mission runs
+  as approach → sync → attach → depart. Approach verifies the passively-safe
+  corridor; sync gates on WP2; **attach** clamps at the gated closing speed and
+  hands the deorbit kit over (the servicer loses the kit mass, the target gains
+  kit mass + sail area, changing its A/m); depart transfers to a bounded,
+  keep-out-clearing relative orbit. The attach reports the **contact-energy
+  budget** ½·m·v² at `max_v_rel` (≈ 0.33 J for the 29.6 kg servicer at
+  0.15 m/s) — the no-fragmentation-at-contact argument for a compliant,
+  geometry-keyed clamp. Unit-tested (`tests/test_mission.cpp`). The v2
+  `post_capture_stabilization` is retained only as the detumble regression
+  reference; the installer paradigm does not detumble the multi-tonne target.
+- **Kit deorbit-decay trades (WP3)** (`decay`): a quasi-circular drag-decay
+  integrator for `da/dt = −ρ(h)·C_d·(A/m)·√(μa)` over a Vallado exponential
+  atmosphere (cross-checked against its constant-density closed form), plus a
+  first-order EDT parametric knob. Produces the sail-area × altitude ×
+  solar-activity → decay-years trade table for the catalog presets, always as a
+  solar-min..max **range** (T4), with the sail area required for the 25-year
+  guideline. The honest result — sail-only on a ~9 t stage at ~840 km needs an
+  impractically large sail while the lighter/lower class can close — is the
+  deliverable that motivates trade T1. Unit-tested (`tests/test_decay.cpp`).
 - **First-order PCM thermal budget** integrated over the control loop.
 - **Deorbit gating**: autonomous by default, human-in-the-loop only on the
   emergency path, blocked below the fuel reserve.
@@ -82,17 +103,25 @@ verify rather than a claim in prose.
   is the obvious next step.
 - **Continuous-torque DACS approximation**, not a discrete-impulse thruster
   allocator with real minimum-impulse-bit quantization.
+- **Sync-hold relies on the continuous-torque approximation** (WP2 observation):
+  the fine firing deadband (3×10⁻⁴ on the sliding variable) that bounds the
+  sync-hold error assumes continuous torque; a real minimum-impulse-bit DACS
+  would either chatter around that deadband or need reaction wheels to hold it.
 - **Thermal model is a single lumped PCM bucket** — no eclipse/sunlight
   radiative balance, no per-node conduction.
-- **No closed-loop rendezvous guidance yet.** WP1 delivers CW/Hill relative
-  dynamics plus *passively-safe* hold ellipses and an approach corridor, and
-  WP2 adds attitude tumble synchronization — but no translation guidance law
-  flies the approach to contact, and the approach→sync→attach→depart mission
-  flow arrives with WP3+. The v_rel ≤ 0.15 m/s capture limit is still enforced
-  as a gate, not produced by guidance, and all states (including the target's
-  attitude and rate consumed by the sync loop) are truth from the simulator —
-  no estimator/sensors until WP4.
-- **No attach/kit-decay model** (WP3): no drag-sail/EDT deorbit modelling.
+- **No closed-loop rendezvous guidance yet.** WP3 reflows the mission into
+  approach→sync→attach→depart phases, but there is still no translation guidance
+  law that actively flies the approach to contact — approach safety is a passive
+  corridor check and attach happens at the gated closing speed. The
+  v_rel ≤ 0.15 m/s limit is enforced as a gate, not produced by guidance, and
+  all states (including the target attitude/rate the sync loop consumes) are
+  truth from the simulator — no estimator/sensors until WP4.
+- **Decay model is first-order and single-object** (WP3): quasi-circular drag
+  decay over an exponential atmosphere with a single altitude-independent
+  solar-cycle factor (a coarse proxy — the real swing is altitude-dependent);
+  no J2, no attitude-dependent ballistic area, no re-entry demisability model
+  (that safety/cost conflict is open trade T2). The EDT branch is a parametric
+  placeholder, not a tether performance model.
 - **Passive-safety claims are model-scoped (F2).** The keep-out and
   safety-ellipse guarantees are exact only in the linear Clohessy–Wiltshire
   model: circular target orbit, no J2, no differential drag, small separations.
@@ -108,10 +137,11 @@ verify rather than a claim in prose.
 This is a **software prototype at roughly TRL 3–4**: the algorithms run in a
 self-contained numerical simulation. The earlier "TRL 5–6" framing was not
 supportable from code that did no computation. WP1 adds runnable relative-motion
-kinematics and a passive-safety check, and WP2 a tracking controller
-demonstrated in simulation — but the TRL is **unchanged**: the control loops
-still consume true states, and reaching TRL 5–6 would need at minimum a state
-estimator, a sensor/actuator error model, and hardware-in-the-loop testing.
+kinematics and a passive-safety check, WP2 a tracking controller demonstrated in
+simulation, and WP3 an attach/decay trade study — but the TRL is **unchanged**:
+the control loops still consume true states, the decay/attach models are
+first-order, and reaching TRL 5–6 would need at minimum a state estimator, a
+sensor/actuator error model, and hardware-in-the-loop testing.
 
 ## Build
 
@@ -123,16 +153,16 @@ cd ADSC
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release   # add -DADSC_WERROR=ON for R3
 cmake --build build
 ./build/adsc_sim
-ctest --test-dir build      # fuel-store + relmotion + sync unit tests (fail in any build type)
+ctest --test-dir build      # fuel-store + relmotion + sync + decay + mission (fail in any build type)
 ```
 
 ## Layout
 
 ```
 include/adsc/   public headers (fuel_store, dynamics, controller, thermal,
-                relmotion, mission)
+                relmotion, decay, mission)
 src/            implementations + main.cpp simulation driver
-tests/          fuel-store + relmotion + sync (WP2) unit tests
+tests/          fuel-store + relmotion + sync + decay + mission unit tests
 .github/        CI (Ubuntu + Eigen: cmake build + ctest, warnings-as-errors)
 adsc-specification-v4.md   active spec (work packages, hard rules, locked decisions)
 ```
@@ -143,8 +173,8 @@ adsc-specification-v4.md   active spec (work packages, hard rules, locked decisi
 - **F1/F2 — Capped-abort honesty + model-scope note** ✅ implemented.
 - **WP2 — Tumble synchronization** ✅ implemented (tracking SMC with torque-free
   feedforward against a precessing target).
-- **WP3 — Attach event + kit decay trades** (drag-sail / EDT; honest negative
-  results are deliverables).
+- **WP3 — Attach event + kit decay trades** ✅ implemented (contact-energy
+  budget; sail vs EDT decay trade with honest negative results).
 - **WP4 — Estimator + sensor models** (control on estimates, not truth).
 - **WP5 — Campaign Monte-Carlo** (dispersions; success / abort / keep-out rates).
 - **WP6 — Parametric cost model** (relative units; the amortization curve).
@@ -163,6 +193,16 @@ max |w_rel| = 0.0213 deg/s (tol 0.1) and max attitude error = 0.0985° (tol 2°)
 ending the 120 s run at 0.00043 deg/s and 0.098°. The feedforward-honesty bound
 (sliding variable with the reaching term disabled, limit 5×10⁻³) is asserted and
 printed by `./build/test_sync`.
+
+Reproducible WP3 numbers (regenerate with `./build/adsc_sim`, scenario 6): the
+installer mission reaches all phases (approach → sync → attach → depart) for a
+catalog-A-mass target, with a **contact-energy budget of 0.333 J** (29.6 kg
+servicer at 0.15 m/s) — the no-fragmentation-at-contact argument. The sail-only
+decay trade (solar-max..solar-min range, to the 180 km handoff) shows catalog A
+(≈ 9 t, 840 km) needs an impractically large sail for the 25-year guideline
+while catalog B (≈ 1.4 t, 750 km) closes with a far smaller one; representative
+rows are printed by the sim (see the trade table) and bracket open trade T1
+(drag sail vs electrodynamic tether).
 
 ## Disclaimer / 免責
 
