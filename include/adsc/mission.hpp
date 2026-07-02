@@ -1,9 +1,12 @@
 #pragma once
 
+#include <cstdint>
+
 #include <Eigen/Dense>
 
 #include "adsc/controller.hpp"
 #include "adsc/dynamics.hpp"
+#include "adsc/estimator.hpp"
 #include "adsc/fuel_store.hpp"
 #include "adsc/relmotion.hpp"
 #include "adsc/thermal.hpp"
@@ -58,15 +61,45 @@ struct Config {
     // handed to rapid reentry; integrating lower adds negligible time.
     double reentry_handoff_altitude_km = 180.0;
     // Solar-cycle density scaling (T4): decay figures are reported over the
-    // min..max range, never a point value.
-    double solar_min_density_factor = 0.5;  // solar-min density scaling
-    double solar_max_density_factor = 8.0;  // solar-max density scaling
+    // min..max range, never a point value. PLACEHOLDER values: a single
+    // altitude-independent factor is a deliberately coarse solar-activity
+    // proxy — the real min-to-max density swing is strongly altitude-dependent
+    // (roughly an order of magnitude near 800 km; see the discussion around
+    // Vallado's exponential model, Table 8-4). Refine from MSIS/MASTER-class
+    // atmosphere data when the evidence pack is filled.
+    double solar_min_density_factor = 0.5;  // PLACEHOLDER solar-min scaling
+    double solar_max_density_factor = 8.0;  // PLACEHOLDER solar-max scaling
 
     // WP3 installer-mission GNC tuning (R10; the corridor matches the WP1 demo).
     double approach_rho_far_m     = 1200.0;  // outer corridor hold amplitude [m]
     double approach_rho_near_m    = 300.0;   // inner corridor hold amplitude [m]
     int    approach_holds         = 10;      // corridor hold-ellipse count
     double depart_standoff_factor = 2.0;     // depart hold range / keep-out radius
+
+    // WP4: sensor + estimator abstractions. All PLACEHOLDER values (R10);
+    // sensors are Gaussian abstractions of real hardware. The bias fields are
+    // sensitivity-study knobs and are NOT estimated (known limitation); the
+    // filter-consistency tests assume the zero defaults.
+    double gyro_sigma_rad_s    = 1.0e-4;   // per-step white rate noise [rad/s]
+    double gyro_bias_rad_s     = 0.0;      // unestimated bias knob [rad/s]
+    double st_sigma_rad        = 1.0e-4;   // star-tracker angle noise [rad]
+    double vision_sigma_rad    = 2.0e-3;   // vision relative-pose noise [rad]
+    double range_sigma_m       = 0.05;     // rangefinder noise [m]
+    double range_bias_m        = 0.0;      // unestimated bias knob [m]
+    double los_sigma           = 5.0e-4;   // LOS unit-vector noise per axis [-]
+    double wt_disturb_sigma    = 1.0e-6;   // target random ang. accel [rad/s^2]
+    double trans_vel_noise_m_s = 1.0e-5;   // per-step relative vel noise [m/s]
+    double st_rate_hz          = 5.0;      // star-tracker update rate [Hz]
+    double vision_rate_hz      = 2.0;      // vision pose update rate [Hz]
+    double ranging_rate_hz     = 10.0;     // range + LOS update rate [Hz]
+    // Filter initialization 1-sigma uncertainties and the consistency-stats
+    // window start (transients before it are excluded from NEES/NIS).
+    double est_init_att_sigma_rad  = 5.0e-3;
+    double est_init_wt_sigma_rad_s = 1.0e-3;
+    double est_init_pos_sigma_m    = 5.0;
+    double est_init_vel_sigma_m_s  = 0.05;
+    double est_stats_start_s       = 40.0;
+    uint32_t est_seed              = 20260703u;  // fixed RNG seed (R6)
 
     double control_dt           = 0.01;   // GNC loop step [s]
     double pcm_capacity_j       = 5000.0;
@@ -124,6 +157,55 @@ SyncReport run_tumble_sync(const Config& cfg,
                            const Eigen::Quaterniond& q_servicer0,
                            const Eigen::Vector3d&    w_servicer0,
                            double max_sim_time_s);
+
+// Outcome of an estimate-driven synchronization run (WP4). `sync` carries the
+// WP2 criteria evaluated on the TRUTH state (the honest acceptance); the rest
+// are estimation-error and filter-consistency statistics. Truth never enters
+// the control path — the controller consumes an EstimatedState only.
+struct EstimatedSyncReport {
+    SyncReport sync;
+
+    // Estimation-error statistics (truth minus estimate). RMS over the stats
+    // window (t >= est_stats_start_s); finals at end of run.
+    double rms_att_own_deg = 0.0;
+    double rms_att_rel_deg = 0.0;
+    double rms_wt_deg_s    = 0.0;
+    double rms_pos_m       = 0.0;
+    double rms_vel_m_s     = 0.0;
+    double final_att_rel_deg = 0.0;
+    double final_wt_deg_s    = 0.0;
+    double final_pos_m       = 0.0;
+
+    // Filter-consistency statistics over the stats window: time-averaged NEES
+    // (state dims 6/3/6) and NIS (measurement dofs 4/3/3) with sample counts.
+    double nees_trans_mean = 0.0;
+    double nees_own_mean   = 0.0;
+    double nees_rel_mean   = 0.0;
+    double nis_trans_mean  = 0.0;
+    double nis_st_mean     = 0.0;
+    double nis_vis_mean    = 0.0;
+    int    n_trans = 0;
+    int    n_st    = 0;
+    int    n_vis   = 0;
+
+    // Covariance health over the WHOLE run, across all three filters.
+    double p_min_eig  = 0.0;   // minimum eigenvalue observed (must stay > 0)
+    double p_max_asym = 0.0;   // max |P - P^T| entry observed (Joseph + symm.)
+};
+
+// WP4: closed-loop tumble synchronization driven by ESTIMATES under sensor
+// noise. Truth propagates the servicer/target/translation; a fixed-seed
+// GaussianSource generates all sensor noise, matched truth process noise and
+// initial estimate errors (R6, bit-stable across platforms); the tracking
+// controller consumes only the EstimatedState. The translation EKF runs
+// alongside on x_trans0 (a coasting relative orbit) — estimated and
+// consistency-tested, but not used for control (no translation guidance yet).
+EstimatedSyncReport run_estimated_sync(const Config& cfg,
+                                       const Eigen::Quaterniond& q_target0,
+                                       const Eigen::Vector3d&    w_target0,
+                                       const Eigen::Quaterniond& q_servicer0,
+                                       const Vector6d&           x_trans0,
+                                       double max_sim_time_s);
 
 // Outcome of a post-capture stabilization run.
 struct StabilizationReport {

@@ -35,6 +35,7 @@ add_library(adsc_core
     src/thermal.cpp
     src/relmotion.cpp
     src/decay.cpp
+    src/estimator.cpp
     src/mission.cpp
 )
 target_include_directories(adsc_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -67,3 +68,7 @@ add_test(NAME decay COMMAND test_decay)
 add_executable(test_mission tests/test_mission.cpp)
 target_link_libraries(test_mission PRIVATE adsc_core adsc_flags)
 add_test(NAME mission COMMAND test_mission)
+
+add_executable(test_estimator tests/test_estimator.cpp)
+target_link_libraries(test_estimator PRIVATE adsc_core adsc_flags)
+add_test(NAME estimator COMMAND test_estimator)
