@@ -1,11 +1,14 @@
+#include <algorithm>
 #include <cstdio>
+#include <limits>
+#include <vector>
 
 #include "adsc/mission.hpp"
 
 int main() {
     using namespace adsc;
 
-    std::printf("=== ADSC v2.0 — Active Debris Self-Cleanup (redesign) ===\n\n");
+    std::printf("=== ADSC v3 (WP1) — Active Debris Self-Cleanup ===\n\n");
 
     Mission mission;
     std::printf("Dry mass        : %.2f kg\n", mission.config().dry_mass_kg);
@@ -48,6 +51,54 @@ int main() {
         bool ok = mission.deorbit_permitted(/*ground_human_approval=*/false, autonomous);
         std::printf("[Deorbit] permitted=%s mode=%s\n",
                     ok ? "yes" : "no", autonomous ? "autonomous" : "human-in-the-loop");
+    }
+
+    // --- Scenario 4 (WP1): passively-safe relative motion ------------------
+    // Sample points around a nominal approach corridor of drift-free safety
+    // ellipses, cut thrust at each, and coast for two orbital periods. Report
+    // the closest any coast comes to the target (D5 passive-safety property).
+    {
+        const Config cfg = mission.config();
+        const double a = kEarthRadius + cfg.target_altitude_km * 1000.0;
+        const CwModel cw = CwModel::from_orbit(a);
+        const double keep_out = cfg.keep_out_radius_m;
+
+        std::printf("\n[WP1] LVLH relative motion about target @ %.0f km\n",
+                    cfg.target_altitude_km);
+        std::printf("  mean motion n      : %.3e rad/s\n", cw.n());
+        std::printf("  orbital period     : %.1f s\n", cw.period());
+        std::printf("  keep-out radius    : %.1f m\n", keep_out);
+
+        const std::vector<SafetyEllipse> corridor =
+            approach_corridor(/*rho_far=*/1200.0, /*rho_near=*/300.0, keep_out,
+                              /*n_holds=*/10);
+
+        const double horizon = 2.0 * cw.period();
+        const double dt = 1.0;
+        const int phases = 12;
+
+        double worst = std::numeric_limits<double>::max();
+        int samples = 0;
+        for (const SafetyEllipse& hold : corridor) {
+            for (int p = 0; p < phases; ++p) {
+                const double theta = 2.0 * kPi * static_cast<double>(p) / phases;
+                Vector6d x = cw.ellipse_state(hold, theta);
+                double local_min = rel_range(x);
+                double t = 0.0;
+                while (t < horizon) {
+                    x = cw.propagate_rk4(x, dt, dt);
+                    local_min = std::min(local_min, rel_range(x));
+                    t += dt;
+                }
+                worst = std::min(worst, local_min);
+                ++samples;
+            }
+        }
+        std::printf("  corridor holds     : %zu\n", corridor.size());
+        std::printf("  thrust-off coasts  : %d samples over 2 periods\n", samples);
+        std::printf("  closest approach   : %.1f m -> %s (keep-out %.1f m)\n",
+                    worst, worst > keep_out ? "PASSIVELY SAFE" : "VIOLATION",
+                    keep_out);
     }
 
     std::printf("\n=== simulation complete ===\n");
