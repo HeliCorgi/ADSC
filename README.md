@@ -155,6 +155,15 @@ reference orbit, mean motion n ≈ 1.03×10⁻³ rad/s and period ≈ 6084 s; th
 thrust-off approach across the sampled corridor is ≈ 424 m — comfortably outside
 the 200 m keep-out sphere.
 
+Reproducible WP2 numbers (regenerate with `./build/adsc_sim`, scenario 5):
+against a 2.0 deg/s precessing tumble (target inertia ratios 1.0 / 0.6 / 0.3)
+from a 40° attitude offset at zero rate, sync is achieved at **16.87 s** and the
+criteria then hold for the 30 s dwell; after the dwell the errors stay at
+max |w_rel| = 0.0213 deg/s (tol 0.1) and max attitude error = 0.0985° (tol 2°),
+ending the 120 s run at 0.00043 deg/s and 0.098°. The feedforward-honesty bound
+(sliding variable with the reaching term disabled, limit 5×10⁻³) is asserted and
+printed by `./build/test_sync`.
+
 ## Disclaimer / 免責
 
 Conceptual prototype for peaceful ADR research and education only. Real flight
