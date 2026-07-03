@@ -37,3 +37,12 @@ jobs:
 
       - name: Run simulation driver
         run: ./build/adsc_sim
+
+      - name: Regenerate WP5 campaign artifacts (full N=500) + report runtime
+        run: ./build/adsc_campaign 500 generated
+
+      - name: Upload WP5 campaign artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wp5-campaign-generated
+          path: generated/

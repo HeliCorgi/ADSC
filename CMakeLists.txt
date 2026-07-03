@@ -37,6 +37,7 @@ add_library(adsc_core
     src/decay.cpp
     src/estimator.cpp
     src/mission.cpp
+    src/campaign.cpp
 )
 target_include_directories(adsc_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(adsc_core PUBLIC Eigen3::Eigen)
@@ -45,6 +46,11 @@ target_link_libraries(adsc_core PRIVATE adsc_flags)
 # Simulation driver.
 add_executable(adsc_sim src/main.cpp)
 target_link_libraries(adsc_sim PRIVATE adsc_core adsc_flags)
+
+# WP5 campaign Monte Carlo driver: regenerates the committed generated/ CSV+MD
+# artifacts and prints the campaign summary.
+add_executable(adsc_campaign src/main_campaign.cpp)
+target_link_libraries(adsc_campaign PRIVATE adsc_core adsc_flags)
 
 # Tests.
 enable_testing()
@@ -72,3 +78,7 @@ add_test(NAME mission COMMAND test_mission)
 add_executable(test_estimator tests/test_estimator.cpp)
 target_link_libraries(test_estimator PRIVATE adsc_core adsc_flags)
 add_test(NAME estimator COMMAND test_estimator)
+
+add_executable(test_campaign tests/test_campaign.cpp)
+target_link_libraries(test_campaign PRIVATE adsc_core adsc_flags)
+add_test(NAME campaign COMMAND test_campaign)
