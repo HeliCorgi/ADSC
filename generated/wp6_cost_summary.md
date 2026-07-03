@@ -1,6 +1,6 @@
 # WP6 Parametric cost model + FoM — summary
 
-Primary output is in **relative cost units (CU)**; **no point-value dollar figure is claimed** (R6/D10) -- the CU->currency anchor is a PLACEHOLDER cited range, filled in WP7. All cost/FoM parameters are PLACEHOLDER (see `CostConfig`). Cost, cost/removal and FoM are propagated **per run** from the WP5 campaign (schema 1.0) and reported as p05/p50/p95. Regenerate with `adsc_cost`. Campaign re-run time: 69.79 s.
+Primary output is in **relative cost units (CU)**; **no point-value dollar figure is claimed** (R6/D10) -- the CU->currency anchor is a PLACEHOLDER cited range, filled in WP7. All cost/FoM parameters are PLACEHOLDER (see `CostConfig`). Cost, cost/removal and FoM are propagated **per run** from the WP5 campaign (schema 1.0) and reported as p05/p50/p95. Regenerate with `adsc_cost`.
 
 ## SL-16 / Zenit-2 second stage
 

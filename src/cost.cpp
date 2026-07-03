@@ -356,14 +356,16 @@ void write_cost_summary_md(const std::string& path, const CostConfig& cc,
     std::FILE* f = std::fopen(path.c_str(), "w");
     if (!f) return;
     std::fprintf(f, "# WP6 Parametric cost model + FoM — summary\n\n");
+    // NB: the wall-clock re-run time is reported to stdout by the driver, NOT
+    // written here -- an embedded runtime would make this committed artifact
+    // fail the "CI regeneration == committed" reproducibility check (R6).
     std::fprintf(f,
         "Primary output is in **relative cost units (CU)**; **no point-value "
         "dollar figure is claimed** (R6/D10) -- the CU->currency anchor is a "
         "PLACEHOLDER cited range, filled in WP7. All cost/FoM parameters are "
         "PLACEHOLDER (see `CostConfig`). Cost, cost/removal and FoM are "
         "propagated **per run** from the WP5 campaign (schema 1.0) and reported "
-        "as p05/p50/p95. Regenerate with `adsc_cost`. Campaign re-run time: "
-        "%.2f s.\n\n", report.elapsed_s);
+        "as p05/p50/p95. Regenerate with `adsc_cost`.\n\n");
 
     for (const CatalogCost& cq : report.catalogs) {
         std::fprintf(f, "## %s\n\n", cq.catalog.name);
