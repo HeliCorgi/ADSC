@@ -17,12 +17,14 @@ safety), the F1/F2 honesty follow-ups, WP2 (tumble synchronization), WP3
 (attach event + kit decay trades, mission reflowed into
 approach→sync→attach→depart phases), WP4 (estimator + sensor models — the
 control loop now runs on estimates, not truth), WP5 (campaign Monte-Carlo
-under dispersions, with stable machine-readable CSV outputs), and WP6
-(parametric cost model + figure of merit, consuming the WP5 CSV) are implemented
-on top of the v2.0 GNC core. WP7 (evidence pack) is **not yet** implemented —
-see the roadmap below. WP5/WP6 do **not** implement visualization dashboards or
-any compliance/legal approval, and WP6 predicts **no absolute cost** (relative
-units only) — those are future WP7/WP8 scope.
+under dispersions, with stable machine-readable CSV outputs), WP6 (parametric
+cost model + figure of merit, consuming the WP5 CSV), and WP7a (a Python 3
+stdlib-only Visualization Pack of static SVGs over the committed CSVs) are
+implemented on top of the v2.0 GNC core. WP8 (compliance matrix) and WP7
+(evidence pack) are **not yet** implemented — see the roadmap below. WP7a draws
+**static** figures only (no interactive dashboard) and makes **no** compliance/
+legal determination; WP6 predicts **no absolute cost** (relative units only) —
+those remain future WP8/WP7 scope. This does not change the TRL (still 4).
 
 **What changed from v1.21 → v2.0:** the v1.21 README named an SR-UKF and a
 sliding-mode DACS, but the source only declared unused state and printed status
@@ -144,6 +146,26 @@ implemented; v3 continues that discipline.
   **tornado** ranks each cost parameter's ± impact. Outputs
   `generated/wp6_cost_summary.{md,csv}` + `wp6_cost_schema.md` (schema `1.0`).
   Unit-tested (`tests/test_cost.cpp`). Regenerate with `./build/adsc_cost`.
+- **Visualization Pack (WP7a)** (`tools/viz/make_viz.py`, `decay_trade`): a
+  **Python 3 standard-library-only** generator (spec v4.2 R9 tooling exception —
+  no plotting library, no JS/CDN/external fonts; SVG is written directly) that
+  turns the committed WP5/WP6/WP3 CSVs into nine static **SVG** figures plus a
+  static report page. It draws: WP5 mission-outcome proportions (zeros shown),
+  Δv / removals / sync-time **p05/p50/p95** ranges (never mean-only), the
+  keep-out-violation **rate + Wilson 95% CI + N** (a rate panel, *not* a fake
+  trajectory), the WP6 **amortization curve** with the Δv-limited N=4 turn, the
+  **tornado**, the **FoM two-weighting T5 band-flip**, and the WP3 sail-decay
+  band (solar min..max, 25-yr line, catalog A vs B). It reads **every number
+  from a committed CSV** (nothing hand-written); each caption carries the source
+  CSV, master seed and schema_version; **no timestamps/run-times are embedded**
+  (byte-reproducible — a CI gate asserts regeneration matches the committed
+  bytes). It does **not** draw charts from any live/streaming source, embed real
+  imagery, or make interactive dashboards, and the keep-out figure states it is
+  a *simplified research visualization, not a flight safety certificate*. The
+  `decay_trade` target re-emits the existing WP3 decay numbers as CSV (no
+  physics change). Outputs `generated/viz/*.svg` + `wp5_dashboard.html` (a static
+  report page); tested via `tools/viz/test_viz.py` (ctest `viz`). Regenerate
+  with `python3 tools/viz/make_viz.py . generated/viz`.
 - **First-order PCM thermal budget** integrated over the control loop.
 - **Deorbit gating**: autonomous by default, human-in-the-loop only on the
   emergency path, blocked below the fuel reserve.
@@ -250,7 +272,9 @@ cmake --build build
 ./build/adsc_sim
 ./build/adsc_campaign          # WP5: regenerates generated/wp5_campaign_* (full N=500)
 ./build/adsc_cost              # WP6: regenerates generated/wp6_cost_* (consumes the WP5 summary)
-ctest --test-dir build      # fuel_store/relmotion/sync/decay/mission/estimator/campaign/cost (fail in any build type)
+./build/decay_trade            # WP3: re-emits the sail-decay trade as generated/wp3_decay_trade.csv
+python3 tools/viz/make_viz.py . generated/viz   # WP7a: regenerates generated/viz/*.svg + dashboard
+ctest --test-dir build      # fuel_store/relmotion/sync/decay/mission/estimator/campaign/cost/flux/viz (fail in any build type)
 ```
 
 When invoking bare g++ directly, prefer passing Eigen via `-isystem` to avoid
@@ -260,11 +284,12 @@ GCC `-Wmaybe-uninitialized` false positives; CMake handles this automatically.
 
 ```
 include/adsc/   public headers (fuel_store, dynamics, controller, thermal,
-                relmotion, decay, estimator, mission, campaign, cost)
-src/            implementations + main.cpp sim + main_campaign.cpp (WP5) + main_cost.cpp (WP6)
-tests/          fuel-store, relmotion, sync, decay, mission, estimator, campaign, cost tests
-generated/      WP5/WP6 committed artifacts (campaign + cost/FoM CSV + summary/schema markdown)
-.github/        CI (Ubuntu + Eigen: cmake build + ctest, warnings-as-errors)
+                relmotion, decay, estimator, mission, campaign, cost, flux)
+src/            implementations + main.cpp sim + WP5/WP6/T6/WP3 emitters (main_*.cpp)
+tests/          C++ unit tests + tools/viz/test_viz.py (WP7a visualization, ctest `viz`)
+tools/viz/      WP7a Python 3 stdlib-only visualization generator (make_viz.py)
+generated/      committed artifacts: WP5 campaign, WP6 cost/FoM, T6 flux, WP3 decay CSVs + viz/ SVGs
+.github/        CI (Ubuntu + Eigen: cmake build + ctest, warnings-as-errors, reproducibility gate)
 adsc-specification-v4.md   active spec (work packages, hard rules, locked decisions)
 ```
 
@@ -284,6 +309,10 @@ adsc-specification-v4.md   active spec (work packages, hard rules, locked decisi
   machine-readable CSV for WP6/WP7/WP8).
 - **WP6 — Parametric cost model** ✅ implemented (relative-unit C_campaign;
   amortization curve; FoM under ≥2 weightings with T5; tornado sensitivity).
+- **WP7a — Visualization Pack** ✅ implemented (Python 3 stdlib-only static SVG
+  figures + static report page from the committed CSVs; no external deps).
+- **WP8 — Compliance Matrix Generator** (research-profile matrix; no legal
+  determination) — not yet implemented.
 - **WP7 — Evidence pack** (generated English report; the actual product).
 
 Reproducible WP1 numbers (regenerate with `./build/adsc_sim`): for the 825 km
