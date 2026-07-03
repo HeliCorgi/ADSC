@@ -80,7 +80,9 @@ column may be read as regulatory approval; WP5 performs no such analysis.
 
 ### Summary metric rows (per catalog)
 
-Rates (with Wilson 95% CI): `success_rate`, `abort_rate`,
+Rates (with Wilson 95% CI): `success_rate`, `nonproductive_termination_rate`
+(= 1 - success_rate), `gate_abort_run_rate` (fraction of runs with >=1
+closing-speed gate abort = the spec's abort-path exposure), and
 `keep_out_violation_rate`. Distributions (p05/p50/p95): `dv_used_m_per_s`,
 `kits_used`, `removals_per_mission`, `sync_arrival_time_s`, `mission_time_s`.
 Failure classification counts: `completed`, `dv_exhausted`, `kit_exhausted`,
