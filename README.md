@@ -1,5 +1,12 @@
 # ADSC v4 — Active Debris Self-Cleanup
 
+> **The product:** [**evidence/adsc_evidence_pack.md**](evidence/adsc_evidence_pack.md)
+> — the generated English evidence pack (executive summary, installer argument,
+> safety case, honest negatives, campaign/cost statistics, limitations,
+> regulatory precheck, reproduction instructions). Every number in it is
+> machine-read from committed artifacts; `bash tools/regenerate_all.sh build`
+> regenerates all of it byte-for-byte.
+
 A C++17 GNC **numerical simulator** for an installer-type active-debris-remediation
 (ADR) servicer, framed as **Kessler-precursor removal**: the collisional cascade's
 fuel is the population of massive derelict upper stages in congested orbital bands —
@@ -20,13 +27,15 @@ control loop now runs on estimates, not truth), WP5 (campaign Monte-Carlo
 under dispersions, with stable machine-readable CSV outputs), WP6 (parametric
 cost model + figure of merit, consuming the WP5 CSV), and WP7a (a Python 3
 stdlib-only Visualization Pack of static SVGs over the committed CSVs) are
-implemented on top of the v2.0 GNC core, and WP8 (Compliance Matrix Generator —
-a research-grade **regulatory precheck**, explicitly **not legal advice**) is
-implemented as tooling. WP7 (evidence pack) is **not yet** implemented — see the
-roadmap below. WP7a draws **static** figures only (no interactive dashboard);
+implemented on top of the v2.0 GNC core, together with WP8 (Compliance Matrix
+Generator — a research-grade **regulatory precheck**, explicitly **not legal
+advice**) and WP7 (the **Evidence Pack** — the project's actual product,
+generated at `evidence/adsc_evidence_pack.md`). **All work packages WP1–WP8 are
+complete; WP9 (processor-in-the-loop / flight-software track) is reserved and
+not started.** WP7a draws **static** figures only (no interactive dashboard);
 WP8 produces a precheck/evidence matrix, **never a legal conformity
 determination**; WP6 predicts **no absolute cost** (relative units only). None
-of this changes the TRL (still 4).
+of this changes the TRL (still 4, element-scoped).
 
 **What changed from v1.21 → v2.0:** the v1.21 README named an SR-UKF and a
 sliding-mode DACS, but the source only declared unused state and printed status
@@ -193,6 +202,27 @@ implemented; v3 continues that discipline.
   reference only — Russian/Chinese/Japanese national law is **not** yet
   covered (future work). Tested via `tools/compliance/test_compliance.py`
   (ctest `compliance`).
+- **Evidence Pack (WP7 — the actual product)** (`tools/evidence/`): a Python 3
+  stdlib-only generator writes `evidence/adsc_evidence_pack.md` — executive
+  summary, the quantitative installer argument + cascade source-term framing
+  (full primary citations where confident, `[CITATION NEEDED — PLACEHOLDER]`
+  where not, never fabricated), safety case (WP1 coast statistics, F1
+  clean+capped abort coverage, WP5 keep-out rate with Wilson CI, contact-energy
+  budget), the honest decay negatives, campaign/cost/FoM statistics with the T5
+  disagreement kept open, a plain-language limitations section, the regulatory-
+  precheck summary ("This is not legal advice." in the body), the flight-
+  software migration annex (deliberately NOT implemented; WP9 reserved),
+  one-command reproduction instructions, and an **auto-collected PLACEHOLDER
+  inventory** of every unvalidated parameter in the tree. **Zero hand-written
+  numbers**: everything is machine-read from the committed CSVs (a new
+  `sim_metrics` target re-emits the pinned WP1/F1/WP2/WP3/WP4 demo numbers as
+  `generated/reference_metrics.csv`; no physics change). A **claim-audit test**
+  (ctest `evidence`) rejects forbidden overclaims (flight-ready/-proven,
+  TRL 5/6 claims, "guaranteed", legal-conclusion words), verifies required
+  honesty sections, cross-checks every quoted headline number against its
+  source CSV, and enforces determinism + committed==regenerated.
+  `tools/regenerate_all.sh` is the single regeneration entry point (CI runs
+  exactly it).
 - **First-order PCM thermal budget** integrated over the control loop.
 - **Deorbit gating**: autonomous by default, human-in-the-loop only on the
   emergency path, blocked below the fuel reserve.
@@ -311,7 +341,9 @@ cmake --build build
 python3 tools/viz/make_viz.py . generated/viz   # WP7a: regenerates generated/viz/*.svg + dashboard
 python3 tools/compliance/check_compliance.py    # WP8: regenerates generated/compliance_findings.json
 python3 tools/compliance/generate_matrix.py     # WP8: regenerates evidence/compliance_matrix.{md,csv}
-ctest --test-dir build      # fuel_store/relmotion/sync/decay/mission/estimator/campaign/cost/flux/viz/compliance
+python3 tools/evidence/make_evidence.py         # WP7: regenerates evidence/adsc_evidence_pack.md
+bash tools/regenerate_all.sh build              # ...or regenerate EVERYTHING in order (CI runs this)
+ctest --test-dir build      # fuel_store/relmotion/sync/decay/mission/estimator/campaign/cost/flux/viz/compliance/evidence
 ```
 
 When invoking bare g++ directly, prefer passing Eigen via `-isystem` to avoid
@@ -326,10 +358,12 @@ src/            implementations + main.cpp sim + WP5/WP6/T6/WP3 emitters (main_*
 tests/          C++ unit tests (+ Python tests under tools/, ctest `viz`/`compliance`)
 tools/viz/      WP7a Python 3 stdlib-only visualization generator (make_viz.py)
 tools/compliance/  WP8 regulatory precheck: rulepacks, schema, checker, matrix generator
-generated/      committed artifacts: WP5 campaign, WP6 cost/FoM, T6 flux, WP3 decay CSVs,
-                viz/ SVGs, compliance_findings.json
-evidence/       committed generated evidence artifacts (compliance matrix; same
-                reproducibility gate as generated/)
+tools/evidence/    WP7 evidence-pack generator + claim-audit test
+tools/regenerate_all.sh  single regeneration entry point (CI runs exactly this)
+generated/      committed artifacts: WP5 campaign, WP6 cost/FoM, T6 flux, WP3 decay,
+                reference_metrics CSVs, viz/ SVGs, compliance_findings.json
+evidence/       committed generated evidence artifacts (adsc_evidence_pack.md,
+                compliance matrix; same reproducibility gate as generated/)
 .github/        CI (Ubuntu + Eigen: cmake build + ctest, warnings-as-errors, reproducibility gate)
 adsc-specification-v4.md   active spec (work packages, hard rules, locked decisions)
 ```
@@ -355,7 +389,14 @@ adsc-specification-v4.md   active spec (work packages, hard rules, locked decisi
 - **WP8 — Compliance Matrix Generator / Regulatory Precheck** ✅ implemented
   (versioned rulepacks; precheck + evidence matrix; **not legal advice**, no
   legal conformity determination).
-- **WP7 — Evidence pack** (generated English report; the actual product).
+- **WP7 — Evidence Pack** ✅ implemented (`evidence/adsc_evidence_pack.md`,
+  generated, claim-audited, zero hand-written numbers — the actual product).
+- **WP9 — Processor-in-the-loop / flight-software track** — **reserved, not
+  started** (the only path above element TRL 4; see the spec).
+
+**Roadmap end state: WP1–WP8 complete.** The package is regenerable end-to-end
+with one command (`bash tools/regenerate_all.sh build`) and CI enforces
+byte-identity of every committed artifact on every push.
 
 Reproducible WP1 numbers (regenerate with `./build/adsc_sim`): for the 825 km
 reference orbit, mean motion n ≈ 1.03×10⁻³ rad/s and period ≈ 6084 s; the closest

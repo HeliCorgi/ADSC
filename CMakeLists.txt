@@ -70,6 +70,12 @@ target_link_libraries(flux_sweep PRIVATE adsc_core adsc_flags)
 add_executable(decay_trade src/main_decay_trade.cpp)
 target_link_libraries(decay_trade PRIVATE adsc_core adsc_flags)
 
+# WP7 reference-metrics emitter: re-computes the pinned WP1/F1/WP2/WP3/WP4
+# demo numbers as generated/reference_metrics.csv so the evidence pack quotes
+# committed data only (R6). Reuses existing code paths; no physics change.
+add_executable(sim_metrics src/main_metrics.cpp)
+target_link_libraries(sim_metrics PRIVATE adsc_core adsc_flags)
+
 # Tests.
 enable_testing()
 
@@ -122,6 +128,12 @@ if(PYTHON3_EXECUTABLE)
     # stdlib only, spec v4.2 R9). Not legal advice; research-grade precheck.
     add_test(NAME compliance COMMAND ${PYTHON3_EXECUTABLE}
              ${CMAKE_CURRENT_SOURCE_DIR}/tools/compliance/test_compliance.py
+             ${CMAKE_CURRENT_SOURCE_DIR})
+    # WP7 evidence-pack claim audit: forbidden overclaims, required honesty
+    # sections, number-transcription cross-check vs the committed CSVs,
+    # determinism, committed == regenerated.
+    add_test(NAME evidence COMMAND ${PYTHON3_EXECUTABLE}
+             ${CMAKE_CURRENT_SOURCE_DIR}/tools/evidence/test_evidence.py
              ${CMAKE_CURRENT_SOURCE_DIR})
 else()
     message(WARNING "python3 not found; WP7a viz and WP8 compliance tests not registered")
