@@ -145,6 +145,20 @@ struct SyncReport {
     double sim_time_s = 0.0;
 };
 
+// Actuator realization error (WP5 dispersion). The commanded torque is mapped
+// tau -> R(misalign) * diag(1 + scale) * tau before it reaches the plant: a
+// per-axis torque-scale error and a small body-axis misalignment. The NEUTRAL
+// default (scale = 0, misalign = 0) is the exact identity map, so the pinned
+// deterministic run_tumble_sync behavior (WP2 16.87 s demo / 19.15 s detumble
+// regression) is byte-identical when no actuator error is supplied.
+struct ActuatorError {
+    Eigen::Vector3d scale        = Eigen::Vector3d::Zero();  // fractional per-axis torque-scale error [-]
+    Eigen::Vector3d misalign_rad = Eigen::Vector3d::Zero();  // small-angle body misalignment [rad]
+
+    // Map a commanded torque to the delivered torque. Neutral default => tau.
+    Eigen::Vector3d apply(const Eigen::Vector3d& tau) const;
+};
+
 // WP2: closed-loop tumble synchronization. The target tumbles torque-free
 // (asymmetric inertia from cfg.target_inertia_diag, so its rate precesses);
 // the servicer (isotropic inertia cfg.base_inertia) tracks it with the
@@ -152,12 +166,23 @@ struct SyncReport {
 // from the target's own (regularized) inertia. Attitude error is the
 // principal rotation angle 2*acos(|q_e0|); rate error is |w - C(q_e)^T w_t|.
 // Deterministic: fixed inputs, no randomness (R6).
+//
+// The 7-argument overload injects an ActuatorError into the control->plant path
+// (WP5 campaign dispersion); the 6-argument overload delegates to it with a
+// neutral (identity) actuator, preserving the pinned WP2 numbers exactly.
 SyncReport run_tumble_sync(const Config& cfg,
                            const Eigen::Quaterniond& q_target0,
                            const Eigen::Vector3d&    w_target0,
                            const Eigen::Quaterniond& q_servicer0,
                            const Eigen::Vector3d&    w_servicer0,
                            double max_sim_time_s);
+SyncReport run_tumble_sync(const Config& cfg,
+                           const Eigen::Quaterniond& q_target0,
+                           const Eigen::Vector3d&    w_target0,
+                           const Eigen::Quaterniond& q_servicer0,
+                           const Eigen::Vector3d&    w_servicer0,
+                           double max_sim_time_s,
+                           const ActuatorError& actuator);
 
 // Outcome of an estimate-driven synchronization run (WP4). `sync` carries the
 // WP2 criteria evaluated on the TRUTH state (the honest acceptance); the rest

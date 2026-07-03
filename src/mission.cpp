@@ -7,12 +7,33 @@
 
 namespace adsc {
 
+Eigen::Vector3d ActuatorError::apply(const Eigen::Vector3d& tau) const {
+    // Scale each axis, then rotate by the small misalignment. The neutral
+    // default (scale = 0, misalign = 0) is exactly the identity: cwiseProduct
+    // with Ones() reproduces tau bit-for-bit and quat_exp(0) is the identity
+    // quaternion, so the delegating 6-arg run_tumble_sync stays byte-identical.
+    const Eigen::Vector3d scaled =
+        tau.cwiseProduct(Eigen::Vector3d::Ones() + scale);
+    return quat_exp(misalign_rad) * scaled;
+}
+
 SyncReport run_tumble_sync(const Config& cfg,
                            const Eigen::Quaterniond& q_target0,
                            const Eigen::Vector3d&    w_target0,
                            const Eigen::Quaterniond& q_servicer0,
                            const Eigen::Vector3d&    w_servicer0,
                            double max_sim_time_s) {
+    return run_tumble_sync(cfg, q_target0, w_target0, q_servicer0, w_servicer0,
+                           max_sim_time_s, ActuatorError{});
+}
+
+SyncReport run_tumble_sync(const Config& cfg,
+                           const Eigen::Quaterniond& q_target0,
+                           const Eigen::Vector3d&    w_target0,
+                           const Eigen::Quaterniond& q_servicer0,
+                           const Eigen::Vector3d&    w_servicer0,
+                           double max_sim_time_s,
+                           const ActuatorError& actuator) {
     SyncReport rep;
 
     RigidBody target(cfg.target_inertia_diag.asDiagonal(), q_target0, w_target0);
@@ -40,7 +61,9 @@ SyncReport run_tumble_sync(const Config& cfg,
             servicer.inertia(), servicer.attitude(), servicer.rate(),
             target.attitude(), w_t, w_t_dot);
 
-        servicer.step(tau, cfg.control_dt);
+        // Actuator dispersion (WP5): delivered torque = actuator.apply(tau).
+        // Neutral default => tau, so the pinned WP2 run is byte-identical.
+        servicer.step(actuator.apply(tau), cfg.control_dt);
         target.step(Eigen::Vector3d::Zero(), cfg.control_dt);
         t += cfg.control_dt;
 

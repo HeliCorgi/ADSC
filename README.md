@@ -15,10 +15,13 @@ number in this README is regenerable by running committed code.
 **v4 status (work-package based):** WP1 (relative orbital motion + passive
 safety), the F1/F2 honesty follow-ups, WP2 (tumble synchronization), WP3
 (attach event + kit decay trades, mission reflowed into
-approach→sync→attach→depart phases), and WP4 (estimator + sensor models — the
-control loop now runs on estimates, not truth) are implemented on top of the
-v2.0 GNC core. WP5–WP7 (campaign Monte-Carlo, cost model, evidence pack) are
-**not yet** implemented — see the roadmap below.
+approach→sync→attach→depart phases), WP4 (estimator + sensor models — the
+control loop now runs on estimates, not truth), and WP5 (campaign Monte-Carlo
+under dispersions, with stable machine-readable CSV outputs) are implemented on
+top of the v2.0 GNC core. WP6–WP7 (parametric cost model, evidence pack) are
+**not yet** implemented — see the roadmap below. WP5 does **not** implement
+visualization dashboards or any compliance/legal approval — those are future
+WP7/WP8 scope.
 
 **What changed from v1.21 → v2.0:** the v1.21 README named an SR-UKF and a
 sliding-mode DACS, but the source only declared unused state and printed status
@@ -105,6 +108,25 @@ implemented; v3 continues that discipline.
   **NEES/NIS consistency watchdog** (fixed seed, χ² bands) rejects the
   classic fake of inflating Q/R until acceptance passes. All randomness is one
   fixed-seed `mt19937` + explicit Box-Muller (bit-stable across platforms).
+- **Campaign Monte-Carlo (WP5)** (`campaign`): one mission processes N
+  class-level catalog targets sequentially in one plane (batch amortization),
+  tracking Δv budget and kit inventory and ending on Δv exhaustion, kit
+  exhaustion, all-targets-processed, or a terminal keep-out violation.
+  Inter-target phasing is a parameterized Δv/time cost (PLACEHOLDER; no
+  plane-change optimization). Dispersions (all PLACEHOLDER, centralized in
+  `CampaignConfig`) cover initial relative state, tumble rate/axis, servicer
+  initial attitude, sensor noise/bias, actuator torque-scale (~±10%) and
+  misalignment, and solar activity; every per-run seed is a deterministic
+  `SplitMix64(master_seed, run_index)`. Outputs per catalog preset — success /
+  abort / keep-out-violation **rates with Wilson 95% CIs** (all three reported
+  even at zero), and Δv-used / kits-used / removals / sync-time **percentiles
+  (p05/p50/p95)**, plus the failure classification counts — are written as
+  stable machine-readable CSV (`generated/wp5_campaign_*.csv`, schema
+  `1.0`, documented in `generated/wp5_campaign_schema.md`) intended for future
+  WP6/WP7/WP8 consumption. Unit-tested (`tests/test_campaign.cpp`: seed
+  determinism, Wilson edge cases, percentiles, termination, schema stability,
+  the guardrail that no artifact emits legal-approval language). Regenerate with
+  `./build/adsc_campaign`.
 - **First-order PCM thermal budget** integrated over the control loop.
 - **Deorbit gating**: autonomous by default, human-in-the-loop only on the
   emergency path, blocked below the fuel reserve.
@@ -153,6 +175,18 @@ verify rather than a claim in prose.
   CW linearization error grows with separation — so every passive-safety number
   in this README holds in the model, not in the real environment. A real
   mission would re-verify all coasts against a higher-fidelity propagator.
+- **Campaign scope is deliberately narrow (WP5).** The campaign reuses the
+  truth-driven `run_tumble_sync` primitive for tractable N≥500 Monte-Carlo, so
+  the dispersions that flow through it are the initial-condition and vehicle
+  ones (tumble rate/axis, servicer initial attitude, actuator torque-scale and
+  misalignment); **sensor noise/bias dispersions are drawn and their realized
+  factors recorded but not re-propagated per run** — the closed-loop sensor
+  effect is characterized by the WP4 estimate-driven acceptance instead. The Δv,
+  time and phasing cost coefficients and all dispersion magnitudes are
+  PLACEHOLDER. WP5 produces **no visualization/charts** and performs **no legal
+  or regulatory determination**: the future-facing compliance columns are
+  passive research-profile metadata (`owner_consent_assumed` is a research
+  scenario assumption per D9, never a legal fact), reserved for WP7/WP8.
 - Numbers for mass, inertia, power, PCM capacity and the target orbit/keep-out
   are plausible placeholders, not derived from a specific bus or target design.
 
@@ -168,7 +202,9 @@ stated plainly: **TRL 4 applies to the GNC software element, not the system** �
 system-level TRL is undefined and not claimed here. Reaching TRL 5 for the
 element requires real-time processor-in-the-loop execution on representative
 hardware (see the WP7.7 flight-software migration annex direction in the spec),
-which this repo deliberately does not attempt.
+which this repo deliberately does not attempt. WP5 adds
+robustness-under-dispersions evidence, but this strengthens the TRL-4 evidence
+base rather than raising the TRL.
 
 ## Build
 
@@ -180,16 +216,21 @@ cd ADSC
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release   # add -DADSC_WERROR=ON for R3
 cmake --build build
 ./build/adsc_sim
-ctest --test-dir build      # fuel_store/relmotion/sync/decay/mission/estimator (fail in any build type)
+./build/adsc_campaign          # WP5: regenerates generated/wp5_campaign_* (full N=500)
+ctest --test-dir build      # fuel_store/relmotion/sync/decay/mission/estimator/campaign (fail in any build type)
 ```
+
+When invoking bare g++ directly, prefer passing Eigen via `-isystem` to avoid
+GCC `-Wmaybe-uninitialized` false positives; CMake handles this automatically.
 
 ## Layout
 
 ```
 include/adsc/   public headers (fuel_store, dynamics, controller, thermal,
-                relmotion, decay, estimator, mission)
-src/            implementations + main.cpp simulation driver
-tests/          fuel-store, relmotion, sync, decay, mission, estimator tests
+                relmotion, decay, estimator, mission, campaign)
+src/            implementations + main.cpp sim driver + main_campaign.cpp (WP5)
+tests/          fuel-store, relmotion, sync, decay, mission, estimator, campaign tests
+generated/      WP5 committed campaign artifacts (CSV + summary/schema markdown)
 .github/        CI (Ubuntu + Eigen: cmake build + ctest, warnings-as-errors)
 adsc-specification-v4.md   active spec (work packages, hard rules, locked decisions)
 ```
@@ -205,7 +246,9 @@ adsc-specification-v4.md   active spec (work packages, hard rules, locked decisi
 - **WP4 — Estimator + sensor models** ✅ implemented (translation EKF +
   multiplicative attitude EKF; control on estimates; NEES/NIS consistency
   watchdog).
-- **WP5 — Campaign Monte-Carlo** (dispersions; success / abort / keep-out rates).
+- **WP5 — Campaign Monte-Carlo** ✅ implemented (dispersions; success / abort /
+  keep-out rates with Wilson CIs; Δv / kit / removal percentiles; stable
+  machine-readable CSV for WP6/WP7/WP8).
 - **WP6 — Parametric cost model** (relative units; the amortization curve).
 - **WP7 — Evidence pack** (generated English report; the actual product).
 
@@ -251,6 +294,56 @@ consistency: NIS 3.944/4 (translation, N=800), 3.063/3 (star tracker, N=400),
 3.190/3 (vision, N=160); NEES 7.796/6, 2.660/3, 4.066/6 — all inside their
 documented χ² bands; covariance health min eigenvalue 1.3×10⁻¹², max asymmetry
 exactly 0.
+
+Reproducible WP5 numbers (regenerate with `./build/adsc_campaign`; fixed master
+seed `0x5AD5C0DECAFE2026`, full N = 500 runs per catalog preset, 6 targets /
+mission, 4 kits, 140 m/s Δv budget). CI runs the same full N = 500 and uploads
+the four `generated/` artifacts (the committed copies), so routine CI and the
+full campaign are the same run — no reduced CI subset was needed (runtime is
+well under the 5-minute guideline; `adsc_campaign 100` produces a stratified
+subset if a faster smoke run is ever wanted). Rates carry a Wilson 95% CI
+(z = 1.959963984540054); distributions are p05/p50/p95.
+
+<!-- WP5-NUMBERS-START (filled from CI adsc_campaign, seed 0x5AD5C0DECAFE2026) -->
+The full N = 500 campaign (both catalog presets) runs in **≈ 10.7 s** on the CI
+runner. `success` here means a **productive end** — the mission installed its
+full 4-kit complement (`kit_exhausted`) or cleared all 6 targets (`completed`) —
+not one cut short by Δv exhaustion or a keep-out violation.
+
+| metric | SL-16 / Zenit-2 class | SL-8 / Kosmos-3M class |
+|---|---|---|
+| success rate | **0.556** [0.512, 0.599] | **0.542** [0.498, 0.585] |
+| nonproductive-termination rate (= 1 − success) | **0.444** [0.401, 0.488] | **0.458** [0.415, 0.502] |
+| gate-abort-run rate (abort-path exposure) | **0.444** [0.401, 0.488] | **0.458** [0.415, 0.502] |
+| keep-out-violation rate | **0.014** [0.007, 0.029] | **0.014** [0.007, 0.029] |
+| Δv used p05/p50/p95 [m/s] | 124 / 124 / 136 | 124 / 124 / 136 |
+| kits used p05/p50/p95 | 3 / 4 / 4 | 3 / 4 / 4 |
+| removals/mission p05/p50/p95 | 3 / 4 / 4 | 3 / 4 / 4 |
+| sync arrival p05/p50/p95 [s] | 14.47 / 17.68 / 20.09 | 14.13 / 17.71 / 20.16 |
+| failure counts (runs) | dv_exhausted 215, kit_exhausted 278, keep_out 7, completed 0 | dv_exhausted 222, kit_exhausted 271, keep_out 7, completed 0 |
+| per-target events | gate_abort 288, sync_timeout 0 | gate_abort 288, sync_timeout 0 |
+
+Two abort-related rates are reported and are deliberately distinct:
+**`gate-abort-run rate`** is the abort-path exposure (fraction of runs with ≥ 1
+closing-speed gate abort — what the spec calls the "abort rate"), while
+**`nonproductive-termination rate`** is 1 − success. Under the current *flat
+PLACEHOLDER* Δv cost the two coincide numerically — every aborting mission needs
+an extra target-slot to still install its kits and so exhausts the 140 m/s
+budget — but they are separate concepts and will diverge once the cost model
+gains structure. The honest campaign finding: the servicer is **Δv-limited about
+43% of the time** (`dv_exhausted` = 215/500) and installs its full kit
+complement the rest; the attitude sync **never** times out across the sampled
+tumble/attitude/actuator dispersions, and the safe-abort maneuvers clear the
+keep-out sphere on all but ≈ 1.4% of runs. `completed` (all 6 targets) is 0 by
+construction — 4 kits cannot service 6 targets. The `Δv used` / `kits used`
+percentiles matching across the two presets is expected (a flat PLACEHOLDER cost
+takes quantized, catalog-independent values — not a copy-paste bug). Full per-run
+records and the column schema are in [generated/](generated/).
+<!-- WP5-NUMBERS-END -->
+
+WP5 produces **no** charts and performs **no** legal/regulatory determination;
+the CSV schema (`generated/wp5_campaign_schema.md`, version `1.0`) is stabilized
+for future WP6 cost/FoM, WP7 visualization, and WP8 compliance tooling.
 
 ## Disclaimer / 免責
 
