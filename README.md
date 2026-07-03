@@ -380,8 +380,41 @@ campaign (schema 1.0), re-running the engine across a kits-carried sweep at the
 fixed master seed; the baseline (N = 4) reproduces `wp5_campaign_runs.csv`.
 
 <!-- WP6-NUMBERS-START (filled from CI adsc_cost) -->
-_Amortization curve, FoM table and tornado ranking are filled here from the CI
-`adsc_cost` run before merge (R6)._
+The full sweep (500 runs × 2 catalogs × N = 1..8 kits) runs in **≈ 70 s** on CI,
+and the baseline (N = 4) removals reproduce the committed WP5 CSV exactly
+(`MATCH (schema 1.0 consumed)`).
+
+**Amortization curve — cost/removal vs kits carried N (SL-16 class):**
+
+| N | cost/removal p50 [CU] | ratio to N=1 | removals p50 |
+|---:|---:|---:|---:|
+| 1 | 157.07 | 1.000 | 1 |
+| 2 | 82.22 | 0.523 | 2 |
+| 3 | 57.27 | 0.365 | 3 |
+| **4** | **44.80** | **0.285** | 4 |
+| 5 | 46.14 | 0.294 | 4 |
+| 8 | 50.15 | 0.319 | 4 |
+
+Batch amortization drives cost/removal down to **28.5 % of the single-target
+(N = 1) baseline** — a **3.5× per-removal saving** — bottoming at N = 4 where the
+**Δv budget (not the kit count)** caps removals at 4; carrying more kits then
+adds cost without removals and the curve turns back up. That shape *is* the
+quantitative installer/batch argument (SL-8 class is within ~0.3 %).
+
+**FoM = Σ mᵢ·w(hᵢ)/C_campaign at N = 4 (p50, kg/CU):**
+
+| catalog | spatial-density | criticality |
+|---|---:|---:|
+| SL-16 (~9 t, 840 km) | 156.70 (w = 0.78) | 200.90 (w = 1.00) |
+| SL-8 (~1.4 t, 750 km) | 31.35 (w = 1.00) | 21.32 (w = 0.68) |
+
+The ~9 t class outranks the ~1.4 t class under **both** weightings (FoM is
+mass-dominated), but the **band weight flips** — spatial density values the
+750 km band more, the criticality index values the 840 km band more — a genuine
+metric-choice disagreement tracked as **open trade T5**. **Tornado** (SL-16,
+±30 %, ranked by cost/removal swing): `c_dev_cu` (15.0 CU) ≫ `c_bus_cu` (4.5) >
+`c_launch_cu_per_kg` (3.7) > `c_kit_cu` (2.4) > `c_ops_cu_per_day` (1.2). All
+values are relative CU; **no absolute-dollar figure is claimed**.
 <!-- WP6-NUMBERS-END -->
 
 ## Disclaimer / 免責
