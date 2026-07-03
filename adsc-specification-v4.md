@@ -1,7 +1,12 @@
 # ADSC v4 Specification — Open Reference Evidence Package for Minimum-Cost Debris Remediation
 
-Status: ACTIVE, revision v4.1 (supersedes adsc-specification-v3.md)
-Date: 2026-07-02
+Status: ACTIVE, revision v4.2 (supersedes v4.1 / adsc-specification-v3.md)
+Date: 2026-07-03
+v4.2 changes: R9 generation/reporting-tooling exception (Python 3 stdlib only,
+no pip); R6 addendum forbidding wall-clock timestamps/run times in generated
+artifacts; §5 remaining order made explicit (WP6 → T6 flux_sweep → WP7a → WP8 →
+WP7) with WP7a (Visualization Pack) and WP8 (Compliance Matrix Generator) scope
+one-liners, and WP9 (processor-in-the-loop / flight-software) reserved.
 v4.1 changes: Kessler-precursor framing (§1, §4); cascade source-term argument
 added to WP7.2; contact-energy acceptance line added to WP3; new T6
 (small-debris exclusion with committed flux calculation); §7 updated to match.
@@ -163,9 +168,13 @@ removed mass in a congested band is a proxy for future fragments prevented
 
 ## 5. Work packages
 
-Order: **F1+F2 → WP2 → WP3 → WP4 → WP5 → WP6 → WP7.** WP6 may start any time
-after WP3. WP7 is last. One WP per branch/PR (`wp2-sync`, ...), CI green
-before merge. F1+F2 may share one small PR (`wp1-followups`).
+Order: **F1+F2 → WP2 → WP3 → WP4 → WP5 → WP6 → T6 `flux_sweep` → WP7a → WP8 →
+WP7.** WP6 may start any time after WP3; the remaining order is the T6
+`flux_sweep` deliverable (§8), then WP7a (Visualization Pack), then WP8
+(Compliance Matrix Generator), then WP7 (Evidence Pack) as the final assembly.
+WP7 is last. **WP9 (processor-in-the-loop / flight-software track) is reserved
+and not yet started.** One WP per branch/PR (`wp2-sync`, ...), CI green before
+merge. F1+F2 may share one small PR (`wp1-followups`).
 
 ### F1 — Capped-abort honesty (small, do first)
 `compute_safe_abort` caps |Δv| at `Config::abort_dv`; when the cap binds, the
@@ -242,6 +251,21 @@ C_campaign = C_dev + C_bus(m_dry) + N·C_kit + C_launch(m_wet, band) + C_ops(T)
   (§4).
 - All parameters in a config struct, placeholders marked (R10).
 
+### WP7a — Visualization Pack (NEW)
+Scope (one line): a committed generator turns the stable WP5/WP6 CSVs (schema
+1.0) into static figures — outcome proportions, Wilson intervals, Δv / removals
+/ cost / FoM percentiles, the amortization curve and tornado — with **no** live
+dashboard and **no** third-party dependency (R9 Python-3-stdlib exception).
+Consumes the committed schemas only; every figure regenerated, never hand-edited
+(R12). No timestamps in output (R6).
+
+### WP8 — Compliance Matrix Generator (NEW)
+Scope (one line): a committed generator maps the WP5 passive compliance-metadata
+columns (research-only, class-level, no-live-TLE, consent-assumption,
+policy-blocked) into a human-readable compliance matrix. It **records the
+research profile only and makes no legal or regulatory determination** (D9/D11,
+R13). R9 Python-3-stdlib exception applies; no timestamps in output (R6).
+
 ### WP7 — Evidence pack (NEW, the actual product)
 A generated English report under `evidence/`, produced by a committed target
 (Markdown; every figure/table regenerated, never hand-edited). Contents:
@@ -272,6 +296,13 @@ A generated English report under `evidence/`, produced by a committed target
 **Acceptance:** a fresh clone regenerates the entire pack with one documented
 command sequence; CI builds the pack or verifies its generator runs.
 
+### WP9 — Processor-in-the-loop / flight-software track (RESERVED, not started)
+Reserved placeholder only: real-time processor-in-the-loop execution plus the
+WP7.7 flight-software migration annex path (HAL, allocation-free control,
+fixed-rate scheduler + WCET, SAFE/HOLD/APPROACH/SYNC/ABORT FDIR) toward element
+TRL 5. No work is scheduled here yet; the entry exists so the roadmap end state
+is visible.
+
 ---
 
 ## 6. Hard rules
@@ -286,13 +317,19 @@ R1–R10 carry over from v3 verbatim in spirit:
   `assert`). Already migrated; keep it that way.
 - **R5** TMR stays non-atomic; threading assumptions documented.
 - **R6** Every quoted number regenerable by a committed target, fixed seeds
-  where stochastic.
+  where stochastic. Generated artifacts must **not** embed wall-clock
+  timestamps or run times — they break byte-for-byte / SHA reproducibility
+  ("CI regeneration == committed"); report timing to stdout instead, and if a
+  date is genuinely required inject it as an argument.
 - **R7** One WP per PR, branch `wpN-<name>` / `wp1-followups`, CI green.
 - **R8** SI units; frames documented (ECI, LVLH x radial / y along-track /
   z cross-track, body); Eigen quaternion convention stated once (Hamilton,
   storage x,y,z,w — use named accessors).
 - **R9** Dependencies: Eigen + standard library only; anything else needs an
-  approval note before use.
+  approval note before use. **Exception — generation/reporting tooling only:**
+  visualization, compliance, and evidence-assembly tooling (WP7a/WP8/WP7) may
+  use the **Python 3 standard library only** — no `pip` / third-party
+  dependencies. Simulation and GNC code stays Eigen + C++ stdlib.
 - **R10** Placeholders marked `PLACEHOLDER`, centralized in config structs,
   never bare literals in logic.
 
