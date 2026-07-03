@@ -15,9 +15,10 @@ element-scoped; system-level TRL is undefined and not claimed.
 
 ADSC argues one thing quantitatively: **a small installer servicer that
 attaches passive deorbit kits to massive derelict upper stages, several per
-mission in one plane, is the highest-leverage, lowest-cost intervention
-against the debris-cascade source term - and the argument survives honest
-negative results.** The two headline artifacts:
+mission in one plane, is a high-leverage, low-cost intervention against the
+debris-cascade source term - the cheapest per removal of the architectures
+actually compared here (installer vs tug, batch vs single-target) - and the
+argument survives honest negative results.** The two headline artifacts:
 
 **Batch amortization (WP6, relative cost units):** carrying N kits drives
 cost/removal down to **0.285 x the single-target baseline at N=4**
@@ -37,17 +38,22 @@ kg/CU at N=4, under two congestion weightings - both PLACEHOLDER tables):**
 
 The heavy class dominates under BOTH weightings (FoM is mass-dominated),
 while the weightings disagree about band priority - an honest metric-choice
-disagreement kept open as trade T5 (section 5). Campaign robustness under
+disagreement kept open as trade T5 (section 5). Conditionality, stated up
+front: the SL-16 FoM assumes a kit that closes for that class, and the
+package's own trade shows sail-only does NOT close there (section 4, open
+trade T1); the SL-8 class is where the modeled kit closes today. Campaign
+robustness under
 dispersions (N=500 runs/catalog, fixed seed 0x5AD5C0DECAFE2026): success (productive end)
 0.556 [0.512, 0.599] (Wilson 95%) for the SL-16 class; keep-out violation rate 0.014 [0.007, 0.029] (Wilson 95%).
 
 ## 2. Architecture and the installer argument
 
 **Why installer, not tug (locked decision D1).** Deorbit Delta-v scales with
-the mass it must decelerate. A tug that grapples and tows a SL-16-class stage
-must move roughly **304 x its own contact mass** (9000 kg target vs 29.6 kg
-servicer-at-contact, from the committed catalog and mission data); the
-installer instead transfers a 2.4 kg passive kit and departs, so the
+the mass it must decelerate. A tug must decelerate the full 9000 kg SL-16-class
+stage - **304 x the entire ADSC servicer-at-contact mass** (29.6 kg, from the
+committed catalog and mission data), and a realistic tug bus would be far
+heavier still; the installer instead transfers a 2.4 kg passive kit and
+departs, so the
 propellant cost of the deorbit itself is carried by drag (sail) or
 electrodynamic drag (tether), not by the servicer. One mission services
 several targets in one plane (batch amortization, section 5); the capture
@@ -58,9 +64,11 @@ manipulator.
 **Cascade source-term framing (Kessler-precursor removal).** The collisional
 cascade's fuel is the population of massive intact derelicts in congested
 bands; fragments are the symptom. One intact-intact collision produces
-thousands of trackable fragments, so removing (or equipping for removal)
-the objects that would become the next fragment clouds attacks the source
-term. Anchors in the open literature:
+thousands of trackable fragments [CITATION NEEDED - PLACEHOLDER: cataloged
+fragment counts of an intact-intact event, e.g. the 2009 Iridium 33 /
+Cosmos 2251 collision], so removing (or equipping for removal) the objects
+that would become the next fragment clouds attacks the source term.
+Anchors in the open literature:
 
 - Kessler, D. J., Cour-Palais, B. G., "Collision Frequency of Artificial
   Satellites: The Creation of a Debris Belt", Journal of Geophysical
@@ -71,8 +79,9 @@ term. Anchors in the open literature:
 - Liou, J.-C., Johnson, N. L., Hill, N. M., "Controlling the growth of
   future LEO debris populations with active debris removal", Acta
   Astronautica 66(5-6), 2010 - the classical few-removals-per-year
-  (~5 objects/yr) environment-stabilization-class result that sizes the
-  campaign cadence ADSC targets.
+  environment-stabilization-class result (~5 objects/yr, jointly with
+  ~90% post-mission-disposal compliance - removal alone does not carry
+  the result) that sizes the campaign cadence ADSC targets.
 - External validation of the reference target class: the environmental-
   index peak near ~800-900 km / 70-80 deg inclination reported by the ESA
   Space Debris Office's Annual Space Environment Report matches catalog_A
@@ -114,12 +123,14 @@ WP5 campaign CSVs.
 
 ![WP5 keep-out rate](../generated/viz/wp5_keepout_rate.svg)
 
-- **No-fragmentation-at-contact budget (D4/WP3):** clamping at the gated
-  closing speed (0.15 m/s) with the 29.6 kg servicer-plus-kit carries
-  **0.333 J** of kinetic energy - a contact-energy budget consistent with a
-  geometry-keyed clamp on a decades-degraded surface without shedding MLI
-  or paint (grabbing hard enough to shed flakes would manufacture the very
-  debris the mission removes).
+- **Contact-energy budget (D4/WP3):** clamping at the gated closing speed
+  (0.15 m/s) with the 29.6 kg servicer-plus-kit carries **0.333 J** of kinetic
+  energy. The budget exists to show the geometry-keyed clamp concept does
+  not depend on aggressive grappling of a decades-degraded surface -
+  shedding MLI or paint would manufacture the very debris the mission
+  removes. Whether this energy is below the actual MLI/paint damage
+  threshold is NOT claimed here [CITATION NEEDED - PLACEHOLDER:
+  low-speed-contact damage-threshold source for aged MLI/paint].
 - **Estimate-driven, consistency-checked GNC (WP4):** the sync loop runs on
   estimates only (truth is structurally isolated to sensor models and error
   recording); under sensor noise the truth-evaluated criteria hold at
@@ -133,12 +144,13 @@ WP5 campaign CSVs.
 ![WP3 decay trade](../generated/viz/wp3_decay_trade.svg)
 
 - **SL-16 class (~9 t, ~840 km): sail-only does NOT close.** Meeting the
-  IADC 25-year guideline needs **135..2155 m^2** of sail (solar max..min,
-  from the committed trade CSV) - impractical at the upper end. Under a US
-  FCC flight scenario the operative standard since 2022 is **5-year**
-  post-mission disposal (FCC 22-74), which makes this negative strictly
-  harder. This failure is a deliverable: it brackets open trade T1 and
-  motivates the electrodynamic-tether branch.
+  IADC 25-year guideline (IADC-02-01, Space Debris Mitigation Guidelines)
+  needs **135..2155 m^2** of sail (solar max..min, from the committed trade
+  CSV) - impractical at the upper end. Under a US FCC flight scenario the
+  standard adopted in 2022 (FCC 22-74) is **5-year** post-mission disposal
+  for LEO space stations, which makes this negative strictly harder. This
+  failure is a deliverable: it brackets open trade T1 and motivates the
+  electrodynamic-tether branch.
 - **SL-8 class (~1.4 t, ~750 km): sail-only closes** at **7..115 m^2** -
   tens of square meters, a practical kit.
 - The EDT branch is carried as a parametric study axis only (deorbit time
@@ -168,9 +180,11 @@ with Wilson 95% intervals - never point estimates alone:
 
 ![WP5 outcomes](../generated/viz/wp5_outcomes.svg)
 
-Under the current flat PLACEHOLDER leg costs the nonproductive-termination
-and gate-abort rates coincide numerically (every aborting mission also
-exhausts its Delta-v); they are distinct concepts and separate columns.
+Under the current flat PLACEHOLDER leg costs the nonproductive-
+termination and gate-abort RATES coincide numerically at this seed
+(aborting missions almost always also exhaust the Delta-v budget; a
+few end in a keep-out violation instead - see the runs CSV); they are
+distinct concepts and separate columns.
 The amortization curve (section 1) bottoms at N=4 because the **Delta-v
 budget, not the kit count, caps removals** - the honest capacity story a
 mission designer needs. Cost is RELATIVE (CU) throughout: **no absolute
@@ -231,7 +245,8 @@ conformity. For the committed research profile:
 - Summary: **PASS=6, INFO=2, WARN=1, BLOCK=0, UNKNOWN=0,
   NOT_APPLICABLE=9** - the research-only, class-level profile is not
   blocked merely for being an ADR concept; the one WARN is the honest
-  export-control-review-not-started flag.
+  export-control-review-not-started flag (ADSC-EXP-01, identified from
+  the committed findings).
 - The gate works in both directions: an ADR profile WITHOUT an affirmative
   owner-consent declaration is **BLOCKed** (OST Art. VIII precheck + ADSC
   policy, test-enforced), as is any live-ephemeris/target-specific-product
@@ -290,9 +305,10 @@ standard library only.
 
 Everything the package does NOT validate, in one honest list: every line
 in `include/`, `src/` and `tools/` carrying the uppercase PLACEHOLDER mark
-(R10), collected automatically by the generator of this document. If it is
-listed here, treat the value as unvalidated until a cited source replaces
-it.
+(R10), collected automatically by the generator of this document
+(`tools/evidence/` itself is excluded from the scan - it names the marker
+only in order to collect and audit it). If a value is listed here, treat
+it as unvalidated until a cited source replaces it.
 
 Total marks: **95**
 

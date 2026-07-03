@@ -160,10 +160,18 @@ def build(d):
     seed_hex = "0x%X" % int(d.wp5[0]["master_seed"])
     dv_budget = d.wp5_runs_row["dv_budget_m_per_s"]
     kits0 = d.wp5_runs_row["kits_initial"]
-    # target/servicer mass ratio from committed data (catalog mass from wp3 csv)
-    massA = float([r for r in d.wp3 if r["catalog"] == A][0]["mass_kg"])
+    plan_targets = f0(ref["campaign_targets_per_mission"])
+    # catalog class parameters from the committed decay CSV (never hand-written)
+    rowA = [r for r in d.wp3 if r["catalog"] == A][0]
+    rowB = [r for r in d.wp3 if r["catalog"] == B][0]
+    massA, altA = float(rowA["mass_kg"]), float(rowA["altitude_km"])
+    massB, altB = float(rowB["mass_kg"]), float(rowB["altitude_km"])
+    inclA = f0(ref["wp3_target_inclination_deg"])
+    gate_ms = f2(ref["wp3_contact_speed_m_s"])
     ratio_tow = f0(massA / ref["wp3_contact_mass_kg"])
     cs = d.comp["summary"]
+    # WARN findings identified from the committed findings JSON, not hand-said
+    warn_rules = [f["rule_id"] for f in d.comp["findings"] if f["status"] == "WARN"]
 
     w("# ADSC Evidence Pack")
     w("")
@@ -182,9 +190,10 @@ def build(d):
     w("")
     w("ADSC argues one thing quantitatively: **a small installer servicer that")
     w("attaches passive deorbit kits to massive derelict upper stages, several per")
-    w("mission in one plane, is the highest-leverage, lowest-cost intervention")
-    w("against the debris-cascade source term - and the argument survives honest")
-    w("negative results.** The two headline artifacts:")
+    w("mission in one plane, is a high-leverage, low-cost intervention against the")
+    w("debris-cascade source term - the cheapest per removal of the architectures")
+    w("actually compared here (installer vs tug, batch vs single-target) - and the")
+    w("argument survives honest negative results.** The two headline artifacts:")
     w("")
     w("**Batch amortization (WP6, relative cost units):** carrying N kits drives")
     w("cost/removal down to **%s x the single-target baseline at N=%d**"
@@ -208,7 +217,13 @@ def build(d):
     w("")
     w("The heavy class dominates under BOTH weightings (FoM is mass-dominated),")
     w("while the weightings disagree about band priority - an honest metric-choice")
-    w("disagreement kept open as trade T5 (section 5). Campaign robustness under")
+    w("disagreement kept open as trade T5 (section 5). Conditionality, stated up")
+    w("front: the %s FoM assumes a kit that closes for that class, and the"
+      % Ashort)
+    w("package's own trade shows sail-only does NOT close there (section 4, open")
+    w("trade T1); the %s class is where the modeled kit closes today. Campaign"
+      % Bshort)
+    w("robustness under")
     w("dispersions (N=%s runs/catalog, fixed seed %s): success (productive end)"
       % (n_runs, seed_hex))
     w("%s for the %s class; keep-out violation rate %s."
@@ -217,13 +232,14 @@ def build(d):
     w("## 2. Architecture and the installer argument")
     w("")
     w("**Why installer, not tug (locked decision D1).** Deorbit Delta-v scales with")
-    w("the mass it must decelerate. A tug that grapples and tows a %s-class stage"
-      % Ashort)
-    w("must move roughly **%s x its own contact mass** (%s kg target vs %s kg"
-      % (ratio_tow, f0(massA), f1(ref["wp3_contact_mass_kg"])))
-    w("servicer-at-contact, from the committed catalog and mission data); the")
-    w("installer instead transfers a %s kg passive kit and departs, so the"
+    w("the mass it must decelerate. A tug must decelerate the full %s kg %s-class"
+      % (f0(massA), Ashort))
+    w("stage - **%s x the entire ADSC servicer-at-contact mass** (%s kg, from the"
+      % (ratio_tow, f1(ref["wp3_contact_mass_kg"])))
+    w("committed catalog and mission data), and a realistic tug bus would be far")
+    w("heavier still; the installer instead transfers a %s kg passive kit and"
       % f1(ref["wp3_kit_mass_kg"]))
+    w("departs, so the")
     w("propellant cost of the deorbit itself is carried by drag (sail) or")
     w("electrodynamic drag (tether), not by the servicer. One mission services")
     w("several targets in one plane (batch amortization, section 5); the capture")
@@ -234,9 +250,11 @@ def build(d):
     w("**Cascade source-term framing (Kessler-precursor removal).** The collisional")
     w("cascade's fuel is the population of massive intact derelicts in congested")
     w("bands; fragments are the symptom. One intact-intact collision produces")
-    w("thousands of trackable fragments, so removing (or equipping for removal)")
-    w("the objects that would become the next fragment clouds attacks the source")
-    w("term. Anchors in the open literature:")
+    w("thousands of trackable fragments [CITATION NEEDED - PLACEHOLDER: cataloged")
+    w("fragment counts of an intact-intact event, e.g. the 2009 Iridium 33 /")
+    w("Cosmos 2251 collision], so removing (or equipping for removal) the objects")
+    w("that would become the next fragment clouds attacks the source term.")
+    w("Anchors in the open literature:")
     w("")
     w("- Kessler, D. J., Cour-Palais, B. G., \"Collision Frequency of Artificial")
     w("  Satellites: The Creation of a Debris Belt\", Journal of Geophysical")
@@ -247,12 +265,14 @@ def build(d):
     w("- Liou, J.-C., Johnson, N. L., Hill, N. M., \"Controlling the growth of")
     w("  future LEO debris populations with active debris removal\", Acta")
     w("  Astronautica 66(5-6), 2010 - the classical few-removals-per-year")
-    w("  (~5 objects/yr) environment-stabilization-class result that sizes the")
-    w("  campaign cadence ADSC targets.")
+    w("  environment-stabilization-class result (~5 objects/yr, jointly with")
+    w("  ~90% post-mission-disposal compliance - removal alone does not carry")
+    w("  the result) that sizes the campaign cadence ADSC targets.")
     w("- External validation of the reference target class: the environmental-")
     w("  index peak near ~800-900 km / 70-80 deg inclination reported by the ESA")
     w("  Space Debris Office's Annual Space Environment Report matches catalog_A")
-    w("  (~840 km / ~71 deg) [CITATION NEEDED - PLACEHOLDER: exact report issue /")
+    w("  (~%s km / ~%s deg) [CITATION NEEDED - PLACEHOLDER: exact report issue /"
+      % (f0(altA), inclA))
     w("  document ID to be confirmed at fill time].")
     w("- Population figures (>= 1 cm ~1.2 M objects) are MASTER-8-class model")
     w("  values [CITATION NEEDED - PLACEHOLDER: MASTER-8 release documentation")
@@ -294,19 +314,21 @@ def build(d):
     w("  dispersed missions (%s class; the %s class matches at the same seed"
       % (Ashort, Bshort))
     w("  discipline); abort-path exposure (runs with >= 1 closing-speed gate")
-    w("  abort) %s - the 0.15 m/s gate is genuinely exercised, not decorative."
-      % rate_str(gaA))
+    w("  abort) %s - the %s m/s gate is genuinely exercised, not decorative."
+      % (rate_str(gaA), gate_ms))
     w("")
     w("![WP5 keep-out rate](../generated/viz/wp5_keepout_rate.svg)")
     w("")
-    w("- **No-fragmentation-at-contact budget (D4/WP3):** clamping at the gated")
-    w("  closing speed (%s m/s) with the %s kg servicer-plus-kit carries"
-      % (f2(ref["wp3_contact_speed_m_s"]), f1(ref["wp3_contact_mass_kg"])))
-    w("  **%s J** of kinetic energy - a contact-energy budget consistent with a"
-      % f3(ref["wp3_contact_energy_j"]))
-    w("  geometry-keyed clamp on a decades-degraded surface without shedding MLI")
-    w("  or paint (grabbing hard enough to shed flakes would manufacture the very")
-    w("  debris the mission removes).")
+    w("- **Contact-energy budget (D4/WP3):** clamping at the gated closing speed")
+    w("  (%s m/s) with the %s kg servicer-plus-kit carries **%s J** of kinetic"
+      % (f2(ref["wp3_contact_speed_m_s"]), f1(ref["wp3_contact_mass_kg"]),
+         f3(ref["wp3_contact_energy_j"])))
+    w("  energy. The budget exists to show the geometry-keyed clamp concept does")
+    w("  not depend on aggressive grappling of a decades-degraded surface -")
+    w("  shedding MLI or paint would manufacture the very debris the mission")
+    w("  removes. Whether this energy is below the actual MLI/paint damage")
+    w("  threshold is NOT claimed here [CITATION NEEDED - PLACEHOLDER:")
+    w("  low-speed-contact damage-threshold source for aged MLI/paint].")
     w("- **Estimate-driven, consistency-checked GNC (WP4):** the sync loop runs on")
     w("  estimates only (truth is structurally isolated to sensor models and error")
     w("  recording); under sensor noise the truth-evaluated criteria hold at")
@@ -322,17 +344,18 @@ def build(d):
     w("")
     w("![WP3 decay trade](../generated/viz/wp3_decay_trade.svg)")
     w("")
-    w("- **%s class (~%s t, ~840 km): sail-only does NOT close.** Meeting the"
-      % (Ashort, f0(massA / 1000.0)))
-    w("  IADC 25-year guideline needs **%s..%s m^2** of sail (solar max..min,"
+    w("- **%s class (~%s t, ~%s km): sail-only does NOT close.** Meeting the"
+      % (Ashort, f0(massA / 1000.0), f0(altA)))
+    w("  IADC 25-year guideline (IADC-02-01, Space Debris Mitigation Guidelines)")
+    w("  needs **%s..%s m^2** of sail (solar max..min, from the committed trade"
       % (f0(a25A[0]), f0(a25A[1])))
-    w("  from the committed trade CSV) - impractical at the upper end. Under a US")
-    w("  FCC flight scenario the operative standard since 2022 is **5-year**")
-    w("  post-mission disposal (FCC 22-74), which makes this negative strictly")
-    w("  harder. This failure is a deliverable: it brackets open trade T1 and")
-    w("  motivates the electrodynamic-tether branch.")
-    w("- **%s class (~1.4 t, ~750 km): sail-only closes** at **%s..%s m^2** -"
-      % (Bshort, f0(a25B[0]), f0(a25B[1])))
+    w("  CSV) - impractical at the upper end. Under a US FCC flight scenario the")
+    w("  standard adopted in 2022 (FCC 22-74) is **5-year** post-mission disposal")
+    w("  for LEO space stations, which makes this negative strictly harder. This")
+    w("  failure is a deliverable: it brackets open trade T1 and motivates the")
+    w("  electrodynamic-tether branch.")
+    w("- **%s class (~%s t, ~%s km): sail-only closes** at **%s..%s m^2** -"
+      % (Bshort, f1(massB / 1000.0), f0(altB), f0(a25B[0]), f0(a25B[1])))
     w("  tens of square meters, a practical kit.")
     w("- The EDT branch is carried as a parametric study axis only (deorbit time")
     w("  vs an along-track decay-rate knob), never a tether performance claim.")
@@ -347,7 +370,7 @@ def build(d):
     w("WP5 Monte Carlo: %s dispersed missions per catalog at fixed master seed"
       % n_runs)
     w("%s, %s targets-per-mission plan, %s kits, %s m/s Delta-v budget; all"
-      % (seed_hex, "6", kits0, f0(dv_budget)))
+      % (seed_hex, plan_targets, kits0, f0(dv_budget)))
     w("dispersion magnitudes are PLACEHOLDER and centralized. Rates are quoted")
     w("with Wilson 95% intervals - never point estimates alone:")
     w("")
@@ -365,9 +388,17 @@ def build(d):
     w("")
     w("![WP5 outcomes](../generated/viz/wp5_outcomes.svg)")
     w("")
-    w("Under the current flat PLACEHOLDER leg costs the nonproductive-termination")
-    w("and gate-abort rates coincide numerically (every aborting mission also")
-    w("exhausts its Delta-v); they are distinct concepts and separate columns.")
+    np_rate = d.wp5m(A, "nonproductive_termination_rate")
+    if f3(np_rate["estimate"]) == f3(gaA["estimate"]):
+        w("Under the current flat PLACEHOLDER leg costs the nonproductive-")
+        w("termination and gate-abort RATES coincide numerically at this seed")
+        w("(aborting missions almost always also exhaust the Delta-v budget; a")
+        w("few end in a keep-out violation instead - see the runs CSV); they are")
+        w("distinct concepts and separate columns.")
+    else:
+        w("The nonproductive-termination rate (%s) and gate-abort exposure (%s)"
+          % (f3(np_rate["estimate"]), f3(gaA["estimate"])))
+        w("are distinct concepts and separate columns in the campaign CSV.")
     w("The amortization curve (section 1) bottoms at N=%d because the **Delta-v"
       % nmin)
     w("budget, not the kit count, caps removals** - the honest capacity story a")
@@ -435,8 +466,14 @@ def build(d):
       % (cs["PASS"], cs["INFO"], cs["WARN"], cs["BLOCK"], cs["UNKNOWN"]))
     w("  NOT_APPLICABLE=%d** - the research-only, class-level profile is not"
       % cs["NOT_APPLICABLE"])
-    w("  blocked merely for being an ADR concept; the one WARN is the honest")
-    w("  export-control-review-not-started flag.")
+    if warn_rules == ["ADSC-EXP-01"]:
+        w("  blocked merely for being an ADR concept; the one WARN is the honest")
+        w("  export-control-review-not-started flag (ADSC-EXP-01, identified from")
+        w("  the committed findings).")
+    else:
+        w("  blocked merely for being an ADR concept; WARN findings: %s (from the"
+          % ", ".join(warn_rules))
+        w("  committed findings).")
     w("- The gate works in both directions: an ADR profile WITHOUT an affirmative")
     w("  owner-consent declaration is **BLOCKed** (OST Art. VIII precheck + ADSC")
     w("  policy, test-enforced), as is any live-ephemeris/target-specific-product")
@@ -495,9 +532,10 @@ def build(d):
     w("")
     w("Everything the package does NOT validate, in one honest list: every line")
     w("in `include/`, `src/` and `tools/` carrying the uppercase PLACEHOLDER mark")
-    w("(R10), collected automatically by the generator of this document. If it is")
-    w("listed here, treat the value as unvalidated until a cited source replaces")
-    w("it.")
+    w("(R10), collected automatically by the generator of this document")
+    w("(`tools/evidence/` itself is excluded from the scan - it names the marker")
+    w("only in order to collect and audit it). If a value is listed here, treat")
+    w("it as unvalidated until a cited source replaces it.")
     w("")
     hits = collect_placeholders(d.root)
     w("Total marks: **%d**" % len(hits))

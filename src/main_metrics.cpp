@@ -3,9 +3,11 @@
 // suite) and writes them as machine-readable generated/reference_metrics.csv,
 // so the evidence pack can QUOTE them from a committed artifact instead of
 // hand-writing any number (R6/D10). Reuses the existing mission/relmotion/
-// estimator code paths verbatim -- no physics change, no new behavior; the
-// scenario constants are identical to src/main.cpp and the pinned tests.
-// Deterministic; no wall-clock timestamp (spec v4.2 R6).
+// estimator code paths verbatim -- no physics change, no new behavior. The
+// scenario constants are identical to src/main.cpp and the pinned tests,
+// EXCEPT the F1 capped-abort case, which is a new demonstration scenario
+// defined here (large along-track drift so the impulse cap binds); its numbers
+// flow only through this CSV. Deterministic; no wall-clock timestamp (v4.2 R6).
 //
 //   sim_metrics [out_dir]     (default out_dir = "generated")
 #include <algorithm>
@@ -16,6 +18,7 @@
 #include <system_error>
 #include <vector>
 
+#include "adsc/campaign.hpp"  // CampaignConfig (plan constants for the pack)
 #include "adsc/decay.hpp"
 #include "adsc/mission.hpp"
 
@@ -143,6 +146,8 @@ int main(int argc, char** argv) {
                         "kg", "servicer bus dry + kit at contact"});
         rows.push_back({"wp3_kit_mass_kg", cfg.kit_mass_kg, "kg",
                         "installed deorbit-kit mass (Config)"});
+        rows.push_back({"wp3_target_inclination_deg", A.inclination_deg, "deg",
+                        "catalog_A class inclination (D2)"});
         rows.push_back({"wp3_approach_closest_m", r.approach_closest_m, "m",
                         "corridor per-hold minimum range"});
         rows.push_back({"wp3_depart_coast_min_m", r.depart_coast_min_m, "m",
@@ -169,6 +174,14 @@ int main(int argc, char** argv) {
                         "translation NEES mean (expect ~6, coarse)"});
         rows.push_back({"wp4_seed", static_cast<double>(cfg.est_seed), "seed",
                         "fixed RNG seed (R6)"});
+    }
+
+    // --- WP5 campaign plan constants (so the pack never hand-writes them).
+    {
+        const CampaignConfig ccfg;
+        rows.push_back({"campaign_targets_per_mission",
+                        static_cast<double>(ccfg.targets_per_mission), "count",
+                        "planned targets per mission (CampaignConfig)"});
     }
 
     std::FILE* f = std::fopen((out_dir + "/reference_metrics.csv").c_str(), "w");
