@@ -212,6 +212,11 @@ verify rather than a claim in prose.
   removed mass (the ~9 t class outranks the ~1.4 t class under both weightings);
   the metric-choice disagreement that WP6 surfaces is the **band-priority flip**
   between the two weightings (open trade T5). WP6 emits no charts.
+- **Small-debris (1–10 cm) removal is out of scope (T6)** — a documented
+  exclusion, not neglect: the `flux_sweep` target regenerates the physics (≈50
+  MJ/kg / ≈12× TNT at 10 km/s; a 1 cm Al fragment ≈ 71 kJ ≈ 17 g TNT; km²-scale
+  collector area — ≈32 km² average, ≈3.8 km² peak — for 1 %/yr removal) into
+  `generated/t6_flux_sweep.md`.
 - Numbers for mass, inertia, power, PCM capacity and the target orbit/keep-out
   are plausible placeholders, not derived from a specific bus or target design.
 
