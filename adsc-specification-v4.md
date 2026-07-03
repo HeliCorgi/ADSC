@@ -214,6 +214,11 @@ passive-safety claims are model-scoped. One honest paragraph, no hedging fog.
   × solar activity → decay years) for each catalog preset. The expected honest
   outcome — **sail-only at 800–850 km may exceed the 25-year guideline** — is
   a deliverable that motivates the EDT branch (T1), not a bug.
+  (Note, added with WP8: the 25-year figure is the IADC guideline; under US FCC
+  jurisdiction the operative rule since 2022 is **5-year** post-mission disposal
+  (FCC 22-74), which makes the T1 negative strictly harder. Both are carried as
+  separate rules in the WP8 compliance rulepacks; the trade tables keep the IADC
+  25-year reference line and no pinned number changes.)
 - **Acceptance (contact honesty):** the attach event reports the contact
   kinetic energy at the gated closing speed (½·m·v² at `max_v_rel`; ≈0.33 J
   for the reference 29.6 kg at 0.15 m/s), so the evidence pack can cite a

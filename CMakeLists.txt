@@ -118,6 +118,11 @@ if(PYTHON3_EXECUTABLE)
     add_test(NAME viz COMMAND ${PYTHON3_EXECUTABLE}
              ${CMAKE_CURRENT_SOURCE_DIR}/tools/viz/test_viz.py
              ${CMAKE_CURRENT_SOURCE_DIR})
+    # WP8 Compliance Matrix Generator / Regulatory Precheck test (Python 3
+    # stdlib only, spec v4.2 R9). Not legal advice; research-grade precheck.
+    add_test(NAME compliance COMMAND ${PYTHON3_EXECUTABLE}
+             ${CMAKE_CURRENT_SOURCE_DIR}/tools/compliance/test_compliance.py
+             ${CMAKE_CURRENT_SOURCE_DIR})
 else()
-    message(WARNING "python3 not found; WP7a visualization test (viz) not registered")
+    message(WARNING "python3 not found; WP7a viz and WP8 compliance tests not registered")
 endif()

@@ -1,0 +1,26 @@
+{
+  "rulepack": "us_faa",
+  "rulepack_version": "1.0",
+  "description": "US FAA launch/reentry authorization precheck (US commercial flight scenarios). Research-grade snapshot; not legal advice.",
+  "rules": [
+    {
+      "rule_id": "FAA-LRL-01",
+      "title": "FAA launch and reentry authorization evidence (US commercial scenario)",
+      "jurisdiction": "US",
+      "authority": "Federal Aviation Administration, Office of Commercial Space Transportation",
+      "source_reference": "51 U.S.C. chapter 509 (Commercial Space Launch Activities); 14 CFR Part 450 (Launch and Reentry License Requirements)",
+      "source_date_or_version": "14 CFR Part 450 (streamlined rule, 2020)",
+      "binding_type": "binding",
+      "severity": "blocking",
+      "applies_when": { "all": [
+        { "field": "mission_type", "op": "eq", "value": "flight" },
+        { "field": "launching_state", "op": "eq", "value": "US" }
+      ] },
+      "pass_when": { "field": "evidence_documents", "op": "contains", "value": "faa_part450_application_evidence" },
+      "finding_if_fail": "No FAA Part 450 launch/reentry authorization application evidence is declared for a US commercial launch scenario.",
+      "required_evidence": ["faa_part450_application_evidence"],
+      "limitations": "Precheck of declared evidence only. Whether the deorbit-kit-driven target reentry itself needs a Part 450 reentry authorization (vs. only the servicer launch) is an open legal question for ADR concepts - requires legal review.",
+      "notes": "Applicability is simplified to launching_state == 'US'; the statute also reaches US citizens/entities launching abroad."
+    }
+  ]
+}

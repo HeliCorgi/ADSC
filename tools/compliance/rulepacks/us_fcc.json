@@ -1,0 +1,49 @@
+{
+  "rulepack": "us_fcc",
+  "rulepack_version": "1.0",
+  "description": "US FCC orbital-debris precheck rules (FCC-jurisdiction flight scenarios). Research-grade snapshot; not legal advice.",
+  "rules": [
+    {
+      "rule_id": "FCC-ODM-5YR",
+      "title": "Post-mission disposal within 5 years for LEO space stations (FCC-jurisdiction scenario)",
+      "jurisdiction": "US",
+      "authority": "Federal Communications Commission",
+      "source_reference": "FCC, Second Report and Order, 'Mitigation of Orbital Debris in the New Space Age', FCC 22-74 (adopted 29 September 2022); 47 CFR Part 25 space-station disposal rules",
+      "source_date_or_version": "FCC 22-74 (2022)",
+      "binding_type": "binding",
+      "severity": "blocking",
+      "applies_when": { "all": [
+        { "field": "mission_type", "op": "eq", "value": "flight" },
+        { "any": [
+          { "field": "operating_state", "op": "eq", "value": "US" },
+          { "field": "launching_state", "op": "eq", "value": "US" }
+        ] }
+      ] },
+      "pass_when": { "field": "post_mission_disposal_lifetime_years", "op": "lte", "value": 5 },
+      "finding_if_fail": "Design post-mission disposal lifetime exceeds 5 years. For space stations ending their mission in or passing through LEO under FCC jurisdiction, the rule adopted in 2022 (FCC 22-74) requires disposal as soon as practicable and no more than 5 years after end of mission - the IADC 25-year figure is not the operative standard in this scenario.",
+      "required_evidence": ["orbital_debris_mitigation_plan"],
+      "limitations": "Simplified jurisdiction test (operating_state/launching_state == 'US'); the real trigger is an FCC space-station authorization, including US market access for non-US systems. Exact codified CFR subsections, transition periods and waiver practice require legal review."
+    },
+    {
+      "rule_id": "FCC-ODM-DISCLOSE",
+      "title": "Orbital debris mitigation disclosure with the FCC application",
+      "jurisdiction": "US",
+      "authority": "Federal Communications Commission",
+      "source_reference": "47 CFR 25.114(d)(14) (orbital debris mitigation disclosure for space station applications)",
+      "source_date_or_version": "as amended through FCC 22-74 (2022)",
+      "binding_type": "binding",
+      "severity": "warn",
+      "applies_when": { "all": [
+        { "field": "mission_type", "op": "eq", "value": "flight" },
+        { "any": [
+          { "field": "operating_state", "op": "eq", "value": "US" },
+          { "field": "launching_state", "op": "eq", "value": "US" }
+        ] }
+      ] },
+      "pass_when": { "field": "evidence_documents", "op": "contains", "value": "orbital_debris_mitigation_plan" },
+      "finding_if_fail": "No orbital-debris mitigation plan/disclosure is declared for an FCC-jurisdiction flight scenario (47 CFR 25.114(d)(14)).",
+      "required_evidence": ["orbital_debris_mitigation_plan"],
+      "limitations": "Precheck of declared evidence only; the disclosure's technical content (collision risk, casualty risk, maneuverability, trackability) is not evaluated here. Requires legal review."
+    }
+  ]
+}
