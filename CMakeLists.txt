@@ -129,6 +129,12 @@ if(PYTHON3_EXECUTABLE)
     add_test(NAME compliance COMMAND ${PYTHON3_EXECUTABLE}
              ${CMAKE_CURRENT_SOURCE_DIR}/tools/compliance/test_compliance.py
              ${CMAKE_CURRENT_SOURCE_DIR})
+    # WP7 evidence-pack claim audit: forbidden overclaims, required honesty
+    # sections, number-transcription cross-check vs the committed CSVs,
+    # determinism, committed == regenerated.
+    add_test(NAME evidence COMMAND ${PYTHON3_EXECUTABLE}
+             ${CMAKE_CURRENT_SOURCE_DIR}/tools/evidence/test_evidence.py
+             ${CMAKE_CURRENT_SOURCE_DIR})
 else()
     message(WARNING "python3 not found; WP7a viz and WP8 compliance tests not registered")
 endif()
