@@ -295,7 +295,7 @@ std::vector<SummaryRow> summarize(const std::vector<RunResult>& runs) {
     std::vector<SummaryRow> out;
     const long n = static_cast<long>(runs.size());
 
-    auto rate_row = [&](const char* metric, long k) {
+    auto rate_row = [&](const char* metric, long k, const char* note) {
         const Interval ci = wilson_interval(k, n, kWilsonZ95);
         SummaryRow row;
         row.metric = metric;
@@ -303,7 +303,7 @@ std::vector<SummaryRow> summarize(const std::vector<RunResult>& runs) {
         row.wilson_low = ci.low;
         row.wilson_high = ci.high;
         row.units = "fraction";
-        row.notes = "Wilson 95% CI (z=1.959963984540054)";
+        row.notes = note;
         out.push_back(row);
     };
     auto dist_row = [&](const char* metric, std::vector<double> vals,
@@ -356,9 +356,22 @@ std::vector<SummaryRow> summarize(const std::vector<RunResult>& runs) {
         if (r.sync_time_s >= 0.0) sync_times.push_back(r.sync_time_s);
     }
 
-    rate_row("success_rate", n_success);
-    rate_row("abort_rate", n_abort);
-    rate_row("keep_out_violation_rate", n_keepout);
+    // Two distinct, previously-conflated concepts (see the note in the summary):
+    //   nonproductive_termination_rate = 1 - success (dv/keep-out terminated)
+    //   gate_abort_run_rate            = runs with >=1 closing-speed gate abort
+    // Under the current flat PLACEHOLDER Delta-v cost these coincide numerically
+    // (every aborting mission also exhausts Delta-v), but they are separate
+    // metrics and will diverge if the cost model changes.
+    rate_row("success_rate", n_success,
+             "productive end (completed OR kit_exhausted); Wilson 95% CI (z=1.959963984540054)");
+    rate_row("nonproductive_termination_rate", n - n_success,
+             "1 - success_rate: runs ended by dv_exhausted OR keep_out_violation; "
+             "Wilson 95% CI (z=1.959963984540054)");
+    rate_row("gate_abort_run_rate", n_abort,
+             "runs with >=1 closing-speed gate abort = abort-path exposure "
+             "(spec 'abort rate'); Wilson 95% CI (z=1.959963984540054)");
+    rate_row("keep_out_violation_rate", n_keepout,
+             "Wilson 95% CI (z=1.959963984540054)");
 
     dist_row("dv_used_m_per_s", dv_used, "m_per_s", "per mission");
     dist_row("kits_used", kits_used, "count", "per mission");
@@ -497,19 +510,31 @@ void write_summary_md(const std::string& path, const CampaignConfig& ccfg,
         "Notes. `success` = a productive end (all targets processed OR the full "
         "kit complement installed), not a mission cut short by propellant "
         "exhaustion or a keep-out violation; a run may be both a success and "
-        "contain safe-abort events. `gate_abort` / `sync_timeout` are per-target "
-        "*event* counts (a safe abort or failed sync lets the servicer move to "
-        "the next target); `completed` / `dv_exhausted` / `kit_exhausted` / "
-        "`keep_out_violation` are per-*run* terminal outcomes. If `abort_rate` "
-        "is 0 the closing-speed dispersion may be too narrow or the 0.15 m/s "
-        "gate is not exercised; if `keep_out_violation_rate` is 0 the abort "
-        "maneuvers are clearing the keep-out sphere (expected under nominal "
-        "dispersions).\n\n"
-        "The attitude-sync leg and the flat Delta-v/kit cost model are "
-        "class-independent in the WP5 model, so the two presets differ mainly by "
-        "independent sampling (per-catalog seed salt) plus the altitude-dependent "
-        "keep-out abort screen. Class-specific physics lives in WP3 decay and "
-        "future WP6 cost.\n");
+        "contain safe-abort events.\n\n"
+        "Two distinct abort-related rates are reported: "
+        "`nonproductive_termination_rate` = 1 - success_rate (runs ended by "
+        "dv_exhausted or keep_out_violation), and `gate_abort_run_rate` = the "
+        "fraction of runs with >=1 closing-speed gate abort (the abort-path "
+        "exposure the spec calls the 'abort rate'). Under the current flat "
+        "PLACEHOLDER Delta-v cost these two coincide numerically -- every "
+        "aborting mission needs an extra target-slot to still install its kits "
+        "and so exhausts the 140 m/s budget -- but they are separate concepts "
+        "and will diverge if the cost model changes. If `gate_abort_run_rate` is "
+        "0 the closing-speed dispersion may be too narrow or the 0.15 m/s gate "
+        "is not exercised; if `keep_out_violation_rate` is 0 the abort maneuvers "
+        "are clearing the keep-out sphere (expected under nominal dispersions).\n\n"
+        "`gate_abort` / `sync_timeout` are per-target *event* counts (a safe "
+        "abort or failed sync lets the servicer move to the next target); "
+        "`completed` / `dv_exhausted` / `kit_exhausted` / `keep_out_violation` "
+        "are per-*run* terminal outcomes.\n\n"
+        "The `dv_used` and `kits_used` percentiles matching across the two "
+        "catalog presets is expected: the Delta-v/kit cost model is a flat "
+        "PLACEHOLDER, so those quantities take a small set of quantized values "
+        "independent of catalog (not a copy-paste bug). The attitude-sync leg "
+        "and that cost model are class-independent in the WP5 model, so the two "
+        "presets differ mainly by independent sampling (per-catalog seed salt) "
+        "plus the altitude-dependent keep-out abort screen. Class-specific "
+        "physics lives in WP3 decay and future WP6 cost.\n");
     std::fclose(f);
 }
 
@@ -599,7 +624,9 @@ void write_schema_md(const std::string& path) {
 "\n"
 "### Summary metric rows (per catalog)\n"
 "\n"
-"Rates (with Wilson 95%% CI): `success_rate`, `abort_rate`,\n"
+"Rates (with Wilson 95%% CI): `success_rate`, `nonproductive_termination_rate`\n"
+"(= 1 - success_rate), `gate_abort_run_rate` (fraction of runs with >=1\n"
+"closing-speed gate abort = the spec's abort-path exposure), and\n"
 "`keep_out_violation_rate`. Distributions (p05/p50/p95): `dv_used_m_per_s`,\n"
 "`kits_used`, `removals_per_mission`, `sync_arrival_time_s`, `mission_time_s`.\n"
 "Failure classification counts: `completed`, `dv_exhausted`, `kit_exhausted`,\n"

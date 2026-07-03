@@ -313,7 +313,8 @@ not one cut short by Δv exhaustion or a keep-out violation.
 | metric | SL-16 / Zenit-2 class | SL-8 / Kosmos-3M class |
 |---|---|---|
 | success rate | **0.556** [0.512, 0.599] | **0.542** [0.498, 0.585] |
-| abort rate | **0.444** [0.401, 0.488] | **0.458** [0.415, 0.502] |
+| nonproductive-termination rate (= 1 − success) | **0.444** [0.401, 0.488] | **0.458** [0.415, 0.502] |
+| gate-abort-run rate (abort-path exposure) | **0.444** [0.401, 0.488] | **0.458** [0.415, 0.502] |
 | keep-out-violation rate | **0.014** [0.007, 0.029] | **0.014** [0.007, 0.029] |
 | Δv used p05/p50/p95 [m/s] | 124 / 124 / 136 | 124 / 124 / 136 |
 | kits used p05/p50/p95 | 3 / 4 / 4 | 3 / 4 / 4 |
@@ -322,13 +323,22 @@ not one cut short by Δv exhaustion or a keep-out violation.
 | failure counts (runs) | dv_exhausted 215, kit_exhausted 278, keep_out 7, completed 0 | dv_exhausted 222, kit_exhausted 271, keep_out 7, completed 0 |
 | per-target events | gate_abort 288, sync_timeout 0 | gate_abort 288, sync_timeout 0 |
 
-The honest campaign finding: with a 140 m/s Δv budget the servicer is **Δv-limited
-about 43% of the time** (`dv_exhausted`) and installs its full kit complement the
-rest; the attitude sync never times out across the sampled tumble/attitude/
-actuator dispersions, and the safe-abort maneuvers clear the keep-out sphere on
-all but ≈ 1.4% of aborts. `completed` (all 6 targets processed) is 0 by
-construction — 4 kits cannot service 6 targets. Full per-run records and the
-column schema are in [generated/](generated/).
+Two abort-related rates are reported and are deliberately distinct:
+**`gate-abort-run rate`** is the abort-path exposure (fraction of runs with ≥ 1
+closing-speed gate abort — what the spec calls the "abort rate"), while
+**`nonproductive-termination rate`** is 1 − success. Under the current *flat
+PLACEHOLDER* Δv cost the two coincide numerically — every aborting mission needs
+an extra target-slot to still install its kits and so exhausts the 140 m/s
+budget — but they are separate concepts and will diverge once the cost model
+gains structure. The honest campaign finding: the servicer is **Δv-limited about
+43% of the time** (`dv_exhausted` = 215/500) and installs its full kit
+complement the rest; the attitude sync **never** times out across the sampled
+tumble/attitude/actuator dispersions, and the safe-abort maneuvers clear the
+keep-out sphere on all but ≈ 1.4% of runs. `completed` (all 6 targets) is 0 by
+construction — 4 kits cannot service 6 targets. The `Δv used` / `kits used`
+percentiles matching across the two presets is expected (a flat PLACEHOLDER cost
+takes quantized, catalog-independent values — not a copy-paste bug). Full per-run
+records and the column schema are in [generated/](generated/).
 <!-- WP5-NUMBERS-END -->
 
 WP5 produces **no** charts and performs **no** legal/regulatory determination;

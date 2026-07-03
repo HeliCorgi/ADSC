@@ -176,7 +176,7 @@ struct RunResult {
     double  mission_time_s     = 0.0;
     Outcome failure_reason     = Outcome::Completed;  // == outcome when not success
     bool    keep_out_violation = false;
-    bool    abort              = false; // >=1 gate_abort event occurred this run
+    bool    abort              = false; // >=1 gate_abort event (feeds gate_abort_run_rate)
     bool    success            = false; // productive end: Completed or KitExhausted
 
     // per-target event tallies (feed the failure-classification counts)

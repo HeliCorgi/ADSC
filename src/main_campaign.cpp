@@ -33,7 +33,8 @@ void print_catalog(const CatalogCampaign& cc) {
     std::printf("\n[WP5] %s  (%d runs)\n", cc.catalog.name,
                 static_cast<int>(cc.runs.size()));
 
-    const char* rates[] = {"success_rate", "abort_rate", "keep_out_violation_rate"};
+    const char* rates[] = {"success_rate", "nonproductive_termination_rate",
+                           "gate_abort_run_rate", "keep_out_violation_rate"};
     for (const char* m : rates) {
         const SummaryRow* r = find_row(rows, m);
         if (r) std::printf("  %-24s : %.4f  [%.4f, %.4f] (Wilson 95%%)\n",
@@ -55,10 +56,10 @@ void print_catalog(const CatalogCampaign& cc) {
     }
     std::printf("\n");
 
-    const SummaryRow* ar = find_row(rows, "abort_rate");
+    const SummaryRow* ar = find_row(rows, "gate_abort_run_rate");
     if (ar && ar->estimate <= 0.0)
-        std::printf("  NOTE: abort_rate is 0 -- closing-speed dispersion may be too "
-                    "narrow or the 0.15 m/s gate is not exercised.\n");
+        std::printf("  NOTE: gate_abort_run_rate is 0 -- closing-speed dispersion may "
+                    "be too narrow or the 0.15 m/s gate is not exercised.\n");
     const SummaryRow* kr = find_row(rows, "keep_out_violation_rate");
     if (kr && kr->estimate <= 0.0)
         std::printf("  NOTE: keep_out_violation_rate is 0 -- abort maneuvers clear "

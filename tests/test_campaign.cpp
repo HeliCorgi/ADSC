@@ -169,13 +169,17 @@ int main() {
         const std::vector<RunResult> runs = run_campaign(catalog_A(), ccfg, base_cfg);
         const std::vector<SummaryRow> rows = summarize(runs);
         const SummaryRow* ko = find_row(rows, "keep_out_violation_rate");
-        const SummaryRow* ab = find_row(rows, "abort_rate");
+        const SummaryRow* ab = find_row(rows, "gate_abort_run_rate");
+        const SummaryRow* np = find_row(rows, "nonproductive_termination_rate");
         const SummaryRow* sr = find_row(rows, "success_rate");
-        CHECK(ko != nullptr && ab != nullptr && sr != nullptr);
+        CHECK(ko != nullptr && ab != nullptr && np != nullptr && sr != nullptr);
         CHECK(ko->units == "fraction");
         CHECK(ko->estimate >= 0.0);                 // reported even if zero
         CHECK(ko->wilson_high >= ko->estimate);     // CI present
-        CHECK(ab->estimate > 0.0);                  // abort path is exercised
+        CHECK(ab->estimate > 0.0);                  // abort-path exposure exercised
+        CHECK(ab->wilson_high >= ab->estimate);     // gate_abort_run_rate has a CI
+        // nonproductive_termination_rate is the exact complement of success.
+        CHECK(std::abs(np->estimate - (1.0 - sr->estimate)) < 1e-12);
         // All seven failure classifications must appear.
         const char* labels[] = {"completed", "dv_exhausted", "kit_exhausted",
                                 "keep_out_violation", "gate_abort", "sync_timeout",
