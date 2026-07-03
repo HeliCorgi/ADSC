@@ -70,6 +70,12 @@ target_link_libraries(flux_sweep PRIVATE adsc_core adsc_flags)
 add_executable(decay_trade src/main_decay_trade.cpp)
 target_link_libraries(decay_trade PRIVATE adsc_core adsc_flags)
 
+# WP7 reference-metrics emitter: re-computes the pinned WP1/F1/WP2/WP3/WP4
+# demo numbers as generated/reference_metrics.csv so the evidence pack quotes
+# committed data only (R6). Reuses existing code paths; no physics change.
+add_executable(sim_metrics src/main_metrics.cpp)
+target_link_libraries(sim_metrics PRIVATE adsc_core adsc_flags)
+
 # Tests.
 enable_testing()
 

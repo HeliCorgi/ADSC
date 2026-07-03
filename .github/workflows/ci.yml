@@ -38,25 +38,10 @@ jobs:
       - name: Run simulation driver
         run: ./build/adsc_sim
 
-      - name: Regenerate WP5 campaign artifacts (full N=500) + report runtime
-        run: ./build/adsc_campaign 500 generated
-
-      - name: Regenerate WP6 cost/FoM artifacts (consumes WP5 summary) + report runtime
-        run: ./build/adsc_cost 500 generated
-
-      - name: Regenerate T6 flux sweep table
-        run: ./build/flux_sweep generated
-
-      - name: Regenerate WP3 decay-trade CSV (feeds the WP7a visualization)
-        run: ./build/decay_trade generated
-
-      - name: Regenerate WP7a visualization pack (Python 3 stdlib only)
-        run: python3 tools/viz/make_viz.py . generated/viz
-
-      - name: Regenerate WP8 compliance findings + matrix (precheck, not legal advice)
-        run: |
-          python3 tools/compliance/check_compliance.py
-          python3 tools/compliance/generate_matrix.py
+      # Single source of truth for regeneration (WP7): the same script a clean
+      # machine runs. Wall time goes to the CI log only, never into artifacts.
+      - name: Regenerate ALL committed artifacts (tools/regenerate_all.sh)
+        run: time bash tools/regenerate_all.sh build
 
       - name: Reproducibility gate (committed generated+evidence == regenerated, SHA-stable)
         run: |
