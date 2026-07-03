@@ -91,9 +91,17 @@ def validate_profile(profile):
         typ = REQUIRED_FIELDS[name]
         if name not in profile:
             warns.append("required field missing: %s" % name)
-        elif not isinstance(profile[name], typ) or (
-                typ is bool and not isinstance(profile[name], bool)):
+        elif not isinstance(profile[name], typ):
             warns.append("field has wrong type: %s" % name)
+        elif typ is not bool and isinstance(profile[name], bool):
+            # bool is an int subclass in Python: without this check True would
+            # validate as a number AND satisfy lte/gte comparisons as 1.0.
+            warns.append("field has wrong type (boolean given for a "
+                         "non-boolean field): %s" % name)
+    v = profile.get("post_mission_disposal_lifetime_years")
+    if isinstance(v, (int, float)) and not isinstance(v, bool) and v < 0:
+        warns.append("post_mission_disposal_lifetime_years is negative "
+                     "(schema minimum is 0)")
     if isinstance(profile.get("evidence_documents"), list):
         for i, e in enumerate(profile["evidence_documents"]):
             if not isinstance(e, str):
@@ -104,29 +112,44 @@ def validate_profile(profile):
                      (mt, MISSION_TYPES))
     for name in sorted(profile):
         if name not in REQUIRED_FIELDS and name not in OPTIONAL_FIELDS:
-            infos.append("unknown field ignored by all rules (never a PASS "
-                         "source): %s" % name)
+            # The documented schema declares additionalProperties: false, so an
+            # undeclared field is a WARN (kept in sync with the schema twin).
+            # It is also ignored by every rule and can never produce a PASS.
+            warns.append("unknown field (schema declares additionalProperties "
+                         "false; ignored by all rules, never a PASS source): %s"
+                         % name)
     return warns, infos
 
 
 # ---------------------------------------------------------------------------
-# Tri-state condition evaluation: returns ("PASS"|"FAIL"|"UNKNOWN", notes)
+# Condition evaluation: returns (state, notes) with state one of
+#   "PASS" | "FAIL" | "FAIL_MISSING" | "UNKNOWN"
 # ---------------------------------------------------------------------------
 # Strict ops (eq/ne/lte/gte/in): a missing field -> UNKNOWN (never PASS).
 # Affirmative ops (affirmed_true/affirmed_false/contains/exists): the safe
-# direction is failure - a missing field FAILS (e.g. absent consent is treated
-# as no consent), it never passes and never silently disappears as UNKNOWN.
+# direction is failure - a missing field yields FAIL_MISSING (e.g. absent
+# consent is treated as no consent); it never passes. FAIL_MISSING behaves
+# like FAIL everywhere EXCEPT under "not": negating an absence-driven failure
+# must NOT produce a PASS (that would let a missing field pass), so
+# not(FAIL_MISSING) -> UNKNOWN. Booleans are rejected as numeric operands
+# (bool is an int subclass in Python; True must not satisfy lte/gte checks).
 def eval_cond(cond, profile, ctx):
     if "all" in cond:
+        if not cond["all"]:
+            return "UNKNOWN", ["empty 'all' condition -> UNKNOWN (never PASS)"]
         results = [eval_cond(c, profile, ctx) for c in cond["all"]]
         notes = [n for _, ns in results for n in ns]
         states = [s for s, _ in results]
         if "FAIL" in states:
             return "FAIL", notes
+        if "FAIL_MISSING" in states:
+            return "FAIL_MISSING", notes
         if "UNKNOWN" in states:
             return "UNKNOWN", notes
         return "PASS", notes
     if "any" in cond:
+        if not cond["any"]:
+            return "UNKNOWN", ["empty 'any' condition -> UNKNOWN (never PASS)"]
         results = [eval_cond(c, profile, ctx) for c in cond["any"]]
         notes = [n for _, ns in results for n in ns]
         states = [s for s, _ in results]
@@ -134,6 +157,8 @@ def eval_cond(cond, profile, ctx):
             return "PASS", notes
         if "UNKNOWN" in states:
             return "UNKNOWN", notes
+        if "FAIL_MISSING" in states:
+            return "FAIL_MISSING", notes
         return "FAIL", notes
     if "not" in cond:
         s, notes = eval_cond(cond["not"], profile, ctx)
@@ -141,6 +166,10 @@ def eval_cond(cond, profile, ctx):
             return "FAIL", notes
         if s == "FAIL":
             return "PASS", notes
+        if s == "FAIL_MISSING":
+            return "UNKNOWN", notes + [
+                "negation of an absence-driven failure -> UNKNOWN (a missing "
+                "field must never produce a PASS)"]
         return "UNKNOWN", notes  # not(UNKNOWN) stays UNKNOWN (never PASS)
 
     op = cond.get("op")
@@ -162,10 +191,13 @@ def eval_cond(cond, profile, ctx):
                 ok = value == want
             elif op == "ne":
                 ok = value != want
-            elif op == "lte":
-                ok = float(value) <= float(want)
-            elif op == "gte":
-                ok = float(value) >= float(want)
+            elif op in ("lte", "gte"):
+                if isinstance(value, bool) or isinstance(want, bool):
+                    return "UNKNOWN", [
+                        "%s: boolean is not a valid numeric operand -> "
+                        "UNKNOWN (never PASS)" % field]
+                ok = (float(value) <= float(want)) if op == "lte" \
+                    else (float(value) >= float(want))
             else:  # in
                 ok = value in want
         except (TypeError, ValueError):
@@ -175,20 +207,27 @@ def eval_cond(cond, profile, ctx):
     if op == "affirmed_true":
         if present and value is True:
             return "PASS", []
-        note = ("%s: missing - affirmative declaration required, absence "
-                "treated as false (safe direction)" % field) if not present else []
-        return "FAIL", [note] if note else []
+        if not present:
+            return "FAIL_MISSING", [
+                "%s: missing - affirmative declaration required, absence "
+                "treated as false (safe direction)" % field]
+        return "FAIL", []
     if op == "affirmed_false":
         if present and value is False:
             return "PASS", []
-        note = ("%s: missing - affirmative declaration required" % field) \
-            if not present else None
-        return "FAIL", [note] if note else []
+        if not present:
+            return "FAIL_MISSING", [
+                "%s: missing - affirmative declaration required" % field]
+        return "FAIL", []
     if op == "exists":
-        return ("PASS" if present else "FAIL"), []
+        if present:
+            return "PASS", []
+        return "FAIL_MISSING", ["%s: not declared" % field]
     if op == "contains":
         if present and isinstance(value, list) and want in value:
             return "PASS", []
+        if not present:
+            return "FAIL_MISSING", ["%s: not declared" % field]
         return "FAIL", ["%s: does not contain '%s'" % (field, want)]
 
     return "UNKNOWN", ["unrecognized op '%s' -> UNKNOWN (never PASS)" % str(op)]
@@ -228,7 +267,9 @@ def check_wp5_consistency(profile, wp5_csv_path):
     for col in needed:
         if col not in rows[0]:
             return "UNKNOWN", ["WP5 runs CSV lacks column '%s' -> UNKNOWN" % col]
-        vals = sorted(set(r[col] for r in rows))
+        # str() maps ragged-row None cells to a sentinel instead of crashing;
+        # a malformed row then shows up as non-uniform -> FAIL (never PASS).
+        vals = sorted(set(str(r.get(col)) for r in rows))
         if len(vals) != 1:
             mismatches.append("column %s is not uniform across runs: %s" %
                               (col, vals))
@@ -283,11 +324,12 @@ def evaluate_rule(rule, profile, ctx):
 
     app, app_notes = eval_cond(rule["applies_when"], profile, ctx)
     notes.extend(app_notes)
+    applicability_unknown = app in ("UNKNOWN", "FAIL_MISSING")
     if app == "FAIL":
         finding["status"] = "NOT_APPLICABLE"
         finding["detail"] = "rule does not apply to this profile"
         return finding
-    if app == "UNKNOWN":
+    if applicability_unknown:
         notes.append("applicability UNKNOWN - treated as applicable "
                      "(unknown is safer than a silent skip)")
 
@@ -298,9 +340,20 @@ def evaluate_rule(rule, profile, ctx):
         finding["detail"] = "; ".join(
             ["cannot evaluate - missing/unknown input (never PASS)"] + notes)
         return finding
-    if res == "FAIL":
+    if res in ("FAIL", "FAIL_MISSING"):
         finding["status"] = SEVERITY_TO_FAIL_STATUS[rule["severity"]]
         finding["detail"] = "; ".join([rule["finding_if_fail"]] + notes)
+        return finding
+
+    # A satisfied condition cannot rest on an unresolved applicability: if we
+    # could not even establish that the rule applies, the terminal status is
+    # UNKNOWN, never PASS (the WARN/BLOCK escalation above still happens when
+    # the condition fails outright).
+    if applicability_unknown:
+        finding["status"] = "UNKNOWN"
+        finding["detail"] = "; ".join(
+            ["condition satisfied but applicability could not be established "
+             "-> UNKNOWN (never PASS)"] + notes)
         return finding
 
     # pass_when passed -> check declared evidence.
@@ -389,6 +442,15 @@ def repo_root():
                                          "..", ".."))
 
 
+def display_path(path, base):
+    """Console-friendly path: relative if possible, absolute otherwise (a
+    Windows cross-drive relpath raises ValueError)."""
+    try:
+        return os.path.relpath(path, base).replace(os.sep, "/")
+    except ValueError:
+        return os.path.abspath(path).replace(os.sep, "/")
+
+
 def main(argv=None):
     root = repo_root()
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -405,6 +467,9 @@ def main(argv=None):
 
     with open(args.profile, encoding="utf-8") as f:
         profile = json.load(f)
+    if not isinstance(profile, dict):
+        print("error: mission profile must be a JSON object", file=sys.stderr)
+        return 2
     packs = load_rulepacks(args.rulepacks_dir)
 
     # Record a platform-independent, repo-relative profile reference (forward
@@ -424,7 +489,7 @@ def main(argv=None):
     for f in doc["findings"]:
         if f["status"] in ("BLOCK", "WARN", "UNKNOWN"):
             print("  [%s] %s - %s" % (f["status"], f["rule_id"], f["title"]))
-    print("wrote %s" % os.path.relpath(args.out, os.getcwd()).replace(os.sep, "/"))
+    print("wrote %s" % display_path(args.out, os.getcwd()))
     return 0
 
 

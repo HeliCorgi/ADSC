@@ -93,7 +93,7 @@
     },
     "export_control_review_status": {
       "type": "string",
-      "description": "Status of the export-control review (e.g. not_started, in_progress, reviewed_no_controlled_content, reviewed_with_authorization). Anything other than a completed review yields a WARN."
+      "description": "Status of the export-control review (e.g. not_started, in_progress, reviewed_no_controlled_content, reviewed_with_authorization, not_required_confirmed_by_counsel). Anything other than a completed review yields a WARN."
     },
     "evidence_documents": {
       "type": "array",

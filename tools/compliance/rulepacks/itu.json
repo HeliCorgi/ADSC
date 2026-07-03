@@ -9,7 +9,7 @@
       "jurisdiction": "international",
       "authority": "International Telecommunication Union (via the responsible national administration)",
       "source_reference": "ITU Radio Regulations, Article 9 (coordination) and Article 11 (notification and recording)",
-      "source_date_or_version": "Radio Regulations, Edition of 2020",
+      "source_date_or_version": "Radio Regulations, Edition of 2020; later editions exist - confirm the current one",
       "binding_type": "placeholder",
       "severity": "warn",
       "applies_when": { "field": "payload_has_transmitter", "op": "eq", "value": true },

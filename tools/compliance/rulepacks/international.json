@@ -34,7 +34,7 @@
       "pass_when": { "field": "target_owner_consent", "op": "affirmed_true" },
       "finding_if_fail": "Active interference with a space object is planned without an affirmative declaration of the owner/registry state's consent (OST Art. VIII allocates jurisdiction and control to the State of registry). Absence of an affirmative 'true' is treated as no consent.",
       "required_evidence": [],
-      "limitations": "For research profiles, consent 'true' is a declared scenario assumption (ADSC spec D9), never a legal fact, and the finding notes must be read that way. The precise consent instrument (agreement, contract, note verbale) required in a real case needs legal review."
+      "limitations": "The consent requirement is an INTERPRETATION derived from Art. VIII's allocation of jurisdiction and control - it is not express treaty text, and its precise legal basis requires legal review. For research profiles, consent 'true' is a declared scenario assumption (ADSC spec D9), never a legal fact, and the finding notes must be read that way. The consent instrument (agreement, contract, note verbale) required in a real case also needs legal review."
     },
     {
       "rule_id": "INTL-REG-01",
@@ -58,14 +58,14 @@
       "authority": "States Parties to the Liability Convention",
       "source_reference": "Convention on International Liability for Damage Caused by Space Objects, Articles II-III (961 UNTS 187)",
       "source_date_or_version": "1972 (in force 1 September 1972)",
-      "binding_type": "binding",
+      "binding_type": "placeholder",
       "severity": "warn",
       "applies_when": { "field": "mission_type", "op": "eq", "value": "flight" },
       "pass_when": { "field": "insurance_or_indemnification_evidence", "op": "in",
         "value": ["third_party_liability_insurance", "state_indemnification_agreement", "self_insurance_documented"] },
       "finding_if_fail": "No third-party liability arrangement (insurance / indemnification / documented self-insurance) is declared. The Liability Convention makes the launching state absolutely liable for surface damage (Art. II) and fault-liable in space (Art. III); operators are normally required to carry the corresponding arrangements.",
       "required_evidence": [],
-      "limitations": "The convention binds STATES, not operators; operator-level insurance obligations come from national law and vary by jurisdiction. Amounts and scope require legal review."
+      "limitations": "Placeholder: the convention binds STATES, not operators - the operator-level insurance/indemnification check performed here is NOT imposed by the cited instrument itself but by national law, which varies by jurisdiction. binding_type is therefore 'placeholder' (conservatism policy); amounts and scope require legal review."
     },
     {
       "rule_id": "IADC-ODM-25YR",

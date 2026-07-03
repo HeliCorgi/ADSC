@@ -69,11 +69,12 @@ def render_md(doc):
     L.append("")
     L.append("| status | rule_id | title | jurisdiction | binding_type | severity | detail |")
     L.append("|---|---|---|---|---|---|---|")
+    cell = lambda s: str(s).replace("|", "/")  # noqa: E731 - escape every cell
     for f in doc["findings"]:
         L.append("| %s | %s | %s | %s | %s | %s | %s |" % (
-            f["status"], f["rule_id"], f["title"].replace("|", "/"),
-            f["jurisdiction"], f["binding_type"], f["severity"],
-            f["detail"].replace("|", "/")))
+            cell(f["status"]), cell(f["rule_id"]), cell(f["title"]),
+            cell(f["jurisdiction"]), cell(f["binding_type"]),
+            cell(f["severity"]), cell(f["detail"])))
     L.append("")
     L.append("## Sources and limitations per rule")
     L.append("")
@@ -152,10 +153,14 @@ def main(argv=None):
         f.write(render_md(doc))
     write_csv(doc, args.out_csv)
 
+    def disp(p):
+        try:
+            return os.path.relpath(p, os.getcwd()).replace(os.sep, "/")
+        except ValueError:  # Windows cross-drive
+            return os.path.abspath(p).replace(os.sep, "/")
+
     print("compliance matrix: %s" % doc["disclaimer"])
-    print("wrote %s and %s" % (
-        os.path.relpath(args.out_md, os.getcwd()).replace(os.sep, "/"),
-        os.path.relpath(args.out_csv, os.getcwd()).replace(os.sep, "/")))
+    print("wrote %s and %s" % (disp(args.out_md), disp(args.out_csv)))
     return 0
 
 

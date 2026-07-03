@@ -37,7 +37,7 @@ Rulepacks: international 1.0 (5 rules), us_fcc 1.0 (2 rules), us_faa 1.0 (1 rule
 | NOT_APPLICABLE | INTL-OST-06-01 | National authorization and continuing supervision of the mission | international | binding | blocking | rule does not apply to this profile |
 | PASS | INTL-OST-08-01 | Registry-state jurisdiction and control: owner consent for active interference | international | binding | blocking | condition satisfied |
 | NOT_APPLICABLE | INTL-REG-01 | Registration of the servicer space object | international | binding | warn | rule does not apply to this profile |
-| NOT_APPLICABLE | INTL-LIAB-01 | Third-party liability risk allocation evidence | international | binding | warn | rule does not apply to this profile |
+| NOT_APPLICABLE | INTL-LIAB-01 | Third-party liability risk allocation evidence | international | placeholder | warn | rule does not apply to this profile |
 | PASS | IADC-ODM-25YR | Post-mission disposal lifetime within 25 years (IADC guideline) | international | guideline | warn | condition satisfied |
 | NOT_APPLICABLE | FCC-ODM-5YR | Post-mission disposal within 5 years for LEO space stations (FCC-jurisdiction scenario) | US | binding | blocking | rule does not apply to this profile |
 | NOT_APPLICABLE | FCC-ODM-DISCLOSE | Orbital debris mitigation disclosure with the FCC application | US | binding | warn | rule does not apply to this profile |
@@ -71,7 +71,7 @@ Rulepacks: international 1.0 (5 rules), us_fcc 1.0 (2 rules), us_faa 1.0 (1 rule
 
 - source: Outer Space Treaty, Article VIII (610 UNTS 205) (1967 (in force 10 October 1967))
 - binding_type: `binding`; severity: `blocking`; status: **PASS**
-- limitations: For research profiles, consent 'true' is a declared scenario assumption (ADSC spec D9), never a legal fact, and the finding notes must be read that way. The precise consent instrument (agreement, contract, note verbale) required in a real case needs legal review.
+- limitations: The consent requirement is an INTERPRETATION derived from Art. VIII's allocation of jurisdiction and control - it is not express treaty text, and its precise legal basis requires legal review. For research profiles, consent 'true' is a declared scenario assumption (ADSC spec D9), never a legal fact, and the finding notes must be read that way. The consent instrument (agreement, contract, note verbale) required in a real case also needs legal review.
 
 ### INTL-REG-01 - Registration of the servicer space object
 
@@ -83,8 +83,8 @@ Rulepacks: international 1.0 (5 rules), us_fcc 1.0 (2 rules), us_faa 1.0 (1 rule
 ### INTL-LIAB-01 - Third-party liability risk allocation evidence
 
 - source: Convention on International Liability for Damage Caused by Space Objects, Articles II-III (961 UNTS 187) (1972 (in force 1 September 1972))
-- binding_type: `binding`; severity: `warn`; status: **NOT_APPLICABLE**
-- limitations: The convention binds STATES, not operators; operator-level insurance obligations come from national law and vary by jurisdiction. Amounts and scope require legal review.
+- binding_type: `placeholder`; severity: `warn`; status: **NOT_APPLICABLE**
+- limitations: Placeholder: the convention binds STATES, not operators - the operator-level insurance/indemnification check performed here is NOT imposed by the cited instrument itself but by national law, which varies by jurisdiction. binding_type is therefore 'placeholder' (conservatism policy); amounts and scope require legal review.
 
 ### IADC-ODM-25YR - Post-mission disposal lifetime within 25 years (IADC guideline)
 
@@ -122,7 +122,7 @@ Rulepacks: international 1.0 (5 rules), us_fcc 1.0 (2 rules), us_faa 1.0 (1 rule
 
 ### ITU-RF-01 - Frequency coordination / notification filing evidence for the RF payload
 
-- source: ITU Radio Regulations, Article 9 (coordination) and Article 11 (notification and recording) (Radio Regulations, Edition of 2020)
+- source: ITU Radio Regulations, Article 9 (coordination) and Article 11 (notification and recording) (Radio Regulations, Edition of 2020; later editions exist - confirm the current one)
 - binding_type: `placeholder`; severity: `warn`; status: **NOT_APPLICABLE**
 - required evidence: itu_or_national_frequency_filing_evidence
 - limitations: Placeholder rule: ITU obligations run through the responsible national administration, and band-specific coordination requirements are NOT modelled. The Radio Regulations bind administrations, not operators directly. Requires review by the responsible administration / legal counsel.
