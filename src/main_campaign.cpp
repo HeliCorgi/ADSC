@@ -63,6 +63,11 @@ void print_catalog(const CatalogCampaign& cc) {
     if (kr && kr->estimate <= 0.0)
         std::printf("  NOTE: keep_out_violation_rate is 0 -- abort maneuvers clear "
                     "the keep-out sphere under the current dispersions.\n");
+    const SummaryRow* st = find_row(rows, "sync_timeout");
+    if (st && st->estimate <= 0.0)
+        std::printf("  NOTE: sync_timeout is 0 -- the tracking SMC synchronizes "
+                    "within budget across the sampled tumble/attitude/actuator "
+                    "dispersions (widen dispersions or shorten the budget to exercise it).\n");
 }
 
 }  // namespace

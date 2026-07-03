@@ -30,8 +30,17 @@ namespace adsc {
 // a documented WP5 simplification (see README known limits).
 //
 // Determinism (R6): one fixed master seed; every per-run seed is derived from
-// it by a SplitMix64 finalizer of (master_seed, run_index). No nondeterministic
-// random_device is ever used for committed outputs.
+// it by a SplitMix64 finalizer of (master_seed XOR catalog_salt, run_index),
+// where catalog_salt is an FNV-1a hash of the preset name so each catalog runs
+// an independent stream. No nondeterministic random_device is ever used for
+// committed outputs.
+//
+// Class-independence (honest scope): the attitude-sync leg and the flat Delta-v
+// / kit cost model do not depend on target mass or orbit, so aggregate outcomes
+// are largely class-independent by construction; the one orbit-dependent piece
+// is the keep-out abort screen, which uses each catalog's altitude. Per-catalog
+// stats therefore differ mainly by independent sampling. Class-specific physics
+// lives in WP3 decay (already catalog-specific) and future WP6 cost.
 //
 // SCOPE: WP5 implements the campaign layer and its statistics only. It does not
 // implement WP6 cost/FoM, WP7 visualization/evidence, or WP8 compliance
@@ -168,7 +177,7 @@ struct RunResult {
     Outcome failure_reason     = Outcome::Completed;  // == outcome when not success
     bool    keep_out_violation = false;
     bool    abort              = false; // >=1 gate_abort event occurred this run
-    bool    success            = false; // outcome == Completed
+    bool    success            = false; // productive end: Completed or KitExhausted
 
     // per-target event tallies (feed the failure-classification counts)
     int gate_abort_events   = 0;

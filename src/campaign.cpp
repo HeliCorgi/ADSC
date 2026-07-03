@@ -7,6 +7,20 @@
 
 namespace adsc {
 
+namespace {
+// FNV-1a 64-bit hash of a catalog name, used to salt the master seed so each
+// catalog preset runs an INDEPENDENT Monte-Carlo stream (standard MC practice)
+// rather than replaying the identical run sequence. Deterministic (R6).
+uint64_t fnv1a64(const char* s) {
+    uint64_t h = 1469598103934665603ULL;
+    for (; *s; ++s) {
+        h ^= static_cast<unsigned char>(*s);
+        h *= 1099511628211ULL;
+    }
+    return h;
+}
+}  // namespace
+
 // ---------------------------------------------------------------- pure stats
 uint64_t splitmix64_seed(uint64_t master_seed, uint64_t index) {
     // Standard SplitMix64 finalizer applied to master_seed advanced by index
@@ -128,9 +142,18 @@ RunResult run_one_mission(const DebrisCatalog& catalog, const CampaignConfig& cc
     r.catalog     = catalog.name;
     r.master_seed = ccfg.master_seed;
     r.run_index   = run_index;
-    r.run_seed    = splitmix64_seed(ccfg.master_seed, static_cast<uint64_t>(run_index));
+    // Salt by catalog so each preset is an independent stream (see fnv1a64).
+    r.run_seed    = splitmix64_seed(ccfg.master_seed ^ fnv1a64(catalog.name),
+                                    static_cast<uint64_t>(run_index));
     r.dv_budget_m_s = ccfg.dv_budget_m_s;
     r.kits_initial  = ccfg.kits_initial;
+
+    // The attitude-sync and Delta-v/kit bookkeeping are class-independent in the
+    // WP5 model; the one orbit-dependent piece is the keep-out abort screen, so
+    // give it the catalog's own altitude (a real, if small, class dependence).
+    Config cat_cfg = base_cfg;
+    if (!catalog.placeholder && catalog.altitude_km > 0.0)
+        cat_cfg.target_altitude_km = catalog.altitude_km;
 
     CampRng rng(r.run_seed);
 
@@ -179,8 +202,8 @@ RunResult run_one_mission(const DebrisCatalog& catalog, const CampaignConfig& cc
             if (dv_remaining < ccfg.dv_abort_m_s) { outcome = Outcome::DvExhausted; break; }
             dv_remaining -= ccfg.dv_abort_m_s; dv_used += ccfg.dv_abort_m_s;
             const double coast_min = dispersed_abort_coast(
-                base_cfg, rng, ccfg.disp_rel_pos_m, ccfg.disp_rel_vel_m_s);
-            if (coast_min < base_cfg.keep_out_radius_m) {
+                cat_cfg, rng, ccfg.disp_rel_pos_m, ccfg.disp_rel_vel_m_s);
+            if (coast_min < cat_cfg.keep_out_radius_m) {
                 outcome = Outcome::KeepOutViolation; break;
             }
             // Safe abort: move on to the next target (no kit consumed).
@@ -243,7 +266,13 @@ RunResult run_one_mission(const DebrisCatalog& catalog, const CampaignConfig& cc
     r.mission_time_s     = mission_time;
     r.gate_abort_events  = gate_aborts;
     r.sync_timeout_events = sync_timeouts;
-    r.success            = (outcome == Outcome::Completed);
+    // Mission success = a PRODUCTIVE end: every target processed (Completed) or
+    // the full kit complement installed (KitExhausted). A mission cut short by
+    // propellant exhaustion or a keep-out violation is not a success. (A run may
+    // be both a success and contain safe-abort events -- the two are recorded
+    // independently.)
+    r.success            = (outcome == Outcome::Completed ||
+                            outcome == Outcome::KitExhausted);
     r.abort              = any_abort;
     r.keep_out_violation = (outcome == Outcome::KeepOutViolation);
     r.failure_reason     = r.success ? Outcome::Completed : outcome;
@@ -465,13 +494,22 @@ void write_summary_md(const std::string& path, const CampaignConfig& ccfg,
         std::fprintf(f, "\n");
     }
     std::fprintf(f,
-        "Note: `gate_abort` / `sync_timeout` are per-target *event* counts (a "
-        "safe abort or failed sync lets the servicer move to the next target); "
-        "`completed` / `dv_exhausted` / `kit_exhausted` / `keep_out_violation` "
-        "are per-*run* terminal outcomes. If `abort_rate` is 0 the closing-speed "
-        "dispersion may be too narrow or the 0.15 m/s gate is not exercised; if "
-        "`keep_out_violation_rate` is 0 the abort maneuvers are clearing the "
-        "keep-out sphere (expected under nominal dispersions).\n");
+        "Notes. `success` = a productive end (all targets processed OR the full "
+        "kit complement installed), not a mission cut short by propellant "
+        "exhaustion or a keep-out violation; a run may be both a success and "
+        "contain safe-abort events. `gate_abort` / `sync_timeout` are per-target "
+        "*event* counts (a safe abort or failed sync lets the servicer move to "
+        "the next target); `completed` / `dv_exhausted` / `kit_exhausted` / "
+        "`keep_out_violation` are per-*run* terminal outcomes. If `abort_rate` "
+        "is 0 the closing-speed dispersion may be too narrow or the 0.15 m/s "
+        "gate is not exercised; if `keep_out_violation_rate` is 0 the abort "
+        "maneuvers are clearing the keep-out sphere (expected under nominal "
+        "dispersions).\n\n"
+        "The attitude-sync leg and the flat Delta-v/kit cost model are "
+        "class-independent in the WP5 model, so the two presets differ mainly by "
+        "independent sampling (per-catalog seed salt) plus the altitude-dependent "
+        "keep-out abort screen. Class-specific physics lives in WP3 decay and "
+        "future WP6 cost.\n");
     std::fclose(f);
 }
 
@@ -501,7 +539,7 @@ void write_schema_md(const std::string& path) {
 "| catalog | - | WP5-native | class-level preset name (never an object id) |\n"
 "| master_seed | - | WP5-native | fixed campaign master seed |\n"
 "| run_index | - | WP5-native | 0-based mission index |\n"
-"| run_seed | - | WP5-native | SplitMix64(master_seed, run_index) |\n"
+"| run_seed | - | WP5-native | SplitMix64(master_seed XOR FNV1a(catalog), run_index) |\n"
 "| outcome | - | WP5-native | terminal: completed/dv_exhausted/kit_exhausted/keep_out_violation/other |\n"
 "| removals | count | WP5-native | targets removed this mission |\n"
 "| targets_attempted | count | WP5-native | targets processed before termination |\n"
@@ -516,7 +554,7 @@ void write_schema_md(const std::string& path) {
 "| failure_reason | - | WP5-native | `none` if success, else the terminal outcome |\n"
 "| keep_out_violation | bool | WP5-native | terminal keep-out breach occurred |\n"
 "| abort | bool | WP5-native | >=1 safe-abort (closing-speed gate) event occurred |\n"
-"| success | bool | WP5-native | outcome == completed |\n"
+"| success | bool | WP5-native | productive end: completed OR kit_exhausted (not dv/keep-out terminated) |\n"
 "| gate_abort_events | count | WP5-native | per-target safe-abort events this run |\n"
 "| sync_timeout_events | count | WP5-native | per-target failed-sync events this run |\n"
 "| first_closing_speed_m_per_s | m/s | WP5-native, PLACEHOLDER-derived | target-0 capture closing speed vs 0.15 gate |\n"
