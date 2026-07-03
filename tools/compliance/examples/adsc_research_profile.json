@@ -1,0 +1,27 @@
+{
+  "mission_name": "ADSC reference research campaign (numerical simulation only)",
+  "mission_type": "research_simulation",
+  "research_only": true,
+  "launching_state": "none_research_simulation",
+  "operating_state": "none_research_simulation",
+  "registry_state": "none_research_simulation",
+  "target_owner_state": "class_level_preset_no_specific_state",
+  "target_registered_state": "class_level_preset_no_specific_state",
+  "target_owner_consent": true,
+  "active_debris_removal": true,
+  "proximity_operations": true,
+  "payload_has_transmitter": false,
+  "payload_has_remote_sensing": false,
+  "controlled_reentry": false,
+  "post_mission_disposal_lifetime_years": 25.0,
+  "uses_live_tle": false,
+  "generates_target_specific_operations": false,
+  "insurance_or_indemnification_evidence": "none_research_simulation",
+  "export_control_review_status": "not_started",
+  "evidence_documents": [
+    "adsc_specification_v4",
+    "readme_dual_use_disclaimer",
+    "wp5_campaign_runs_metadata"
+  ],
+  "notes": "Reference profile for the ADSC research simulation campaign. target_owner_consent=true is a declared SCENARIO ASSUMPTION (spec D9), never a legal fact. post_mission_disposal_lifetime_years=25.0 is the IADC-guideline design target used by the WP3 trades (a research placeholder, not a demonstrated capability; under a US FCC flight scenario the operative figure would be 5 years). Targets are class-level presets - no specific catalog object, no live ephemerides, no operational products."
+}

@@ -3,4 +3,6 @@
 # git-diff reproducibility gate (R6) holds regardless of a contributor's
 # core.autocrlf setting.
 generated/**    text eol=lf
+evidence/**     text eol=lf
 tools/viz/*.py  text eol=lf
+tools/compliance/**  text eol=lf

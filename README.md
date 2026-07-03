@@ -20,11 +20,13 @@ control loop now runs on estimates, not truth), WP5 (campaign Monte-Carlo
 under dispersions, with stable machine-readable CSV outputs), WP6 (parametric
 cost model + figure of merit, consuming the WP5 CSV), and WP7a (a Python 3
 stdlib-only Visualization Pack of static SVGs over the committed CSVs) are
-implemented on top of the v2.0 GNC core. WP8 (compliance matrix) and WP7
-(evidence pack) are **not yet** implemented — see the roadmap below. WP7a draws
-**static** figures only (no interactive dashboard) and makes **no** compliance/
-legal determination; WP6 predicts **no absolute cost** (relative units only) —
-those remain future WP8/WP7 scope. This does not change the TRL (still 4).
+implemented on top of the v2.0 GNC core, and WP8 (Compliance Matrix Generator —
+a research-grade **regulatory precheck**, explicitly **not legal advice**) is
+implemented as tooling. WP7 (evidence pack) is **not yet** implemented — see the
+roadmap below. WP7a draws **static** figures only (no interactive dashboard);
+WP8 produces a precheck/evidence matrix, **never a legal conformity
+determination**; WP6 predicts **no absolute cost** (relative units only). None
+of this changes the TRL (still 4).
 
 **What changed from v1.21 → v2.0:** the v1.21 README named an SR-UKF and a
 sliding-mode DACS, but the source only declared unused state and printed status
@@ -94,6 +96,12 @@ implemented; v3 continues that discipline.
   guideline. The honest result — sail-only on a ~9 t stage at ~840 km needs an
   impractically large sail while the lighter/lower class can close — is the
   deliverable that motivates trade T1. Unit-tested (`tests/test_decay.cpp`).
+  Note: 25 years is the **IADC guideline** figure; under a US FCC license the
+  current rule (FCC 22-74, adopted 2022) requires **5-year** post-mission
+  disposal for LEO space stations — the sail-only negative for the heavy class
+  only gets harder under the 5-year standard. Both rules are carried separately
+  in the WP8 compliance rulepacks; the trade tables keep the IADC 25-year
+  reference line and no quoted number changes.
 - **Estimator + sensor models (WP4)** (`estimator`): the sync control loop now
   consumes **estimates, not truth** — enforced structurally: the controller is
   handed an `EstimatedState` only, and truth is read solely by the sensor
@@ -166,6 +174,25 @@ implemented; v3 continues that discipline.
   physics change). Outputs `generated/viz/*.svg` + `wp5_dashboard.html` (a static
   report page); tested via `tools/viz/test_viz.py` (ctest `viz`). Regenerate
   with `python3 tools/viz/make_viz.py . generated/viz`.
+- **Compliance Matrix Generator / Regulatory Precheck (WP8)**
+  (`tools/compliance/`): a Python 3 **standard-library-only** checker (spec v4.2
+  R9; no `jsonschema` — validation is hand-written and dual-maintained with the
+  documented `mission_profile.schema.json`) that evaluates a declared mission
+  profile against **versioned rulepacks** (UN treaties, US FCC/FAA/NOAA, ITU,
+  ESA reference, ADSC internal policy; primary sources only) and emits
+  `generated/compliance_findings.json` + `evidence/compliance_matrix.{md,csv}`
+  (schema `1.0`, deterministic, no timestamps). Every finding separates
+  **binding law / non-binding guideline / agency guidance / ADSC policy /
+  placeholder research assumption**; *unknown is safer than a false PASS*
+  (missing inputs are UNKNOWN or fail, never pass); missing mandatory evidence
+  → WARN/BLOCK; unconsented active interference with a registered object →
+  **BLOCK** (ADSC policy). It also cross-checks the WP5 campaign compliance
+  metadata columns against the profile. **This is a precheck, not legal
+  advice**, and the rulepacks are versioned research artifacts that **can go
+  stale** as regulations change. Coverage today: UN treaties + US + ESA
+  reference only — Russian/Chinese/Japanese national law is **not** yet
+  covered (future work). Tested via `tools/compliance/test_compliance.py`
+  (ctest `compliance`).
 - **First-order PCM thermal budget** integrated over the control loop.
 - **Deorbit gating**: autonomous by default, human-in-the-loop only on the
   emergency path, blocked below the fuel reserve.
@@ -234,6 +261,14 @@ verify rather than a claim in prose.
   removed mass (the ~9 t class outranks the ~1.4 t class under both weightings);
   the metric-choice disagreement that WP6 surfaces is the **band-priority flip**
   between the two weightings (open trade T5). WP6 emits no charts.
+- **The compliance precheck is not legal advice (WP8).** It checks a declared
+  profile against research-grade rulepacks and reports evidence gaps — it does
+  not and cannot determine legal conformity, and its outputs never say
+  otherwise. Rulepacks are **versioned snapshots that can go stale**; every
+  rule carries `source_date_or_version` and a `limitations` field, low-confidence
+  rules are downgraded to `placeholder`, and jurisdiction coverage is honestly
+  partial (UN treaties + US + ESA reference; **no** Russian/Chinese/Japanese
+  national law yet, despite those being adopter targets — future work).
 - **Small-debris (1–10 cm) removal is out of scope (T6)** — a documented
   exclusion, not neglect: the `flux_sweep` target regenerates the physics (≈50
   MJ/kg / ≈12× TNT at 10 km/s; a 1 cm Al fragment ≈ 71 kJ ≈ 17 g TNT; km²-scale
@@ -274,7 +309,9 @@ cmake --build build
 ./build/adsc_cost              # WP6: regenerates generated/wp6_cost_* (consumes the WP5 summary)
 ./build/decay_trade            # WP3: re-emits the sail-decay trade as generated/wp3_decay_trade.csv
 python3 tools/viz/make_viz.py . generated/viz   # WP7a: regenerates generated/viz/*.svg + dashboard
-ctest --test-dir build      # fuel_store/relmotion/sync/decay/mission/estimator/campaign/cost/flux/viz (fail in any build type)
+python3 tools/compliance/check_compliance.py    # WP8: regenerates generated/compliance_findings.json
+python3 tools/compliance/generate_matrix.py     # WP8: regenerates evidence/compliance_matrix.{md,csv}
+ctest --test-dir build      # fuel_store/relmotion/sync/decay/mission/estimator/campaign/cost/flux/viz/compliance
 ```
 
 When invoking bare g++ directly, prefer passing Eigen via `-isystem` to avoid
@@ -286,9 +323,13 @@ GCC `-Wmaybe-uninitialized` false positives; CMake handles this automatically.
 include/adsc/   public headers (fuel_store, dynamics, controller, thermal,
                 relmotion, decay, estimator, mission, campaign, cost, flux)
 src/            implementations + main.cpp sim + WP5/WP6/T6/WP3 emitters (main_*.cpp)
-tests/          C++ unit tests + tools/viz/test_viz.py (WP7a visualization, ctest `viz`)
+tests/          C++ unit tests (+ Python tests under tools/, ctest `viz`/`compliance`)
 tools/viz/      WP7a Python 3 stdlib-only visualization generator (make_viz.py)
-generated/      committed artifacts: WP5 campaign, WP6 cost/FoM, T6 flux, WP3 decay CSVs + viz/ SVGs
+tools/compliance/  WP8 regulatory precheck: rulepacks, schema, checker, matrix generator
+generated/      committed artifacts: WP5 campaign, WP6 cost/FoM, T6 flux, WP3 decay CSVs,
+                viz/ SVGs, compliance_findings.json
+evidence/       committed generated evidence artifacts (compliance matrix; same
+                reproducibility gate as generated/)
 .github/        CI (Ubuntu + Eigen: cmake build + ctest, warnings-as-errors, reproducibility gate)
 adsc-specification-v4.md   active spec (work packages, hard rules, locked decisions)
 ```
@@ -311,8 +352,9 @@ adsc-specification-v4.md   active spec (work packages, hard rules, locked decisi
   amortization curve; FoM under ≥2 weightings with T5; tornado sensitivity).
 - **WP7a — Visualization Pack** ✅ implemented (Python 3 stdlib-only static SVG
   figures + static report page from the committed CSVs; no external deps).
-- **WP8 — Compliance Matrix Generator** (research-profile matrix; no legal
-  determination) — not yet implemented.
+- **WP8 — Compliance Matrix Generator / Regulatory Precheck** ✅ implemented
+  (versioned rulepacks; precheck + evidence matrix; **not legal advice**, no
+  legal conformity determination).
 - **WP7 — Evidence pack** (generated English report; the actual product).
 
 Reproducible WP1 numbers (regenerate with `./build/adsc_sim`): for the 825 km
@@ -345,7 +387,9 @@ Sail-only closes for the lighter/lower class B (tens of m²) but **not** for the
 heavy, high stage A (hundreds-to-thousands of m² — impractical): the honest
 negative that brackets open trade T1 (drag sail vs electrodynamic tether). The
 EDT parametric study spans, e.g., 36.1 yr at 50 m/day down to 1.2 yr at
-1500 m/day of along-track decay.
+1500 m/day of along-track decay. (The 25-year column is the IADC guideline;
+under a US FCC license the current rule is **5 years** — FCC 22-74, 2022 — which
+makes the class-A sail-only negative strictly harder. See the WP8 rulepacks.)
 
 Reproducible WP4 numbers (regenerate with `./build/adsc_sim`, scenario 7; fixed
 seed 20260703): driven purely by estimates under sensor noise, sync is achieved

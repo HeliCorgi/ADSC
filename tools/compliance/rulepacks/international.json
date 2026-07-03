@@ -1,0 +1,86 @@
+{
+  "rulepack": "international",
+  "rulepack_version": "1.0",
+  "description": "International space-law precheck rules (UN treaties + IADC guideline). Research-grade snapshot; primary sources only; not legal advice.",
+  "rules": [
+    {
+      "rule_id": "INTL-OST-06-01",
+      "title": "National authorization and continuing supervision of the mission",
+      "jurisdiction": "international",
+      "authority": "States Parties to the Outer Space Treaty",
+      "source_reference": "Outer Space Treaty, Article VI (610 UNTS 205)",
+      "source_date_or_version": "1967 (in force 10 October 1967)",
+      "binding_type": "binding",
+      "severity": "blocking",
+      "applies_when": { "field": "mission_type", "op": "eq", "value": "flight" },
+      "pass_when": { "field": "evidence_documents", "op": "contains", "value": "national_authorization_evidence" },
+      "finding_if_fail": "No national authorization / continuing-supervision evidence is declared for a flight mission (OST Art. VI).",
+      "required_evidence": ["national_authorization_evidence"],
+      "limitations": "Precheck only: verifies that authorization evidence is DECLARED, not that a valid authorization exists or covers this activity. Which state is the 'appropriate State Party' for a multi-state mission requires legal review."
+    },
+    {
+      "rule_id": "INTL-OST-08-01",
+      "title": "Registry-state jurisdiction and control: owner consent for active interference",
+      "jurisdiction": "international",
+      "authority": "States Parties to the Outer Space Treaty",
+      "source_reference": "Outer Space Treaty, Article VIII (610 UNTS 205)",
+      "source_date_or_version": "1967 (in force 10 October 1967)",
+      "binding_type": "binding",
+      "severity": "blocking",
+      "applies_when": { "any": [
+        { "field": "active_debris_removal", "op": "eq", "value": true },
+        { "field": "proximity_operations", "op": "eq", "value": true }
+      ] },
+      "pass_when": { "field": "target_owner_consent", "op": "affirmed_true" },
+      "finding_if_fail": "Active interference with a space object is planned without an affirmative declaration of the owner/registry state's consent (OST Art. VIII allocates jurisdiction and control to the State of registry). Absence of an affirmative 'true' is treated as no consent.",
+      "required_evidence": [],
+      "limitations": "For research profiles, consent 'true' is a declared scenario assumption (ADSC spec D9), never a legal fact, and the finding notes must be read that way. The precise consent instrument (agreement, contract, note verbale) required in a real case needs legal review."
+    },
+    {
+      "rule_id": "INTL-REG-01",
+      "title": "Registration of the servicer space object",
+      "jurisdiction": "international",
+      "authority": "States Parties to the Registration Convention",
+      "source_reference": "Convention on Registration of Objects Launched into Outer Space, Article II (1023 UNTS 15)",
+      "source_date_or_version": "1975 (in force 15 September 1976)",
+      "binding_type": "binding",
+      "severity": "warn",
+      "applies_when": { "field": "mission_type", "op": "eq", "value": "flight" },
+      "pass_when": { "field": "evidence_documents", "op": "contains", "value": "registration_evidence" },
+      "finding_if_fail": "No registration evidence (national registry entry / UN notification) is declared for a flight mission (Registration Convention Art. II).",
+      "required_evidence": ["registration_evidence"],
+      "limitations": "Precheck of declared evidence only. Registration timing ('as soon as practicable') and the choice of registry state among joint launching states require legal review."
+    },
+    {
+      "rule_id": "INTL-LIAB-01",
+      "title": "Third-party liability risk allocation evidence",
+      "jurisdiction": "international",
+      "authority": "States Parties to the Liability Convention",
+      "source_reference": "Convention on International Liability for Damage Caused by Space Objects, Articles II-III (961 UNTS 187)",
+      "source_date_or_version": "1972 (in force 1 September 1972)",
+      "binding_type": "binding",
+      "severity": "warn",
+      "applies_when": { "field": "mission_type", "op": "eq", "value": "flight" },
+      "pass_when": { "field": "insurance_or_indemnification_evidence", "op": "in",
+        "value": ["third_party_liability_insurance", "state_indemnification_agreement", "self_insurance_documented"] },
+      "finding_if_fail": "No third-party liability arrangement (insurance / indemnification / documented self-insurance) is declared. The Liability Convention makes the launching state absolutely liable for surface damage (Art. II) and fault-liable in space (Art. III); operators are normally required to carry the corresponding arrangements.",
+      "required_evidence": [],
+      "limitations": "The convention binds STATES, not operators; operator-level insurance obligations come from national law and vary by jurisdiction. Amounts and scope require legal review."
+    },
+    {
+      "rule_id": "IADC-ODM-25YR",
+      "title": "Post-mission disposal lifetime within 25 years (IADC guideline)",
+      "jurisdiction": "international",
+      "authority": "Inter-Agency Space Debris Coordination Committee (IADC)",
+      "source_reference": "IADC Space Debris Mitigation Guidelines, IADC-02-01, guideline 5.3.2 (objects passing through the LEO protected region)",
+      "source_date_or_version": "IADC-02-01 Rev. 2 (March 2020); later revisions exist - confirm the current one",
+      "binding_type": "guideline",
+      "severity": "warn",
+      "applies_when": { "op": "always" },
+      "pass_when": { "field": "post_mission_disposal_lifetime_years", "op": "lte", "value": 25 },
+      "finding_if_fail": "Design post-mission disposal lifetime exceeds the IADC 25-year guideline for the LEO protected region.",
+      "required_evidence": [],
+      "limitations": "Non-binding guideline. Stricter national rules supersede it where they apply - notably the US FCC 5-year rule (see FCC-ODM-5YR); under a US FCC-jurisdiction scenario the 25-year figure is NOT the operative standard. Confirm the current IADC revision before citing."
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "adsc-mission-profile-1.0",
+  "title": "ADSC mission profile (Compliance Matrix Generator / Regulatory Precheck input)",
+  "description": "Input document for the ADSC research-grade compliance precheck. This schema file is DOCUMENTATION: validation is implemented manually with the Python standard library in check_compliance.py (spec v4.2 R9 forbids pip dependencies such as jsonschema), so the two are dual-maintained - keep them in sync by hand. The precheck output is not legal advice. Unknown or missing fields are never treated as passing (unknown is safer than a false PASS).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mission_name", "mission_type", "research_only",
+    "launching_state", "operating_state", "registry_state",
+    "target_owner_state", "target_registered_state", "target_owner_consent",
+    "active_debris_removal", "proximity_operations",
+    "payload_has_transmitter", "payload_has_remote_sensing",
+    "controlled_reentry", "post_mission_disposal_lifetime_years",
+    "uses_live_tle", "generates_target_specific_operations",
+    "insurance_or_indemnification_evidence", "export_control_review_status",
+    "evidence_documents"
+  ],
+  "properties": {
+    "mission_name": {
+      "type": "string",
+      "description": "Human-readable profile name; appears in the findings and matrix."
+    },
+    "mission_type": {
+      "type": "string",
+      "enum": ["research_simulation", "flight"],
+      "description": "research_simulation = paper/software study only (no launch, no operations); flight = an actual mission. Most binding launch/licensing rules apply only to flight."
+    },
+    "research_only": {
+      "type": "boolean",
+      "description": "True if the profile describes research outputs only (no operational products). Mirrors the WP5 campaign metadata column research_only."
+    },
+    "launching_state": {
+      "type": "string",
+      "description": "Launching State in the Outer Space Treaty / Liability Convention sense, or a 'none_*'/'unspecified_*' marker for research profiles."
+    },
+    "operating_state": {
+      "type": "string",
+      "description": "State whose authorization/continuing supervision (OST Art. VI) would cover operations, or a research marker."
+    },
+    "registry_state": {
+      "type": "string",
+      "description": "State of registry (Registration Convention) for the servicer, or a research marker."
+    },
+    "target_owner_state": {
+      "type": "string",
+      "description": "State owning / exercising jurisdiction and control over the target object (OST Art. VIII). Class-level markers only for research profiles - never a specific catalog ID (spec D11/R13)."
+    },
+    "target_registered_state": {
+      "type": "string",
+      "description": "State of registry of the target object, or a class-level research marker."
+    },
+    "target_owner_consent": {
+      "type": "boolean",
+      "description": "Affirmative consent of the target's owner/registry state for active interference. For research profiles this is a declared SCENARIO ASSUMPTION (spec D9), never a legal fact - the precheck records it as such. Absence of an affirmative true is treated as no consent (safe direction)."
+    },
+    "active_debris_removal": {
+      "type": "boolean",
+      "description": "True if the mission concept performs active debris removal (attach/deorbit of a non-cooperative object)."
+    },
+    "proximity_operations": {
+      "type": "boolean",
+      "description": "True if the concept includes rendezvous/proximity operations with another space object."
+    },
+    "payload_has_transmitter": {
+      "type": "boolean",
+      "description": "True if an RF transmitter is part of the modelled payload (triggers ITU/national frequency precheck)."
+    },
+    "payload_has_remote_sensing": {
+      "type": "boolean",
+      "description": "True if an imaging/remote-sensing payload is modelled (triggers the NOAA placeholder precheck when applicable)."
+    },
+    "controlled_reentry": {
+      "type": "boolean",
+      "description": "True if a controlled (targeted) reentry is part of the disposal concept. Mirrors WP5 column controlled_reentry_mode."
+    },
+    "post_mission_disposal_lifetime_years": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Design post-mission disposal lifetime in years for the LEO object(s). Checked against the IADC 25-year guideline and, for FCC-jurisdiction flight scenarios, the 5-year rule (FCC 22-74, 2022)."
+    },
+    "uses_live_tle": {
+      "type": "boolean",
+      "description": "True if live ephemerides/TLEs are ingested anywhere. ADSC policy (spec D11/R13) requires false."
+    },
+    "generates_target_specific_operations": {
+      "type": "boolean",
+      "description": "True if target-specific operational planning products are generated. ADSC policy (spec D11/R13) requires false."
+    },
+    "insurance_or_indemnification_evidence": {
+      "type": "string",
+      "description": "Marker for third-party liability arrangements (e.g. third_party_liability_insurance, state_indemnification_agreement, self_insurance_documented) or a 'none_*' research marker."
+    },
+    "export_control_review_status": {
+      "type": "string",
+      "description": "Status of the export-control review (e.g. not_started, in_progress, reviewed_no_controlled_content, reviewed_with_authorization). Anything other than a completed review yields a WARN."
+    },
+    "evidence_documents": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Tags of evidence documents the profile can point to. Rules list required tags in required_evidence; a required tag missing from this list yields WARN or BLOCK depending on rule severity."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional free-text notes (not evaluated)."
+    }
+  }
+}

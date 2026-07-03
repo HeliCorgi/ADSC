@@ -1,0 +1,37 @@
+{
+  "rulepack": "esa_reference",
+  "rulepack_version": "1.0",
+  "description": "ESA debris-mitigation reference rules (European practice reference; contractual for ESA missions, cited here as guidance). Research-grade snapshot; not legal advice.",
+  "rules": [
+    {
+      "rule_id": "ESA-SDM-01",
+      "title": "ESA space debris mitigation: LEO clearance reference (5-year class)",
+      "jurisdiction": "ESA (reference)",
+      "authority": "European Space Agency",
+      "source_reference": "ESA Space Debris Mitigation Requirements, ESSB-ST-U-007, Issue 1 (30 October 2023)",
+      "source_date_or_version": "ESSB-ST-U-007 Issue 1 (2023)",
+      "binding_type": "guideline",
+      "severity": "warn",
+      "applies_when": { "field": "mission_type", "op": "eq", "value": "flight" },
+      "pass_when": { "field": "post_mission_disposal_lifetime_years", "op": "lte", "value": 5 },
+      "finding_if_fail": "Design disposal lifetime exceeds the 5-year LEO clearance class used by the current ESA debris-mitigation requirements (reference for European practice).",
+      "required_evidence": [],
+      "limitations": "ESSB-ST-U-007 applies contractually to ESA-procured missions; it is cited here as a reference for where European practice is heading, not as a legal requirement on third parties. Clause-level applicability requires review."
+    },
+    {
+      "rule_id": "ESA-ZD-01",
+      "title": "Zero Debris alignment statement (voluntary charter)",
+      "jurisdiction": "ESA (reference)",
+      "authority": "European Space Agency and Zero Debris community",
+      "source_reference": "ESA Zero Debris Charter (2023)",
+      "source_date_or_version": "Zero Debris Charter (2023)",
+      "binding_type": "guideline",
+      "severity": "info",
+      "applies_when": { "op": "always" },
+      "pass_when": { "field": "evidence_documents", "op": "contains", "value": "zero_debris_alignment_statement" },
+      "finding_if_fail": "No Zero Debris alignment statement is declared (informational: the charter is voluntary; an ADR evidence package benefits from stating its position).",
+      "required_evidence": [],
+      "limitations": "Voluntary charter, not a legal requirement. Informational finding only."
+    }
+  ]
+}

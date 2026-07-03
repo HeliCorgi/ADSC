@@ -1,0 +1,97 @@
+{
+  "rulepack": "adsc_policy",
+  "rulepack_version": "1.0",
+  "description": "ADSC internal safety/ethics policy rules (spec v4.2, D9/D11/R13). These are project policy, not law.",
+  "rules": [
+    {
+      "rule_id": "ADSC-POL-01",
+      "title": "No unconsented active interference with a registered space object (ADSC policy)",
+      "jurisdiction": "ADSC internal",
+      "authority": "ADSC project policy",
+      "source_reference": "ADSC specification v4.2, decisions D9 and D11 (adsc-specification-v4.md)",
+      "source_date_or_version": "spec v4.2",
+      "binding_type": "adsc_policy",
+      "severity": "blocking",
+      "applies_when": { "any": [
+        { "field": "active_debris_removal", "op": "eq", "value": true },
+        { "field": "proximity_operations", "op": "eq", "value": true }
+      ] },
+      "pass_when": { "field": "target_owner_consent", "op": "affirmed_true" },
+      "finding_if_fail": "ADSC policy blocks any active interference or proximity operation without an affirmative owner-consent declaration. Absence of an affirmative 'true' is treated as no consent.",
+      "required_evidence": [],
+      "limitations": "Internal policy, stricter than a legal minimum by design. For research profiles the consent flag is a declared scenario assumption (D9)."
+    },
+    {
+      "rule_id": "ADSC-POL-02",
+      "title": "No live-ephemeris ingestion and no target-specific operational products (ADSC policy)",
+      "jurisdiction": "ADSC internal",
+      "authority": "ADSC project policy",
+      "source_reference": "ADSC specification v4.2, decision D11 and hard rule R13 (adsc-specification-v4.md)",
+      "source_date_or_version": "spec v4.2",
+      "binding_type": "adsc_policy",
+      "severity": "blocking",
+      "applies_when": { "op": "always" },
+      "pass_when": { "all": [
+        { "field": "uses_live_tle", "op": "eq", "value": false },
+        { "field": "generates_target_specific_operations", "op": "eq", "value": false }
+      ] },
+      "finding_if_fail": "The profile ingests live ephemerides/TLEs and/or generates target-specific operational products. ADSC policy (D11/R13) blocks both: targets stay class-level parameters and no operational approach products are produced.",
+      "required_evidence": [],
+      "limitations": "Internal policy. Either flag alone fails the rule; a missing flag evaluates UNKNOWN, never PASS."
+    },
+    {
+      "rule_id": "ADSC-POL-03",
+      "title": "Non-weaponization: research-only or consented, class-level use (ADSC policy)",
+      "jurisdiction": "ADSC internal",
+      "authority": "ADSC project policy",
+      "source_reference": "ADSC specification v4.2, section 1 and decision D11; README peaceful-use disclaimer",
+      "source_date_or_version": "spec v4.2",
+      "binding_type": "adsc_policy",
+      "severity": "blocking",
+      "applies_when": { "op": "always" },
+      "pass_when": { "any": [
+        { "field": "research_only", "op": "eq", "value": true },
+        { "all": [
+          { "field": "target_owner_consent", "op": "affirmed_true" },
+          { "field": "generates_target_specific_operations", "op": "eq", "value": false }
+        ] }
+      ] },
+      "finding_if_fail": "The profile is neither research-only nor a consented, class-level use. ADSC deliverables must not support unconsented or weaponizable applications.",
+      "required_evidence": [],
+      "limitations": "Proxy check: 'non-weaponization' is not directly observable from profile fields; the rule uses research-only / consent / no-targeting-products as the observable proxy. Internal policy, not law."
+    },
+    {
+      "rule_id": "ADSC-EXP-01",
+      "title": "Export-control review status (ITAR/EAR precheck placeholder)",
+      "jurisdiction": "ADSC internal",
+      "authority": "ADSC project policy (referencing US ITAR/EAR as the typical regime)",
+      "source_reference": "22 CFR Parts 120-130 (ITAR); 15 CFR Parts 730-774 (EAR)",
+      "source_date_or_version": "snapshot 2024-era regime structure; regimes change - re-verify",
+      "binding_type": "placeholder",
+      "severity": "warn",
+      "applies_when": { "op": "always" },
+      "pass_when": { "field": "export_control_review_status", "op": "in",
+        "value": ["reviewed_no_controlled_content", "reviewed_with_authorization", "not_required_confirmed_by_counsel"] },
+      "finding_if_fail": "Export-control review is not complete. Open-literature methods (spec D11) are the current basis for research distribution, but a documented review is required before sharing controlled technical data or starting hardware/flight work.",
+      "required_evidence": [],
+      "limitations": "Placeholder: jurisdiction-specific export regimes (US ITAR/EAR cited as the typical case) are not modelled in detail. Requires export-control counsel review."
+    },
+    {
+      "rule_id": "ADSC-META-01",
+      "title": "WP5 campaign compliance metadata consistent with this mission profile",
+      "jurisdiction": "ADSC internal",
+      "authority": "ADSC project policy",
+      "source_reference": "generated/wp5_campaign_runs.csv compliance columns (schema 1.0); ADSC specification v4.2, D9/D11",
+      "source_date_or_version": "WP5 runs CSV schema 1.0",
+      "binding_type": "adsc_policy",
+      "severity": "warn",
+      "status_on_pass": "INFO",
+      "detail_on_pass": "WP5 campaign metadata consistent with research profile",
+      "applies_when": { "op": "always" },
+      "pass_when": { "op": "wp5_metadata_consistent" },
+      "finding_if_fail": "The committed WP5 campaign metadata columns disagree with this mission profile - the research-evidence chain is inconsistent and must be reconciled.",
+      "required_evidence": [],
+      "limitations": "Consistency check between two research artifacts; it makes no statement about the real world. If the WP5 CSV is absent the result is UNKNOWN, never PASS."
+    }
+  ]
+}

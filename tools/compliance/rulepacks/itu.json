@@ -1,0 +1,22 @@
+{
+  "rulepack": "itu",
+  "rulepack_version": "1.0",
+  "description": "ITU / RF coordination precheck (placeholder). Research-grade snapshot; not legal advice.",
+  "rules": [
+    {
+      "rule_id": "ITU-RF-01",
+      "title": "Frequency coordination / notification filing evidence for the RF payload",
+      "jurisdiction": "international",
+      "authority": "International Telecommunication Union (via the responsible national administration)",
+      "source_reference": "ITU Radio Regulations, Article 9 (coordination) and Article 11 (notification and recording)",
+      "source_date_or_version": "Radio Regulations, Edition of 2020",
+      "binding_type": "placeholder",
+      "severity": "warn",
+      "applies_when": { "field": "payload_has_transmitter", "op": "eq", "value": true },
+      "pass_when": { "field": "evidence_documents", "op": "contains", "value": "itu_or_national_frequency_filing_evidence" },
+      "finding_if_fail": "An RF transmitter is declared but no ITU/national frequency filing evidence is listed.",
+      "required_evidence": ["itu_or_national_frequency_filing_evidence"],
+      "limitations": "Placeholder rule: ITU obligations run through the responsible national administration, and band-specific coordination requirements are NOT modelled. The Radio Regulations bind administrations, not operators directly. Requires review by the responsible administration / legal counsel."
+    }
+  ]
+}

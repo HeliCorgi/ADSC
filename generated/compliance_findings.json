@@ -1,0 +1,340 @@
+{
+  "schema_version": "1.0",
+  "tool": "ADSC Compliance Matrix Generator / Regulatory Precheck",
+  "disclaimer": "This is not legal advice.",
+  "coverage_note": "Jurisdiction coverage is currently limited to the UN space treaties, US agency rules (FCC/FAA/NOAA), ITU references and ESA reference guidelines. National law of other launching states relevant to ADSC's adopter framing - notably Russia, China and Japan - is NOT yet covered and is future work.",
+  "stale_note": "Rulepacks are versioned research artifacts (see source_date_or_version per rule). Regulations change; rulepacks can go stale and must be re-verified against current law before any real-world use.",
+  "profile_name": "ADSC reference research campaign (numerical simulation only)",
+  "profile_ref": "tools/compliance/examples/adsc_research_profile.json",
+  "rulepacks": [
+    {
+      "rulepack": "international",
+      "rulepack_version": "1.0",
+      "rules": 5
+    },
+    {
+      "rulepack": "us_fcc",
+      "rulepack_version": "1.0",
+      "rules": 2
+    },
+    {
+      "rulepack": "us_faa",
+      "rulepack_version": "1.0",
+      "rules": 1
+    },
+    {
+      "rulepack": "us_noaa",
+      "rulepack_version": "1.0",
+      "rules": 1
+    },
+    {
+      "rulepack": "itu",
+      "rulepack_version": "1.0",
+      "rules": 1
+    },
+    {
+      "rulepack": "esa_reference",
+      "rulepack_version": "1.0",
+      "rules": 2
+    },
+    {
+      "rulepack": "adsc_policy",
+      "rulepack_version": "1.0",
+      "rules": 5
+    }
+  ],
+  "summary": {
+    "PASS": 6,
+    "INFO": 2,
+    "WARN": 1,
+    "BLOCK": 0,
+    "UNKNOWN": 0,
+    "NOT_APPLICABLE": 9
+  },
+  "findings": [
+    {
+      "rule_id": "SCHEMA-VAL-01",
+      "title": "Mission profile schema validation (stdlib manual validation)",
+      "jurisdiction": "ADSC internal",
+      "authority": "tools/compliance/mission_profile.schema.json (documentation twin)",
+      "source_reference": "ADSC mission_profile.schema.json (adsc-mission-profile-1.0)",
+      "source_date_or_version": "schema 1.0",
+      "binding_type": "adsc_policy",
+      "severity": "warn",
+      "status": "PASS",
+      "detail": "all required fields present with expected types",
+      "required_evidence": [],
+      "missing_evidence": [],
+      "limitations": "Manual validation dual-maintained with the schema document; unknown fields are ignored by every rule and can never produce a PASS."
+    },
+    {
+      "rule_id": "INTL-OST-06-01",
+      "title": "National authorization and continuing supervision of the mission",
+      "jurisdiction": "international",
+      "authority": "States Parties to the Outer Space Treaty",
+      "source_reference": "Outer Space Treaty, Article VI (610 UNTS 205)",
+      "source_date_or_version": "1967 (in force 10 October 1967)",
+      "binding_type": "binding",
+      "severity": "blocking",
+      "status": "NOT_APPLICABLE",
+      "detail": "rule does not apply to this profile",
+      "required_evidence": [
+        "national_authorization_evidence"
+      ],
+      "missing_evidence": [],
+      "limitations": "Precheck only: verifies that authorization evidence is DECLARED, not that a valid authorization exists or covers this activity. Which state is the 'appropriate State Party' for a multi-state mission requires legal review."
+    },
+    {
+      "rule_id": "INTL-OST-08-01",
+      "title": "Registry-state jurisdiction and control: owner consent for active interference",
+      "jurisdiction": "international",
+      "authority": "States Parties to the Outer Space Treaty",
+      "source_reference": "Outer Space Treaty, Article VIII (610 UNTS 205)",
+      "source_date_or_version": "1967 (in force 10 October 1967)",
+      "binding_type": "binding",
+      "severity": "blocking",
+      "status": "PASS",
+      "detail": "condition satisfied",
+      "required_evidence": [],
+      "missing_evidence": [],
+      "limitations": "For research profiles, consent 'true' is a declared scenario assumption (ADSC spec D9), never a legal fact, and the finding notes must be read that way. The precise consent instrument (agreement, contract, note verbale) required in a real case needs legal review."
+    },
+    {
+      "rule_id": "INTL-REG-01",
+      "title": "Registration of the servicer space object",
+      "jurisdiction": "international",
+      "authority": "States Parties to the Registration Convention",
+      "source_reference": "Convention on Registration of Objects Launched into Outer Space, Article II (1023 UNTS 15)",
+      "source_date_or_version": "1975 (in force 15 September 1976)",
+      "binding_type": "binding",
+      "severity": "warn",
+      "status": "NOT_APPLICABLE",
+      "detail": "rule does not apply to this profile",
+      "required_evidence": [
+        "registration_evidence"
+      ],
+      "missing_evidence": [],
+      "limitations": "Precheck of declared evidence only. Registration timing ('as soon as practicable') and the choice of registry state among joint launching states require legal review."
+    },
+    {
+      "rule_id": "INTL-LIAB-01",
+      "title": "Third-party liability risk allocation evidence",
+      "jurisdiction": "international",
+      "authority": "States Parties to the Liability Convention",
+      "source_reference": "Convention on International Liability for Damage Caused by Space Objects, Articles II-III (961 UNTS 187)",
+      "source_date_or_version": "1972 (in force 1 September 1972)",
+      "binding_type": "binding",
+      "severity": "warn",
+      "status": "NOT_APPLICABLE",
+      "detail": "rule does not apply to this profile",
+      "required_evidence": [],
+      "missing_evidence": [],
+      "limitations": "The convention binds STATES, not operators; operator-level insurance obligations come from national law and vary by jurisdiction. Amounts and scope require legal review."
+    },
+    {
+      "rule_id": "IADC-ODM-25YR",
+      "title": "Post-mission disposal lifetime within 25 years (IADC guideline)",
+      "jurisdiction": "international",
+      "authority": "Inter-Agency Space Debris Coordination Committee (IADC)",
+      "source_reference": "IADC Space Debris Mitigation Guidelines, IADC-02-01, guideline 5.3.2 (objects passing through the LEO protected region)",
+      "source_date_or_version": "IADC-02-01 Rev. 2 (March 2020); later revisions exist - confirm the current one",
+      "binding_type": "guideline",
+      "severity": "warn",
+      "status": "PASS",
+      "detail": "condition satisfied",
+      "required_evidence": [],
+      "missing_evidence": [],
+      "limitations": "Non-binding guideline. Stricter national rules supersede it where they apply - notably the US FCC 5-year rule (see FCC-ODM-5YR); under a US FCC-jurisdiction scenario the 25-year figure is NOT the operative standard. Confirm the current IADC revision before citing."
+    },
+    {
+      "rule_id": "FCC-ODM-5YR",
+      "title": "Post-mission disposal within 5 years for LEO space stations (FCC-jurisdiction scenario)",
+      "jurisdiction": "US",
+      "authority": "Federal Communications Commission",
+      "source_reference": "FCC, Second Report and Order, 'Mitigation of Orbital Debris in the New Space Age', FCC 22-74 (adopted 29 September 2022); 47 CFR Part 25 space-station disposal rules",
+      "source_date_or_version": "FCC 22-74 (2022)",
+      "binding_type": "binding",
+      "severity": "blocking",
+      "status": "NOT_APPLICABLE",
+      "detail": "rule does not apply to this profile",
+      "required_evidence": [
+        "orbital_debris_mitigation_plan"
+      ],
+      "missing_evidence": [],
+      "limitations": "Simplified jurisdiction test (operating_state/launching_state == 'US'); the real trigger is an FCC space-station authorization, including US market access for non-US systems. Exact codified CFR subsections, transition periods and waiver practice require legal review."
+    },
+    {
+      "rule_id": "FCC-ODM-DISCLOSE",
+      "title": "Orbital debris mitigation disclosure with the FCC application",
+      "jurisdiction": "US",
+      "authority": "Federal Communications Commission",
+      "source_reference": "47 CFR 25.114(d)(14) (orbital debris mitigation disclosure for space station applications)",
+      "source_date_or_version": "as amended through FCC 22-74 (2022)",
+      "binding_type": "binding",
+      "severity": "warn",
+      "status": "NOT_APPLICABLE",
+      "detail": "rule does not apply to this profile",
+      "required_evidence": [
+        "orbital_debris_mitigation_plan"
+      ],
+      "missing_evidence": [],
+      "limitations": "Precheck of declared evidence only; the disclosure's technical content (collision risk, casualty risk, maneuverability, trackability) is not evaluated here. Requires legal review."
+    },
+    {
+      "rule_id": "FAA-LRL-01",
+      "title": "FAA launch and reentry authorization evidence (US commercial scenario)",
+      "jurisdiction": "US",
+      "authority": "Federal Aviation Administration, Office of Commercial Space Transportation",
+      "source_reference": "51 U.S.C. chapter 509 (Commercial Space Launch Activities); 14 CFR Part 450 (Launch and Reentry License Requirements)",
+      "source_date_or_version": "14 CFR Part 450 (streamlined rule, 2020)",
+      "binding_type": "binding",
+      "severity": "blocking",
+      "status": "NOT_APPLICABLE",
+      "detail": "rule does not apply to this profile",
+      "required_evidence": [
+        "faa_part450_application_evidence"
+      ],
+      "missing_evidence": [],
+      "limitations": "Precheck of declared evidence only. Whether the deorbit-kit-driven target reentry itself needs a Part 450 reentry authorization (vs. only the servicer launch) is an open legal question for ADR concepts - requires legal review."
+    },
+    {
+      "rule_id": "NOAA-RS-01",
+      "title": "NOAA private remote-sensing system authorization evidence",
+      "jurisdiction": "US",
+      "authority": "National Oceanic and Atmospheric Administration, Commercial Remote Sensing Regulatory Affairs",
+      "source_reference": "51 U.S.C. chapter 601 (Land Remote Sensing Policy); 15 CFR Part 960 (Licensing of Private Remote Sensing Space Systems)",
+      "source_date_or_version": "15 CFR Part 960 (2020 revision)",
+      "binding_type": "placeholder",
+      "severity": "warn",
+      "status": "NOT_APPLICABLE",
+      "detail": "rule does not apply to this profile",
+      "required_evidence": [
+        "noaa_remote_sensing_authorization_evidence"
+      ],
+      "missing_evidence": [],
+      "limitations": "Placeholder rule: the US-nexus test (US person / platform control) and the 2020 tiering system are NOT modelled - the rule fires on any remote-sensing payload. Rendezvous inspection cameras may or may not fall under Part 960. Requires legal review."
+    },
+    {
+      "rule_id": "ITU-RF-01",
+      "title": "Frequency coordination / notification filing evidence for the RF payload",
+      "jurisdiction": "international",
+      "authority": "International Telecommunication Union (via the responsible national administration)",
+      "source_reference": "ITU Radio Regulations, Article 9 (coordination) and Article 11 (notification and recording)",
+      "source_date_or_version": "Radio Regulations, Edition of 2020",
+      "binding_type": "placeholder",
+      "severity": "warn",
+      "status": "NOT_APPLICABLE",
+      "detail": "rule does not apply to this profile",
+      "required_evidence": [
+        "itu_or_national_frequency_filing_evidence"
+      ],
+      "missing_evidence": [],
+      "limitations": "Placeholder rule: ITU obligations run through the responsible national administration, and band-specific coordination requirements are NOT modelled. The Radio Regulations bind administrations, not operators directly. Requires review by the responsible administration / legal counsel."
+    },
+    {
+      "rule_id": "ESA-SDM-01",
+      "title": "ESA space debris mitigation: LEO clearance reference (5-year class)",
+      "jurisdiction": "ESA (reference)",
+      "authority": "European Space Agency",
+      "source_reference": "ESA Space Debris Mitigation Requirements, ESSB-ST-U-007, Issue 1 (30 October 2023)",
+      "source_date_or_version": "ESSB-ST-U-007 Issue 1 (2023)",
+      "binding_type": "guideline",
+      "severity": "warn",
+      "status": "NOT_APPLICABLE",
+      "detail": "rule does not apply to this profile",
+      "required_evidence": [],
+      "missing_evidence": [],
+      "limitations": "ESSB-ST-U-007 applies contractually to ESA-procured missions; it is cited here as a reference for where European practice is heading, not as a legal requirement on third parties. Clause-level applicability requires review."
+    },
+    {
+      "rule_id": "ESA-ZD-01",
+      "title": "Zero Debris alignment statement (voluntary charter)",
+      "jurisdiction": "ESA (reference)",
+      "authority": "European Space Agency and Zero Debris community",
+      "source_reference": "ESA Zero Debris Charter (2023)",
+      "source_date_or_version": "Zero Debris Charter (2023)",
+      "binding_type": "guideline",
+      "severity": "info",
+      "status": "INFO",
+      "detail": "No Zero Debris alignment statement is declared (informational: the charter is voluntary; an ADR evidence package benefits from stating its position).; evidence_documents: does not contain 'zero_debris_alignment_statement'",
+      "required_evidence": [],
+      "missing_evidence": [],
+      "limitations": "Voluntary charter, not a legal requirement. Informational finding only."
+    },
+    {
+      "rule_id": "ADSC-POL-01",
+      "title": "No unconsented active interference with a registered space object (ADSC policy)",
+      "jurisdiction": "ADSC internal",
+      "authority": "ADSC project policy",
+      "source_reference": "ADSC specification v4.2, decisions D9 and D11 (adsc-specification-v4.md)",
+      "source_date_or_version": "spec v4.2",
+      "binding_type": "adsc_policy",
+      "severity": "blocking",
+      "status": "PASS",
+      "detail": "condition satisfied",
+      "required_evidence": [],
+      "missing_evidence": [],
+      "limitations": "Internal policy, stricter than a legal minimum by design. For research profiles the consent flag is a declared scenario assumption (D9)."
+    },
+    {
+      "rule_id": "ADSC-POL-02",
+      "title": "No live-ephemeris ingestion and no target-specific operational products (ADSC policy)",
+      "jurisdiction": "ADSC internal",
+      "authority": "ADSC project policy",
+      "source_reference": "ADSC specification v4.2, decision D11 and hard rule R13 (adsc-specification-v4.md)",
+      "source_date_or_version": "spec v4.2",
+      "binding_type": "adsc_policy",
+      "severity": "blocking",
+      "status": "PASS",
+      "detail": "condition satisfied",
+      "required_evidence": [],
+      "missing_evidence": [],
+      "limitations": "Internal policy. Either flag alone fails the rule; a missing flag evaluates UNKNOWN, never PASS."
+    },
+    {
+      "rule_id": "ADSC-POL-03",
+      "title": "Non-weaponization: research-only or consented, class-level use (ADSC policy)",
+      "jurisdiction": "ADSC internal",
+      "authority": "ADSC project policy",
+      "source_reference": "ADSC specification v4.2, section 1 and decision D11; README peaceful-use disclaimer",
+      "source_date_or_version": "spec v4.2",
+      "binding_type": "adsc_policy",
+      "severity": "blocking",
+      "status": "PASS",
+      "detail": "condition satisfied",
+      "required_evidence": [],
+      "missing_evidence": [],
+      "limitations": "Proxy check: 'non-weaponization' is not directly observable from profile fields; the rule uses research-only / consent / no-targeting-products as the observable proxy. Internal policy, not law."
+    },
+    {
+      "rule_id": "ADSC-EXP-01",
+      "title": "Export-control review status (ITAR/EAR precheck placeholder)",
+      "jurisdiction": "ADSC internal",
+      "authority": "ADSC project policy (referencing US ITAR/EAR as the typical regime)",
+      "source_reference": "22 CFR Parts 120-130 (ITAR); 15 CFR Parts 730-774 (EAR)",
+      "source_date_or_version": "snapshot 2024-era regime structure; regimes change - re-verify",
+      "binding_type": "placeholder",
+      "severity": "warn",
+      "status": "WARN",
+      "detail": "Export-control review is not complete. Open-literature methods (spec D11) are the current basis for research distribution, but a documented review is required before sharing controlled technical data or starting hardware/flight work.",
+      "required_evidence": [],
+      "missing_evidence": [],
+      "limitations": "Placeholder: jurisdiction-specific export regimes (US ITAR/EAR cited as the typical case) are not modelled in detail. Requires export-control counsel review."
+    },
+    {
+      "rule_id": "ADSC-META-01",
+      "title": "WP5 campaign compliance metadata consistent with this mission profile",
+      "jurisdiction": "ADSC internal",
+      "authority": "ADSC project policy",
+      "source_reference": "generated/wp5_campaign_runs.csv compliance columns (schema 1.0); ADSC specification v4.2, D9/D11",
+      "source_date_or_version": "WP5 runs CSV schema 1.0",
+      "binding_type": "adsc_policy",
+      "severity": "warn",
+      "status": "INFO",
+      "detail": "WP5 campaign metadata consistent with research profile; all 7 mapped columns + 2 policy columns consistent across 1000 runs",
+      "required_evidence": [],
+      "missing_evidence": [],
+      "limitations": "Consistency check between two research artifacts; it makes no statement about the real world. If the WP5 CSV is absent the result is UNKNOWN, never PASS."
+    }
+  ]
+}
