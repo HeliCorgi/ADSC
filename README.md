@@ -16,12 +16,13 @@ number in this README is regenerable by running committed code.
 safety), the F1/F2 honesty follow-ups, WP2 (tumble synchronization), WP3
 (attach event + kit decay trades, mission reflowed into
 approach→sync→attach→depart phases), WP4 (estimator + sensor models — the
-control loop now runs on estimates, not truth), and WP5 (campaign Monte-Carlo
-under dispersions, with stable machine-readable CSV outputs) are implemented on
-top of the v2.0 GNC core. WP6–WP7 (parametric cost model, evidence pack) are
-**not yet** implemented — see the roadmap below. WP5 does **not** implement
-visualization dashboards or any compliance/legal approval — those are future
-WP7/WP8 scope.
+control loop now runs on estimates, not truth), WP5 (campaign Monte-Carlo
+under dispersions, with stable machine-readable CSV outputs), and WP6
+(parametric cost model + figure of merit, consuming the WP5 CSV) are implemented
+on top of the v2.0 GNC core. WP7 (evidence pack) is **not yet** implemented —
+see the roadmap below. WP5/WP6 do **not** implement visualization dashboards or
+any compliance/legal approval, and WP6 predicts **no absolute cost** (relative
+units only) — those are future WP7/WP8 scope.
 
 **What changed from v1.21 → v2.0:** the v1.21 README named an SR-UKF and a
 sliding-mode DACS, but the source only declared unused state and printed status
@@ -127,6 +128,22 @@ implemented; v3 continues that discipline.
   determinism, Wilson edge cases, percentiles, termination, schema stability,
   the guardrail that no artifact emits legal-approval language). Regenerate with
   `./build/adsc_campaign`.
+- **Parametric cost model + figure of merit (WP6)** (`cost`): the spec's
+  `C_campaign = C_dev + C_bus(m_dry) + N·C_kit + C_launch(m_wet, band) +
+  C_ops(T)` in **relative cost units (CU)** — **no point-value dollar figure is
+  ever emitted** (R6/D10); the CU→currency anchor is a PLACEHOLDER cited range
+  left for WP7. Consumes the WP5 campaign (schema 1.0): the **amortization
+  curve** (cost/removal vs kits carried N) re-runs the WP5 engine across a kit
+  sweep at the fixed master seed — the baseline reproduces
+  `wp5_campaign_runs.csv` exactly — and falls until the Δv budget (not the kit
+  count) bounds removals, which is the quantitative installer/batch argument.
+  Cost, cost/removal and **FoM = Σ mᵢ·w(hᵢ)/C_campaign** are propagated **per
+  run** (p05/p50/p95, never mean-only). FoM is reported under **two** normalized
+  congestion weightings (spatial-density + criticality-style, both PLACEHOLDER);
+  they disagree on band priority — open trade **T5**. A machine-readable
+  **tornado** ranks each cost parameter's ± impact. Outputs
+  `generated/wp6_cost_summary.{md,csv}` + `wp6_cost_schema.md` (schema `1.0`).
+  Unit-tested (`tests/test_cost.cpp`). Regenerate with `./build/adsc_cost`.
 - **First-order PCM thermal budget** integrated over the control loop.
 - **Deorbit gating**: autonomous by default, human-in-the-loop only on the
   emergency path, blocked below the fuel reserve.
@@ -187,6 +204,14 @@ verify rather than a claim in prose.
   or regulatory determination**: the future-facing compliance columns are
   passive research-profile metadata (`owner_consent_assumed` is a research
   scenario assumption per D9, never a legal fact), reserved for WP7/WP8.
+- **Cost model is relative and parametric (WP6).** Every cost/FoM coefficient
+  (`CostConfig`) and both congestion-weight tables are **PLACEHOLDER**; outputs
+  are in relative CU. **WP6 predicts no absolute program cost** — a cited
+  CU→currency range is deliberately left unfilled (a WP7 deliverable), and no
+  point-value dollar figure is emitted anywhere. Per-catalog FoM is dominated by
+  removed mass (the ~9 t class outranks the ~1.4 t class under both weightings);
+  the metric-choice disagreement that WP6 surfaces is the **band-priority flip**
+  between the two weightings (open trade T5). WP6 emits no charts.
 - Numbers for mass, inertia, power, PCM capacity and the target orbit/keep-out
   are plausible placeholders, not derived from a specific bus or target design.
 
@@ -204,7 +229,9 @@ element requires real-time processor-in-the-loop execution on representative
 hardware (see the WP7.7 flight-software migration annex direction in the spec),
 which this repo deliberately does not attempt. WP5 adds
 robustness-under-dispersions evidence, but this strengthens the TRL-4 evidence
-base rather than raising the TRL.
+base rather than raising the TRL. WP6 adds a relative-unit cost/FoM model on top
+of that evidence — an economic-viability argument, not a GNC maturity change —
+so the TRL stays 4.
 
 ## Build
 
@@ -217,7 +244,8 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release   # add -DADSC_WERROR=ON for R3
 cmake --build build
 ./build/adsc_sim
 ./build/adsc_campaign          # WP5: regenerates generated/wp5_campaign_* (full N=500)
-ctest --test-dir build      # fuel_store/relmotion/sync/decay/mission/estimator/campaign (fail in any build type)
+./build/adsc_cost              # WP6: regenerates generated/wp6_cost_* (consumes the WP5 summary)
+ctest --test-dir build      # fuel_store/relmotion/sync/decay/mission/estimator/campaign/cost (fail in any build type)
 ```
 
 When invoking bare g++ directly, prefer passing Eigen via `-isystem` to avoid
@@ -227,10 +255,10 @@ GCC `-Wmaybe-uninitialized` false positives; CMake handles this automatically.
 
 ```
 include/adsc/   public headers (fuel_store, dynamics, controller, thermal,
-                relmotion, decay, estimator, mission, campaign)
-src/            implementations + main.cpp sim driver + main_campaign.cpp (WP5)
-tests/          fuel-store, relmotion, sync, decay, mission, estimator, campaign tests
-generated/      WP5 committed campaign artifacts (CSV + summary/schema markdown)
+                relmotion, decay, estimator, mission, campaign, cost)
+src/            implementations + main.cpp sim + main_campaign.cpp (WP5) + main_cost.cpp (WP6)
+tests/          fuel-store, relmotion, sync, decay, mission, estimator, campaign, cost tests
+generated/      WP5/WP6 committed artifacts (campaign + cost/FoM CSV + summary/schema markdown)
 .github/        CI (Ubuntu + Eigen: cmake build + ctest, warnings-as-errors)
 adsc-specification-v4.md   active spec (work packages, hard rules, locked decisions)
 ```
@@ -249,7 +277,8 @@ adsc-specification-v4.md   active spec (work packages, hard rules, locked decisi
 - **WP5 — Campaign Monte-Carlo** ✅ implemented (dispersions; success / abort /
   keep-out rates with Wilson CIs; Δv / kit / removal percentiles; stable
   machine-readable CSV for WP6/WP7/WP8).
-- **WP6 — Parametric cost model** (relative units; the amortization curve).
+- **WP6 — Parametric cost model** ✅ implemented (relative-unit C_campaign;
+  amortization curve; FoM under ≥2 weightings with T5; tornado sensitivity).
 - **WP7 — Evidence pack** (generated English report; the actual product).
 
 Reproducible WP1 numbers (regenerate with `./build/adsc_sim`): for the 825 km
@@ -344,6 +373,16 @@ records and the column schema are in [generated/](generated/).
 WP5 produces **no** charts and performs **no** legal/regulatory determination;
 the CSV schema (`generated/wp5_campaign_schema.md`, version `1.0`) is stabilized
 for future WP6 cost/FoM, WP7 visualization, and WP8 compliance tooling.
+
+Reproducible WP6 numbers (regenerate with `./build/adsc_cost`; relative cost
+units **CU**, **no absolute-dollar figure claimed**). WP6 consumes the WP5
+campaign (schema 1.0), re-running the engine across a kits-carried sweep at the
+fixed master seed; the baseline (N = 4) reproduces `wp5_campaign_runs.csv`.
+
+<!-- WP6-NUMBERS-START (filled from CI adsc_cost) -->
+_Amortization curve, FoM table and tornado ranking are filled here from the CI
+`adsc_cost` run before merge (R6)._
+<!-- WP6-NUMBERS-END -->
 
 ## Disclaimer / 免責
 

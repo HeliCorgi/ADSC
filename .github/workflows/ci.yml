@@ -41,8 +41,11 @@ jobs:
       - name: Regenerate WP5 campaign artifacts (full N=500) + report runtime
         run: ./build/adsc_campaign 500 generated
 
-      - name: Upload WP5 campaign artifacts
+      - name: Regenerate WP6 cost/FoM artifacts (consumes WP5 summary) + report runtime
+        run: ./build/adsc_cost 500 generated
+
+      - name: Upload generated artifacts (WP5 + WP6)
         uses: actions/upload-artifact@v4
         with:
-          name: wp5-campaign-generated
+          name: adsc-generated
           path: generated/
