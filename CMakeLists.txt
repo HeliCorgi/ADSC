@@ -64,6 +64,12 @@ target_link_libraries(adsc_cost PRIVATE adsc_core adsc_flags)
 add_executable(flux_sweep src/main_flux.cpp)
 target_link_libraries(flux_sweep PRIVATE adsc_core adsc_flags)
 
+# WP3 decay-trade CSV emitter (feeds the WP7a visualization): re-emits the
+# existing sail-decay trade as machine-readable generated/wp3_decay_trade.csv.
+# No physics/number change -- reuses src/decay.cpp.
+add_executable(decay_trade src/main_decay_trade.cpp)
+target_link_libraries(decay_trade PRIVATE adsc_core adsc_flags)
+
 # Tests.
 enable_testing()
 
@@ -102,3 +108,16 @@ add_test(NAME cost COMMAND test_cost)
 add_executable(test_flux tests/test_flux.cpp)
 target_link_libraries(test_flux PRIVATE adsc_core adsc_flags)
 add_test(NAME flux COMMAND test_flux)
+
+# WP7a Visualization Pack test: Python 3 stdlib-only generator (spec v4.2 R9
+# tooling exception). Regenerates the SVGs from the committed CSVs and checks
+# well-formedness, caption provenance, no timestamps/stub markers, and byte
+# reproducibility against the committed generated/viz.
+find_program(PYTHON3_EXECUTABLE NAMES python3 python)
+if(PYTHON3_EXECUTABLE)
+    add_test(NAME viz COMMAND ${PYTHON3_EXECUTABLE}
+             ${CMAKE_CURRENT_SOURCE_DIR}/tools/viz/test_viz.py
+             ${CMAKE_CURRENT_SOURCE_DIR})
+else()
+    message(WARNING "python3 not found; WP7a visualization test (viz) not registered")
+endif()
