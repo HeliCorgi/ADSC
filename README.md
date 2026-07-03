@@ -305,8 +305,30 @@ subset if a faster smoke run is ever wanted). Rates carry a Wilson 95% CI
 (z = 1.959963984540054); distributions are p05/p50/p95.
 
 <!-- WP5-NUMBERS-START (filled from CI adsc_campaign, seed 0x5AD5C0DECAFE2026) -->
-_Campaign summary numbers are filled here from the CI `adsc_campaign` run before
-merge (R6)._
+The full N = 500 campaign (both catalog presets) runs in **≈ 10.7 s** on the CI
+runner. `success` here means a **productive end** — the mission installed its
+full 4-kit complement (`kit_exhausted`) or cleared all 6 targets (`completed`) —
+not one cut short by Δv exhaustion or a keep-out violation.
+
+| metric | SL-16 / Zenit-2 class | SL-8 / Kosmos-3M class |
+|---|---|---|
+| success rate | **0.556** [0.512, 0.599] | **0.542** [0.498, 0.585] |
+| abort rate | **0.444** [0.401, 0.488] | **0.458** [0.415, 0.502] |
+| keep-out-violation rate | **0.014** [0.007, 0.029] | **0.014** [0.007, 0.029] |
+| Δv used p05/p50/p95 [m/s] | 124 / 124 / 136 | 124 / 124 / 136 |
+| kits used p05/p50/p95 | 3 / 4 / 4 | 3 / 4 / 4 |
+| removals/mission p05/p50/p95 | 3 / 4 / 4 | 3 / 4 / 4 |
+| sync arrival p05/p50/p95 [s] | 14.47 / 17.68 / 20.09 | 14.13 / 17.71 / 20.16 |
+| failure counts (runs) | dv_exhausted 215, kit_exhausted 278, keep_out 7, completed 0 | dv_exhausted 222, kit_exhausted 271, keep_out 7, completed 0 |
+| per-target events | gate_abort 288, sync_timeout 0 | gate_abort 288, sync_timeout 0 |
+
+The honest campaign finding: with a 140 m/s Δv budget the servicer is **Δv-limited
+about 43% of the time** (`dv_exhausted`) and installs its full kit complement the
+rest; the attitude sync never times out across the sampled tumble/attitude/
+actuator dispersions, and the safe-abort maneuvers clear the keep-out sphere on
+all but ≈ 1.4% of aborts. `completed` (all 6 targets processed) is 0 by
+construction — 4 kits cannot service 6 targets. Full per-run records and the
+column schema are in [generated/](generated/).
 <!-- WP5-NUMBERS-END -->
 
 WP5 produces **no** charts and performs **no** legal/regulatory determination;
