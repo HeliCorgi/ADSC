@@ -38,6 +38,7 @@ add_library(adsc_core
     src/estimator.cpp
     src/mission.cpp
     src/campaign.cpp
+    src/flux.cpp
 )
 target_include_directories(adsc_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(adsc_core PUBLIC Eigen3::Eigen)
@@ -51,6 +52,11 @@ target_link_libraries(adsc_sim PRIVATE adsc_core adsc_flags)
 # artifacts and prints the campaign summary.
 add_executable(adsc_campaign src/main_campaign.cpp)
 target_link_libraries(adsc_campaign PRIVATE adsc_core adsc_flags)
+
+# T6 deliverable: small-debris flux / hypervelocity-impact sweep. Regenerates
+# generated/t6_flux_sweep.md (and the same table to stdout).
+add_executable(flux_sweep src/main_flux.cpp)
+target_link_libraries(flux_sweep PRIVATE adsc_core adsc_flags)
 
 # Tests.
 enable_testing()
@@ -82,3 +88,7 @@ add_test(NAME estimator COMMAND test_estimator)
 add_executable(test_campaign tests/test_campaign.cpp)
 target_link_libraries(test_campaign PRIVATE adsc_core adsc_flags)
 add_test(NAME campaign COMMAND test_campaign)
+
+add_executable(test_flux tests/test_flux.cpp)
+target_link_libraries(test_flux PRIVATE adsc_core adsc_flags)
+add_test(NAME flux COMMAND test_flux)
