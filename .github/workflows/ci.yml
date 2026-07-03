@@ -47,6 +47,9 @@ jobs:
       - name: Regenerate T6 flux sweep table
         run: ./build/flux_sweep generated
 
+      - name: Regenerate WP3 decay-trade CSV (feeds the WP7a visualization)
+        run: ./build/decay_trade generated
+
       - name: Upload generated artifacts (WP5 + WP6 + T6)
         uses: actions/upload-artifact@v4
         with:

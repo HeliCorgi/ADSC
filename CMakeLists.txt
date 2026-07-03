@@ -64,6 +64,12 @@ target_link_libraries(adsc_cost PRIVATE adsc_core adsc_flags)
 add_executable(flux_sweep src/main_flux.cpp)
 target_link_libraries(flux_sweep PRIVATE adsc_core adsc_flags)
 
+# WP3 decay-trade CSV emitter (feeds the WP7a visualization): re-emits the
+# existing sail-decay trade as machine-readable generated/wp3_decay_trade.csv.
+# No physics/number change -- reuses src/decay.cpp.
+add_executable(decay_trade src/main_decay_trade.cpp)
+target_link_libraries(decay_trade PRIVATE adsc_core adsc_flags)
+
 # Tests.
 enable_testing()
 
