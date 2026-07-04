@@ -94,6 +94,20 @@ def rate_str(row):
         f3(row["estimate"]), f3(row["wilson_low"]), f3(row["wilson_high"]))
 
 
+def f4(v):
+    return "%.4f" % float(v)
+
+
+def ko_claim(row, n_runs, ds_id):
+    """R14-tagged keep-out claim from a WP5 keep_out_violation_rate row:
+    '**k of n** [L0: linear CW, dispersion set ds-v1, Wilson 95% upper bound
+    0.0076]' -- the count, bound and set id all derive from the committed
+    artifacts (the spec's R14 example format)."""
+    k = int(round(float(row["estimate"]) * float(n_runs)))
+    return ("**%d of %s** [L0: linear CW, dispersion set %s, Wilson 95%% "
+            "upper bound %s]" % (k, n_runs, ds_id, f4(row["wilson_high"])))
+
+
 def pctl_str(row, dp=2):
     fmt = {0: f0, 1: f1, 2: f2, 3: f3}[dp]
     return "p05 %s / p50 %s / p95 %s" % (
@@ -184,7 +198,11 @@ def build(d):
     w("numerical-simulation evidence package - NOT flight software, NOT a mission")
     w("proposal, and nothing here is a legal determination. This is not legal")
     w("advice. Maturity claim: TRL 4 for the GNC software element only,")
-    w("element-scoped; system-level TRL is undefined and not claimed.")
+    w("element-scoped; system-level TRL is undefined and not claimed. WP10")
+    w("forensics and WP11 safety hardening + closed-loop guidance widen the")
+    w("validated envelope at TRL 4 and do not raise it (spec v5 section 9);")
+    w("raising it requires the real-time processor-in-the-loop track (WP9,")
+    w("reserved, not started).")
     w("")
     w("## 1. Executive summary")
     w("")
@@ -226,8 +244,11 @@ def build(d):
     w("robustness under")
     w("dispersions (N=%s runs/catalog, fixed seed %s): success (productive end)"
       % (n_runs, seed_hex))
-    w("%s for the %s class; keep-out violation rate %s."
-      % (rate_str(succA), Ashort, rate_str(koA)))
+    w("%s for the %s class; keep-out violations %s"
+      % (rate_str(succA), Ashort,
+         ko_claim(koA, n_runs, d.wp5_runs_row["dispersion_set_id"])))
+    w("(WP11 clearing-abort law; the superseded pre-WP11 rate is archived in")
+    w("section 11 per R15).")
     w("")
     w("## 2. Architecture and the installer argument")
     w("")
@@ -325,13 +346,31 @@ def build(d):
     w("  code reports the actual propagated coast minimum (%s m) instead of"
       % f1(ref["f1_capped_coast_min_m"]))
     w("  implying safety.")
-    w("- **Campaign-level keep-out exposure (WP5):** violation rate %s over %s"
-      % (rate_str(koA), n_runs))
-    w("  dispersed missions (%s class; the %s class matches at the same seed"
+    w("- **Campaign-level keep-out result (WP5/WP11, D13):** keep-out violations")
+    w("  %s" % ko_claim(koA, n_runs, d.wp5_runs_row["dispersion_set_id"]))
+    w("  (%s class; the %s class matches at the same seed discipline). A zero"
       % (Ashort, Bshort))
-    w("  discipline); abort-path exposure (runs with >= 1 closing-speed gate")
-    w("  abort) %s - the %s m/s gate is genuinely exercised, not decorative."
-      % (rate_str(gaA), gate_ms))
+    w("  still carries an interval (R14). The WP11 clearing-abort law accepts an")
+    w("  abort only when the analytic post-burn ellipse clears the keep-out")
+    w("  sphere plus a design margin, and escalates otherwise; the independent")
+    w("  replay audit is `generated/wp11_abort_audit.md`, the archived pre-WP11")
+    w("  forensics are `generated/wp10_violation_forensics.md`, and the")
+    w("  superseded rate is archived in section 11 (R15). Abort-path exposure")
+    w("  (runs with >= 1 closing-speed gate abort) %s -"
+      % rate_str(gaA))
+    w("  the %s m/s gate is genuinely exercised, not decorative." % gate_ms)
+    w("- **Closed-loop translation guidance (WP11):** the L0 guided-approach")
+    w("  demo flies far approach -> hold -> sync -> final approach -> contact ->")
+    w("  retreat with a reachability screen evaluated before every committed")
+    w("  impulse (screen held at every step: %s). The contact speed is PRODUCED"
+      % ("yes" if ref["wp11_abort_feasible_every_step"] == 1.0 else "NO"))
+    w("  by the glideslope-with-floor profile at %s m/s (the %s m/s gate is"
+      % (f2(ref["wp11_guided_contact_speed_m_s"]), f2(ref["wp3_contact_speed_m_s"])))
+    w("  retained as an independent check, closing the long-standing 'gate, not")
+    w("  guidance' known limit at L0); total demo Delta-v %s m/s. [L0: linear"
+      % f2(ref["wp11_guided_dv_total_m_s"]))
+    w("  CW, truth-fed guidance, deterministic; mode machine and per-mode abort")
+    w("  conditions: `generated/wp11_guidance_modes.md`]")
     w("")
     w("![WP5 keep-out rate](../generated/viz/wp5_keepout_rate.svg)")
     w("")
@@ -396,7 +435,8 @@ def build(d):
     w("| nonproductive termination | %s |"
       % rate_str(d.wp5m(A, "nonproductive_termination_rate")))
     w("| gate-abort exposure | %s |" % rate_str(gaA))
-    w("| keep-out violation | %s |" % rate_str(koA))
+    w("| keep-out violation | %s [L0, %s] |"
+      % (rate_str(koA), d.wp5_runs_row["dispersion_set_id"]))
     w("| removals per mission | %s |"
       % pctl_str(d.wp5m(A, "removals_per_mission"), 0))
     w("| Delta-v used [m/s] | %s |" % pctl_str(d.wp5m(A, "dv_used_m_per_s"), 0))
@@ -408,8 +448,8 @@ def build(d):
     if f3(np_rate["estimate"]) == f3(gaA["estimate"]):
         w("Under the current flat PLACEHOLDER leg costs the nonproductive-")
         w("termination and gate-abort RATES coincide numerically at this seed")
-        w("(aborting missions almost always also exhaust the Delta-v budget; a")
-        w("few end in a keep-out violation instead - see the runs CSV); they are")
+        w("(aborting missions almost always also exhaust the Delta-v budget;")
+        w("since WP11 none ends in a keep-out violation); they are")
         w("distinct concepts and separate columns.")
     else:
         w("The nonproductive-termination rate (%s) and gate-abort exposure (%s)"
@@ -453,8 +493,10 @@ def build(d):
     w("  real minimum-impulse-bit DACS would chatter or need reaction wheels.")
     w("- **Estimator scope:** known target inertia (a real mission needs inertia")
     w("  identification), Gaussian sensor abstractions (no outliers/dropouts/")
-    w("  occlusions), sensor biases are knobs but not estimated, translation is")
-    w("  estimated but not used for control (no closed-loop rendezvous guidance).")
+    w("  occlusions), sensor biases are knobs but not estimated. The WP11")
+    w("  closed-loop translation guidance is truth-fed at L0: estimate-driven")
+    w("  translation guidance remains open (WP12 ladder, navigation-error")
+    w("  levels).")
     w("- **Small-debris (1-10 cm) removal is out of scope (T6) - by physics, not")
     w("  neglect:** at 10 km/s the specific kinetic energy is %s (%s TNT-"
       % (d.t6["specific kinetic energy"][0], d.t6["TNT specific-energy ratio"][0]))
@@ -560,6 +602,39 @@ def build(d):
     w("|---|---|")
     for rel, i, txt in hits:
         w("| `%s:%d` | %s |" % (rel, i, txt))
+    w("")
+    w("## 11. Changelog - R15 pin supersessions")
+    w("")
+    w("Every change to a quoted number is recorded here with the superseded")
+    w("value, the physical/algorithmic reason, and where the old state is")
+    w("archived. Silent updates are banned (R15).")
+    w("")
+    w("- **WP11 (2026-07): campaign keep-out violation rate re-baselined.**")
+    w("  Superseded value: `0.014 [0.007, 0.029] (Wilson 95%)` per catalog")
+    w("  (7 of 500 runs in each), quoted here and in the README from WP5")
+    w("  through WP10; archived at the release tag `v0.10-phase0-baseline`")
+    w("  and forensically classified in `generated/wp10_violation_forensics.md`.")
+    w("  Reason (algorithmic, deliberate): WP10c classified every violation as")
+    w("  a clean-abort safety-ellipse keep-out intersection - the legacy")
+    w("  drift-null abort law bounds the post-abort orbit but does not make it")
+    w("  clear the keep-out sphere. WP11 (D13) replaced the campaign's")
+    w("  screened abort with the clearing-abort law (analytic ellipse")
+    w("  clearance + design margin, with a bounded radial reshape and a")
+    w("  two-impulse retreat-hop escalation). Dispersion set unchanged")
+    w("  (%s, stamped in the runs CSV since schema 1.1): the comparison is"
+      % d.wp5_runs_row["dispersion_set_id"])
+    w("  seed-for-seed. Current value: keep-out violations")
+    w("  %s" % ko_claim(koA, n_runs, d.wp5_runs_row["dispersion_set_id"]))
+    w("  per catalog; independent replay audit in")
+    w("  `generated/wp11_abort_audit.md`. Campaign schema 1.0 -> 1.1")
+    w("  (additive: `dispersion_set_id`, `worst_abort_clearance_m`) in the")
+    w("  same change. The legacy GNC pins (19.15 / 424.3 / 16.87 / 17.07 s)")
+    w("  are untouched and still regression-tested; the legacy abort law")
+    w("  remains in the codebase with the forensic-14 regression")
+    w("  (`tests/test_forensic14.cpp`). Distribution rows that moved with the")
+    w("  14 re-baselined runs (dv_used, kits_used, removals, sync/mission")
+    w("  times, dv_exhausted and gate_abort counts) regenerate from the")
+    w("  committed CSVs as always.")
     w("")
     w("---")
     w("*Generated by `tools/evidence/make_evidence.py` from committed artifacts")

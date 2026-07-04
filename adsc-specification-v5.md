@@ -82,7 +82,7 @@ State at v5 adoption (master after PR #14):
   generated/reference_metrics.csv.
 - Honest open items: 95 PLACEHOLDER constants (auto-inventoried);
   5 [CITATION NEEDED] items in the evidence pack; keep-out violation rate
-  0.014 [0.0068, 0.0286] per catalog; campaign sensor dispersions drawn but
+  0.014 [0.007, 0.029] per catalog; campaign sensor dispersions drawn but
   not re-propagated; EDT is a parametric knob; TRL 4 (GNC software element,
   laboratory/simulation environment).
 
@@ -275,6 +275,8 @@ tracked in the evidence pack changelog.
   rendering may be manual), target-prioritization table, limitations doc.
 - Release engineering: version tag; archived, DOI-carrying release (e.g.,
   Zenodo) considered and documented.
+- Baseline releases may be tagged at phase boundaries; the DOI-carrying
+  archived release remains a WP15 deliverable.
 Completion: a reviewer can understand the value in the README's first screen;
 strengths and limits equally visible; "what is done vs what is research" is
 one glance away.

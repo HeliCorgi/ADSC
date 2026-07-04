@@ -20,6 +20,7 @@
 
 #include "adsc/campaign.hpp"  // CampaignConfig (plan constants for the pack)
 #include "adsc/decay.hpp"
+#include "adsc/guidance.hpp"
 #include "adsc/mission.hpp"
 
 using namespace adsc;
@@ -33,6 +34,84 @@ struct Row {
     const char* units;
     const char* source;
 };
+
+// WP11: generated/wp11_guidance_modes.md -- the documented mode machine
+// (guidance_mode_table(), the single source of truth also used by
+// guidance.cpp) plus this run's flown profile. ASCII, LF, no timestamps
+// (R6); ditto fprintf style as write_schema_md (campaign.cpp).
+void write_guidance_modes_md(const std::string& path, const Config& cfg,
+                             const std::vector<GuidanceModeSpec>& table,
+                             const GuidedApproachReport& rep) {
+    std::FILE* f = std::fopen(path.c_str(), "w");
+    if (!f) return;
+    std::fprintf(f, "# WP11 closed-loop translation guidance -- mode machine\n\n");
+    std::fprintf(f,
+        "Deterministic, truth-fed L0 demonstration of the WP11 closed-loop "
+        "translation-guidance mode machine (D13/D5): it extends (never "
+        "replaces) the WP3 installer-mission phase structure with two-impulse "
+        "V-bar hops, a synchronization dwell, a glideslope-with-floor final "
+        "approach, contact, and a retreat back to the standoff, all screened "
+        "by the WP11 clearing-abort law's reachability rule at every "
+        "committed impulse. [L0: linear CW, truth-fed guidance, deterministic]\n\n");
+
+    std::fprintf(f, "## Mode table\n\n");
+    std::fprintf(f, "| mode | entry | exit | abort condition | abort action |\n");
+    std::fprintf(f, "|---|---|---|---|---|\n");
+    for (const GuidanceModeSpec& row : table) {
+        std::fprintf(f, "| %s | %s | %s | %s | %s |\n",
+                     guidance_mode_label(row.mode), row.entry, row.exit,
+                     row.abort_condition, row.abort_action);
+    }
+    std::fprintf(f, "\n");
+
+    std::fprintf(f, "## Flown profile (this run)\n\n");
+    std::fprintf(f,
+        "| mode | t_start_s | t_end_s | dv_m_per_s | min_range_m | abort_feasible_throughout |\n");
+    std::fprintf(f, "|---|---:|---:|---:|---:|---|\n");
+    for (const GuidedPhaseLog& ph : rep.phases) {
+        std::fprintf(f, "| %s | %.3f | %.3f | %.5f | %.3f | %s |\n",
+                     guidance_mode_label(ph.mode), ph.t_start_s, ph.t_end_s,
+                     ph.dv_m_s, ph.min_range_m,
+                     ph.abort_feasible_throughout ? "true" : "false");
+    }
+    std::fprintf(f, "\n");
+
+    std::fprintf(f,
+        "Completed: %s. Final mode: %s. Contact speed %.4f m/s (design "
+        "%.4f m/s, gate %.4f m/s). Total Delta-v %.4f m/s. Min clearance "
+        "outside keep-out %.4f m. Reachability screen held every step: %s. "
+        "LOS cone held throughout final approach: %s.\n\n",
+        rep.completed ? "true" : "false", guidance_mode_label(rep.final_mode),
+        rep.contact_speed_m_s, cfg.guid_contact_speed_m_s, cfg.max_v_rel,
+        rep.dv_total_m_s, rep.min_clearance_outside_m,
+        rep.abort_feasible_every_step ? "true" : "false",
+        rep.los_cone_ok ? "true" : "false");
+
+    std::fprintf(f,
+        "Contact speed is produced by the guidance profile "
+        "(v = max(floor, k*range)), not merely gated; the WP1-era known "
+        "limit is closed at L0.\n\n");
+
+    std::fprintf(f, "## Escalation design note\n\n");
+    std::fprintf(f,
+        "A pure along-track opening-drift burn (spend the full abort_dv "
+        "budget as a single along-track impulse) was evaluated and "
+        "REJECTED for the WP11 clearing-abort law's third escalation stage: "
+        "its oscillation amplitude (~4*abort_dv/n, km-scale at LEO) swamps "
+        "the ~100 m keep-out geometry, so the resulting coast swings back "
+        "through near-zero range before the secular drift ever opens the "
+        "gap -- measured coast minima of a few meters against a required "
+        ">= 0.8*range, for either sign of the escalation. The two-impulse "
+        "radial retreat hop (SafeAbort::Status::RetreatHop, mission.hpp) "
+        "was adopted instead: it swaps the radial-offset sign via a "
+        "half-period hop, landing on a drift-free ellipse whose analytic "
+        "minimum clears keep-out + margin, while its own transient leg "
+        "opens monotonically for the geometry where it is reached. This is "
+        "the negative result required by spec v5 section 10: the rejected "
+        "design is documented, not merely discarded.\n\n"
+        "[L0: linear CW, truth-fed guidance, deterministic]\n");
+    std::fclose(f);
+}
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -184,6 +263,35 @@ int main(int argc, char** argv) {
                         "planned targets per mission (CampaignConfig)"});
     }
 
+    // --- WP11: closed-loop translation guidance (D13/D5 extension). ---
+    GuidedApproachReport wp11_rep;
+    {
+        GuidedApproach approach(cfg);
+        wp11_rep = approach.fly();
+        rows.push_back({"wp11_guided_completed", wp11_rep.completed ? 1.0 : 0.0,
+                        "bool", "L0 guided-approach demo, deterministic"});
+        rows.push_back({"wp11_guided_contact_speed_m_s", wp11_rep.contact_speed_m_s,
+                        "m_per_s",
+                        "produced by the glideslope-with-floor profile, not merely gated"});
+        rows.push_back({"wp11_guided_dv_total_m_s", wp11_rep.dv_total_m_s,
+                        "m_per_s", "sum of |impulse| across the whole demo"});
+        rows.push_back({"wp11_guided_min_clearance_outside_m",
+                        wp11_rep.min_clearance_outside_m, "m",
+                        "min (range - keep_out) over pre-authorization (outside-sphere) flight"});
+        rows.push_back({"wp11_abort_feasible_every_step",
+                        wp11_rep.abort_feasible_every_step ? 1.0 : 0.0, "bool",
+                        "WP11 reachability screen held at every guidance step and hold"});
+        rows.push_back({"wp11_los_cone_ok", wp11_rep.los_cone_ok ? 1.0 : 0.0,
+                        "bool", "LOS cone about -V-bar held throughout final approach"});
+        double retreat_dv = 0.0;
+        for (const GuidedPhaseLog& ph : wp11_rep.phases) {
+            if (ph.mode == GuidanceMode::Retreat) retreat_dv = ph.dv_m_s;
+        }
+        rows.push_back({"wp11_retreat_dv_total_m_s", retreat_dv, "m_per_s",
+                        "RetreatHop burn1+burn2 (+ station-keep hop if the post-hop "
+                        "range fell short of standoff)"});
+    }
+
     std::FILE* f = std::fopen((out_dir + "/reference_metrics.csv").c_str(), "w");
     if (!f) return 1;
     std::fprintf(f, "schema_version,metric,value,units,source\n");
@@ -194,5 +302,9 @@ int main(int argc, char** argv) {
     std::fclose(f);
     std::printf("[WP7] wrote %s/reference_metrics.csv (%zu metrics)\n",
                 out_dir.c_str(), rows.size());
+
+    write_guidance_modes_md(out_dir + "/wp11_guidance_modes.md", cfg,
+                            guidance_mode_table(), wp11_rep);
+    std::printf("[WP11] wrote %s/wp11_guidance_modes.md\n", out_dir.c_str());
     return 0;
 }

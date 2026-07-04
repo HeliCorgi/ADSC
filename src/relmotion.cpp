@@ -107,6 +107,23 @@ double SafetyEllipse::min_range() const {
     return best;
 }
 
+double bounded_coast_min_range(double x0, double y0, double z0,
+                               double vx, double vz, double n) {
+    double best = std::numeric_limits<double>::max();
+    const int samples = 1440;  // 0.25 deg resolution, matches SafetyEllipse::min_range
+    for (int i = 0; i < samples; ++i) {
+        const double nt = 2.0 * kPi * static_cast<double>(i) / samples;
+        const double c = std::cos(nt);
+        const double s = std::sin(nt);
+        const double x = x0 * c + (vx / n) * s;
+        const double y = y0 - 2.0 * x0 * s + 2.0 * (vx / n) * (c - 1.0);
+        const double z = z0 * c + (vz / n) * s;
+        const double r = std::sqrt(x * x + y * y + z * z);
+        best = std::min(best, r);
+    }
+    return best;
+}
+
 std::vector<SafetyEllipse> approach_corridor(double rho_far, double rho_near,
                                              double keep_out, int n_holds) {
     std::vector<SafetyEllipse> holds;

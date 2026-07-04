@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <limits>
 #include <random>
 
 namespace adsc {
@@ -114,20 +115,28 @@ private:
     double spare_      = 0.0;
 };
 
-// Dispersed safe-abort coast clearance: command a CW safe abort from the outer
-// departure standoff perturbed by the initial-relative-state dispersion, and
-// return the propagated minimum range. A capped abort in a large dispersion
-// tail is what could pierce the keep-out sphere; with nominal dispersions the
-// abort is clean and clears, so the keep-out-violation rate is ~0 (reported
-// with the spec's "dispersion may be too narrow" caveat).
-double dispersed_abort_coast(const Config& base_cfg, CampRng& rng,
-                             double disp_rel_pos_m, double disp_rel_vel_m_s) {
+// Dispersed clearing-abort coast (WP11 / D13): command a WP11 clearing-abort
+// impulse from the outer departure standoff perturbed by the
+// initial-relative-state dispersion, and return the full SafeAbort (status +
+// analytic bounded-ellipse range + coast-verified minimum range). Draws the
+// SAME two sample3() calls in the SAME order as before this refactor, so the
+// campaign's RNG stream is byte-identical to the pre-WP11 build (externally
+// verified by a bit-exact Python replay: campaign DRAW-ORDER PRESERVATION).
+//
+// Before WP11 this called the legacy compute_safe_abort and screened only
+// coast_min_range_m against the keep-out radius; WP10c forensics found that
+// screen could still admit a clean, uncapped abort whose bounded ellipse
+// intersects keep-out (generated/wp10_violation_forensics.md). The WP11
+// clearing law (compute_clearing_abort) replaces the abort itself, not just
+// the screen, so a violation is now design-unacceptable (D13).
+SafeAbort dispersed_abort_coast(const Config& base_cfg, CampRng& rng,
+                                double disp_rel_pos_m, double disp_rel_vel_m_s) {
     Mission m(base_cfg);
     const Eigen::Vector3d r0(
         0.0, -base_cfg.depart_standoff_factor * base_cfg.keep_out_radius_m, 0.0);
     const Eigen::Vector3d r = r0 + rng.sample3(disp_rel_pos_m);
     const Eigen::Vector3d v = rng.sample3(disp_rel_vel_m_s);
-    return m.compute_safe_abort(r, v).coast_min_range_m;
+    return m.compute_clearing_abort(r, v);
 }
 
 }  // namespace
@@ -177,6 +186,13 @@ RunResult run_one_mission(const DebrisCatalog& catalog, const CampaignConfig& cc
     bool   any_abort = false;
     double first_sync_time = -1.0;
     bool   tumble_recorded = false;
+    // WP11: worst (minimum) clearance seen over this run's abort events,
+    // (coast-verified min range - keep_out_radius); sentinel until the first
+    // gate-abort event, then tracked via std::min. Blank in the CSV when the
+    // run had no abort events (gate_abort_events == 0), never keyed off this
+    // sentinel value (a violating abort's clearance is itself negative, which
+    // would be indistinguishable from an unset sentinel of -1).
+    double worst_clearance = std::numeric_limits<double>::max();
     Outcome outcome = Outcome::Completed;  // reached iff the loop runs to the end
 
     const Eigen::Vector3d nominal_axis =
@@ -201,9 +217,11 @@ RunResult run_one_mission(const DebrisCatalog& catalog, const CampaignConfig& cc
             ++gate_aborts; any_abort = true;
             if (dv_remaining < ccfg.dv_abort_m_s) { outcome = Outcome::DvExhausted; break; }
             dv_remaining -= ccfg.dv_abort_m_s; dv_used += ccfg.dv_abort_m_s;
-            const double coast_min = dispersed_abort_coast(
+            const SafeAbort ab = dispersed_abort_coast(
                 cat_cfg, rng, ccfg.disp_rel_pos_m, ccfg.disp_rel_vel_m_s);
-            if (coast_min < cat_cfg.keep_out_radius_m) {
+            const double clearance = ab.coast_min_range_m - cat_cfg.keep_out_radius_m;
+            worst_clearance = std::min(worst_clearance, clearance);
+            if (ab.coast_min_range_m < cat_cfg.keep_out_radius_m) {
                 outcome = Outcome::KeepOutViolation; break;
             }
             // Safe abort: move on to the next target (no kit consumed).
@@ -266,6 +284,8 @@ RunResult run_one_mission(const DebrisCatalog& catalog, const CampaignConfig& cc
     r.mission_time_s     = mission_time;
     r.gate_abort_events  = gate_aborts;
     r.sync_timeout_events = sync_timeouts;
+    r.dispersion_set_id  = ccfg.dispersion_set_id;
+    if (gate_aborts > 0) r.worst_abort_clearance_m = worst_clearance;
     // Mission success = a PRODUCTIVE end: every target processed (Completed) or
     // the full kit complement installed (KitExhausted). A mission cut short by
     // propellant exhaustion or a keep-out violation is not a success. (A run may
@@ -418,15 +438,22 @@ void write_runs_csv(const std::string& path,
         "generates_target_specific_operations,requires_owner_consent_assumption,"
         "owner_consent_assumed,proximity_operations_mode,"
         "unconsented_approach_blocked_by_policy,controlled_reentry_mode,"
-        "rf_transmitter_modelled,remote_sensing_modelled,compliance_notes\n");
+        "rf_transmitter_modelled,remote_sensing_modelled,compliance_notes,"
+        "dispersion_set_id,worst_abort_clearance_m\n");
     for (const CatalogCampaign& cc : campaigns) {
         for (const RunResult& r : cc.runs) {
             char sync_buf[32];
             if (r.sync_time_s >= 0.0) std::snprintf(sync_buf, sizeof(sync_buf), "%.4f", r.sync_time_s);
             else std::snprintf(sync_buf, sizeof(sync_buf), "%s", "");  // blank = no sync
+            char clearance_buf[32];
+            if (r.gate_abort_events > 0)
+                std::snprintf(clearance_buf, sizeof(clearance_buf), "%.4f", r.worst_abort_clearance_m);
+            else
+                std::snprintf(clearance_buf, sizeof(clearance_buf), "%s", "");  // blank = no aborts
             std::fprintf(f,
                 "%s,%s,%llu,%d,%llu,%s,%d,%d,%.4f,%.4f,%.4f,%d,%d,%d,%s,%.3f,%s,"
-                "%s,%s,%s,%d,%d,%.5f,%.5f,%.5f,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,\"%s\"\n",
+                "%s,%s,%s,%d,%d,%.5f,%.5f,%.5f,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,\"%s\","
+                "%s,%s\n",
                 wp5_schema_version(), r.catalog.c_str(),
                 static_cast<unsigned long long>(r.master_seed), r.run_index,
                 static_cast<unsigned long long>(r.run_seed), outcome_label(r.outcome),
@@ -442,7 +469,8 @@ void write_runs_csv(const std::string& path,
                 bool_str(r.owner_consent_assumed), r.proximity_operations_mode.c_str(),
                 bool_str(r.unconsented_approach_blocked_by_policy),
                 bool_str(r.controlled_reentry_mode), bool_str(r.rf_transmitter_modelled),
-                bool_str(r.remote_sensing_modelled), r.compliance_notes.c_str());
+                bool_str(r.remote_sensing_modelled), r.compliance_notes.c_str(),
+                r.dispersion_set_id.c_str(), clearance_buf);
         }
     }
     std::fclose(f);
@@ -521,8 +549,11 @@ void write_summary_md(const std::string& path, const CampaignConfig& ccfg,
         "and so exhausts the 140 m/s budget -- but they are separate concepts "
         "and will diverge if the cost model changes. If `gate_abort_run_rate` is "
         "0 the closing-speed dispersion may be too narrow or the 0.15 m/s gate "
-        "is not exercised; if `keep_out_violation_rate` is 0 the abort maneuvers "
-        "are clearing the keep-out sphere (expected under nominal dispersions).\n\n"
+        "is not exercised; keep_out_violation_rate 0 is the WP11 design "
+        "requirement (D13): the clearing-abort law accepts an abort only when "
+        "the analytic post-burn ellipse clears keep-out plus margin, and "
+        "escalates to a two-impulse retreat hop otherwise; a nonzero rate is "
+        "a regression.\n\n"
         "`gate_abort` / `sync_timeout` are per-target *event* counts (a safe "
         "abort or failed sync lets the servicer move to the next target); "
         "`completed` / `dv_exhausted` / `kit_exhausted` / `keep_out_violation` "
@@ -542,11 +573,11 @@ void write_schema_md(const std::string& path) {
     std::FILE* f = std::fopen(path.c_str(), "w");
     if (!f) return;
     std::fprintf(f,
-"# WP5 Campaign CSV schema (version 1.0)\n"
+"# WP5 Campaign CSV schema (version 1.1)\n"
 "\n"
 "Stable machine-readable outputs for downstream WP6 (cost/FoM), WP7\n"
 "(visualization/evidence), and WP8 (compliance matrix). The `schema_version`\n"
-"column is `1.0`; do not change column meanings without bumping it. WP5 itself\n"
+"column is `1.1`; do not change column meanings without bumping it. WP5 itself\n"
 "performs **no** legal/regulatory determination and produces **no** charts.\n"
 "\n"
 "## Files\n"
@@ -597,6 +628,8 @@ void write_schema_md(const std::string& path) {
 "| rf_transmitter_modelled | bool | future-facing WP8 | passive; always false |\n"
 "| remote_sensing_modelled | bool | future-facing WP8 | passive; always false |\n"
 "| compliance_notes | - | future-facing WP8 | passive; states WP5 makes no legal/regulatory determination |\n"
+"| dispersion_set_id | - | WP11, R15 | dispersion-set version tag (`ds-v1`) |\n"
+"| worst_abort_clearance_m | m | WP11, WP5-native-derived | min over the run's abort events of coast-verified min range minus keep-out radius; blank if no abort events; negative = violation (terminal) |\n"
 "\n"
 "**Legal-interpretation caveat.** The compliance columns are deterministic\n"
 "research-profile metadata. `owner_consent_assumed = true` is a *research\n"
@@ -637,7 +670,19 @@ void write_schema_md(const std::string& path) {
 "\n"
 "The schema supports, without change: outcome proportions, Wilson intervals,\n"
 "Delta-v / removals / sync-time percentiles, keep-out-violation rate, and\n"
-"failure-classification bars. WP5 emits none of these charts.\n");
+"failure-classification bars. WP5 emits none of these charts.\n"
+"\n"
+"## Schema changelog\n"
+"\n"
+"- **1.0 -> 1.1 (WP11, additive).** Two new trailing columns in\n"
+"  `wp5_campaign_runs.csv`: `dispersion_set_id` and\n"
+"  `worst_abort_clearance_m`. Every existing column keeps its exact prior\n"
+"  meaning. Abort law v2: the keep-out screen in `run_one_mission` now calls\n"
+"  the WP11 clearing-abort law (`compute_clearing_abort`) instead of the\n"
+"  legacy drift-null law (`compute_safe_abort`); the campaign's RNG draw\n"
+"  order is unchanged (byte-identical, externally verified). See\n"
+"  `generated/wp10_violation_forensics.md` for the forensics that motivated\n"
+"  the change.\n");
     std::fclose(f);
 }
 

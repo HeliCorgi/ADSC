@@ -1,8 +1,8 @@
-# WP5 Campaign CSV schema (version 1.0)
+# WP5 Campaign CSV schema (version 1.1)
 
 Stable machine-readable outputs for downstream WP6 (cost/FoM), WP7
 (visualization/evidence), and WP8 (compliance matrix). The `schema_version`
-column is `1.0`; do not change column meanings without bumping it. WP5 itself
+column is `1.1`; do not change column meanings without bumping it. WP5 itself
 performs **no** legal/regulatory determination and produces **no** charts.
 
 ## Files
@@ -53,6 +53,8 @@ performs **no** legal/regulatory determination and produces **no** charts.
 | rf_transmitter_modelled | bool | future-facing WP8 | passive; always false |
 | remote_sensing_modelled | bool | future-facing WP8 | passive; always false |
 | compliance_notes | - | future-facing WP8 | passive; states WP5 makes no legal/regulatory determination |
+| dispersion_set_id | - | WP11, R15 | dispersion-set version tag (`ds-v1`) |
+| worst_abort_clearance_m | m | WP11, WP5-native-derived | min over the run's abort events of coast-verified min range minus keep-out radius; blank if no abort events; negative = violation (terminal) |
 
 **Legal-interpretation caveat.** The compliance columns are deterministic
 research-profile metadata. `owner_consent_assumed = true` is a *research
@@ -94,3 +96,15 @@ events), plus `other` (should be 0).
 The schema supports, without change: outcome proportions, Wilson intervals,
 Delta-v / removals / sync-time percentiles, keep-out-violation rate, and
 failure-classification bars. WP5 emits none of these charts.
+
+## Schema changelog
+
+- **1.0 -> 1.1 (WP11, additive).** Two new trailing columns in
+  `wp5_campaign_runs.csv`: `dispersion_set_id` and
+  `worst_abort_clearance_m`. Every existing column keeps its exact prior
+  meaning. Abort law v2: the keep-out screen in `run_one_mission` now calls
+  the WP11 clearing-abort law (`compute_clearing_abort`) instead of the
+  legacy drift-null law (`compute_safe_abort`); the campaign's RNG draw
+  order is unchanged (byte-identical, externally verified). See
+  `generated/wp10_violation_forensics.md` for the forensics that motivated
+  the change.

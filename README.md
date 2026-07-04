@@ -11,8 +11,10 @@ A C++17 GNC **numerical simulator** for an installer-type active-debris-remediat
 (ADR) servicer, framed as **Kessler-precursor removal**: the collisional cascade's
 fuel is the population of massive derelict upper stages in congested orbital bands —
 fragments are the symptom — so the servicer targets the objects that would become
-the next fragment clouds, attaches a passive deorbit kit, and departs. ADSC is an
-**open, reproducible evidence package** for that architecture (spec:
+the next fragment clouds, attaches a passive deorbit kit, and departs, using a
+**passively-safe approach design** with clearing-verified aborts (WP11:
+keep-out violations 0 of 500 per catalog at L0, ds-v1, Wilson 95% upper bound
+0.0076). ADSC is an **open, reproducible evidence package** for that architecture (spec:
 `adsc-specification-v5.md`), not flight software and not a mission proposal. It
 assumes the operator is, or is contracted/consented by, the launching state of the
 target; nothing in this repo assumes or enables unconsented approach to another
@@ -85,6 +87,20 @@ implemented; v3 continues that discipline.
   minimum range of the propagated post-burn coast — when the cap binds, the
   bounded-orbit guarantee is lost and the code reports the actual coast range
   instead of implying safety. Unit-tested, including a capped case.
+- **Clearing-abort law + reachability screen + closed-loop guidance (WP11)**
+  (`compute_clearing_abort` / `clearing_abort_for`, `guidance`): a 3-stage
+  escalation ladder that accepts an abort only when the analytic post-burn
+  ellipse (`bounded_coast_min_range`, closed form) clears keep-out plus a
+  design margin — drift-null baseline, bounded radial reshape, two-impulse
+  retreat hop — with the legacy `Capped` honesty preserved past the Δv budget.
+  The campaign keep-out screen runs this law (D13); a truth-fed L0
+  guided-approach demo (far approach → hold → sync → final approach → contact
+  → retreat) screens abort feasibility before every committed impulse and
+  produces the contact speed by a glideslope-with-floor profile
+  (`generated/wp11_guidance_modes.md`). Unit-tested (`tests/test_guidance.cpp`)
+  plus the pinned forensic-14 regression (`tests/test_forensic14.cpp`): the
+  legacy law reproduces all 14 WP10c violations analytically, the clearing law
+  clears every one.
 - **Installer mission flow (WP3)** (`run_installer_mission`): the mission runs
   as approach → sync → attach → depart. Approach verifies the passively-safe
   corridor; sync gates on WP2; **attach** clamps at the gated closing speed and
@@ -241,7 +257,10 @@ verify rather than a claim in prose.
   occlusion, no vision pose ambiguity); gyro/rangefinder biases exist as
   Config knobs but are **not estimated** (the consistency tests assume the
   zero defaults). The translation state is estimated and consistency-tested
-  but not used for control — there is still no translation guidance.
+  but not used for control in the WP11 guided-approach demo, which is
+  truth-fed at L0 (`generated/wp11_guidance_modes.md`); estimate-driven
+  translation guidance remains open for the WP12 fidelity ladder
+  (navigation-error levels).
 - **Continuous-torque DACS approximation**, not a discrete-impulse thruster
   allocator with real minimum-impulse-bit quantization.
 - **Sync-hold relies on the continuous-torque approximation** (WP2 observation):
@@ -250,14 +269,20 @@ verify rather than a claim in prose.
   would either chatter around that deadband or need reaction wheels to hold it.
 - **Thermal model is a single lumped PCM bucket** — no eclipse/sunlight
   radiative balance, no per-node conduction.
-- **No closed-loop rendezvous guidance yet.** WP3 reflows the mission into
-  approach→sync→attach→depart phases, but there is still no translation guidance
-  law that actively flies the approach to contact — approach safety is a passive
-  corridor check and attach happens at the gated closing speed. The
-  v_rel ≤ 0.15 m/s limit is enforced as a gate, not produced by guidance. As of
-  WP4 the attitude-sync loop consumes estimates from noisy sensors; the
-  truth-driven variants remain in the test suite as the control-law regression
-  references.
+- **Closed-loop rendezvous guidance closes at L0 (WP11); estimate-driven
+  guidance stays open.** A deterministic, truth-fed L0 guided-approach mode
+  machine (far_approach → hold → sync_hold → final_approach → contact →
+  retreat, with a reachability screen evaluated before every committed
+  impulse — screen held at every step in the demo: yes) now flies the
+  approach to contact (`generated/wp11_guidance_modes.md`). The contact
+  speed is PRODUCED by a glideslope-with-floor profile (0.10 m/s design)
+  rather than merely gated, closing the long-standing "gate, not guidance"
+  limit at L0; the v_rel ≤ 0.15 m/s gate is retained as an independent check,
+  not removed. This guidance is truth-fed, not estimate-driven:
+  estimate-driven translation guidance remains open for the WP12 fidelity
+  ladder (navigation-error levels). As of WP4 the attitude-sync loop
+  consumes estimates from noisy sensors; the truth-driven variants remain in
+  the test suite as the control-law regression references.
 - **Decay model is first-order and single-object** (WP3): quasi-circular drag
   decay over an exponential atmosphere with a single altitude-independent
   solar-cycle factor (a coarse proxy — the real swing is altitude-dependent);
@@ -323,7 +348,10 @@ which this repo deliberately does not attempt. WP5 adds
 robustness-under-dispersions evidence, but this strengthens the TRL-4 evidence
 base rather than raising the TRL. WP6 adds a relative-unit cost/FoM model on top
 of that evidence — an economic-viability argument, not a GNC maturity change —
-so the TRL stays 4.
+so the TRL stays 4. The same holds for Phase 0 and beyond (spec v5 §9, binding):
+WP10 forensics and WP11 safety hardening + closed-loop guidance widen the
+validated envelope at TRL 4 — they do not raise it; raising it requires the
+real-time processor-in-the-loop track (WP9, reserved, not started).
 
 ## Build
 
@@ -361,7 +389,9 @@ tools/compliance/  WP8 regulatory precheck: rulepacks, schema, checker, matrix g
 tools/evidence/    WP7 evidence-pack generator + claim-audit test
 tools/regenerate_all.sh  single regeneration entry point (CI runs exactly this)
 generated/      committed artifacts: WP5 campaign, WP6 cost/FoM, T6 flux, WP3 decay,
-                reference_metrics CSVs, viz/ SVGs, compliance_findings.json
+                reference_metrics CSVs, viz/ SVGs, compliance_findings.json,
+                WP10/WP11 forensics (wp10_violation_forensics.{md,csv} — legacy-law
+                archive since WP11; wp11_abort_audit.{md,csv}; wp11_guidance_modes.md)
 evidence/       committed generated evidence artifacts (adsc_evidence_pack.md,
                 compliance matrix; same reproducibility gate as generated/)
 .github/        CI (Ubuntu + Eigen: cmake build + ctest, warnings-as-errors, reproducibility gate)
@@ -395,14 +425,21 @@ adsc-specification-v4.md   retired v4.2 spec (superseded by v5; kept because v5
   generated, claim-audited, zero hand-written numbers — the actual product).
 - **WP9 — Processor-in-the-loop / flight-software track** — **reserved, not
   started** (the only path above element TRL 4; see the spec).
-- **WP10–WP15 (v5)** — not started; `adsc-specification-v5.md` defines Phase
-  0 adoption/citations/forensics, safety hardening + closed-loop guidance,
+- **WP10 — Phase 0: adoption, citations, forensics** ✅ implemented (spec v5
+  adopted; citation-fill; keep-out-violation forensics — see
+  `generated/wp10_violation_forensics.md`, now the legacy-law archive
+  superseded by WP11).
+- **WP11 — Safety hardening + closed-loop guidance** ✅ implemented
+  (clearing-abort law, reachability screen, guided approach); keep-out
+  violations 0 of 500 per catalog at L0/ds-v1, Wilson 95% upper bound 0.0076.
+- **WP12–WP15 (v5)** — not started; `adsc-specification-v5.md` defines the
   fidelity ladder, kit-class trade + EDT physics, cost ranges + FoM, and the
   proposal package. WP9 remains the only path to TRL 5, unchanged by v5.
 
-**Roadmap end state: WP1–WP8 complete.** The package is regenerable end-to-end
-with one command (`bash tools/regenerate_all.sh build`) and CI enforces
-byte-identity of every committed artifact on every push.
+**Roadmap end state: WP1–WP8 complete; Phase 0 (WP10) and WP11 safety
+hardening complete.** The package is regenerable end-to-end with one command
+(`bash tools/regenerate_all.sh build`) and CI enforces byte-identity of every
+committed artifact on every push.
 
 Reproducible WP1 numbers (regenerate with `./build/adsc_sim`): for the 825 km
 reference orbit, mean motion n ≈ 1.03×10⁻³ rad/s and period ≈ 6084 s; the closest
@@ -469,13 +506,13 @@ not one cut short by Δv exhaustion or a keep-out violation.
 | success rate | **0.556** [0.512, 0.599] | **0.542** [0.498, 0.585] |
 | nonproductive-termination rate (= 1 − success) | **0.444** [0.401, 0.488] | **0.458** [0.415, 0.502] |
 | gate-abort-run rate (abort-path exposure) | **0.444** [0.401, 0.488] | **0.458** [0.415, 0.502] |
-| keep-out-violation rate | **0.014** [0.007, 0.029] | **0.014** [0.007, 0.029] |
+| keep-out-violation rate | **0.000** [0.000, 0.008] [L0, ds-v1] | **0.000** [0.000, 0.008] [L0, ds-v1] |
 | Δv used p05/p50/p95 [m/s] | 124 / 124 / 136 | 124 / 124 / 136 |
 | kits used p05/p50/p95 | 3 / 4 / 4 | 3 / 4 / 4 |
 | removals/mission p05/p50/p95 | 3 / 4 / 4 | 3 / 4 / 4 |
-| sync arrival p05/p50/p95 [s] | 14.47 / 17.68 / 20.09 | 14.13 / 17.71 / 20.16 |
-| failure counts (runs) | dv_exhausted 215, kit_exhausted 278, keep_out 7, completed 0 | dv_exhausted 222, kit_exhausted 271, keep_out 7, completed 0 |
-| per-target events | gate_abort 288, sync_timeout 0 | gate_abort 288, sync_timeout 0 |
+| sync arrival p05/p50/p95 [s] | 14.47 / 17.68 / 20.09 | 14.13 / 17.72 / 20.16 |
+| failure counts (runs) | dv_exhausted 222, kit_exhausted 278, keep_out 0, completed 0 | dv_exhausted 229, kit_exhausted 271, keep_out 0, completed 0 |
+| per-target events | gate_abort 292, sync_timeout 0 | gate_abort 291, sync_timeout 0 |
 
 Two abort-related rates are reported and are deliberately distinct:
 **`gate-abort-run rate`** is the abort-path exposure (fraction of runs with ≥ 1
@@ -485,10 +522,14 @@ PLACEHOLDER* Δv cost the two coincide numerically — every aborting mission ne
 an extra target-slot to still install its kits and so exhausts the 140 m/s
 budget — but they are separate concepts and will diverge once the cost model
 gains structure. The honest campaign finding: the servicer is **Δv-limited about
-43% of the time** (`dv_exhausted` = 215/500) and installs its full kit
+44% of the time** (`dv_exhausted` = 222/500) and installs its full kit
 complement the rest; the attitude sync **never** times out across the sampled
-tumble/attitude/actuator dispersions, and the safe-abort maneuvers clear the
-keep-out sphere on all but ≈ 1.4% of runs. `completed` (all 6 targets) is 0 by
+tumble/attitude/actuator dispersions, and keep-out violations are **0 of 500**
+per catalog [L0: linear CW, dispersion set ds-v1, Wilson 95% upper bound
+0.0076] — the WP11 clearing-abort law accepts an abort only when the analytic
+post-burn ellipse clears keep-out plus a design margin (mechanism forensics:
+`generated/wp10_violation_forensics.md`; audit:
+`generated/wp11_abort_audit.md`). `completed` (all 6 targets) is 0 by
 construction — 4 kits cannot service 6 targets. The `Δv used` / `kits used`
 percentiles matching across the two presets is expected (a flat PLACEHOLDER cost
 takes quantized, catalog-independent values — not a copy-paste bug). Full per-run
