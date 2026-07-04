@@ -2,19 +2,41 @@
 
 #include <algorithm>
 #include <cmath>
+#include <deque>
 #include <limits>
 #include <vector>
 
 namespace adsc {
 
-Eigen::Vector3d ActuatorError::apply(const Eigen::Vector3d& tau) const {
+Eigen::Vector3d ActuatorError::apply(const Eigen::Vector3d& tau, double dt) const {
     // Scale each axis, then rotate by the small misalignment. The neutral
     // default (scale = 0, misalign = 0) is exactly the identity: cwiseProduct
     // with Ones() reproduces tau bit-for-bit and quat_exp(0) is the identity
     // quaternion, so the delegating 6-arg run_tumble_sync stays byte-identical.
     const Eigen::Vector3d scaled =
         tau.cwiseProduct(Eigen::Vector3d::Ones() + scale);
-    return quat_exp(misalign_rad) * scaled;
+    Eigen::Vector3d delivered = quat_exp(misalign_rad) * scaled;
+
+    // WP12 L5: partial single-axis fault (inert when fault_axis < 0, the
+    // neutral default).
+    if (fault_axis >= 0 && fault_axis < 3) {
+        delivered(fault_axis) *= fault_axis_scale;
+    }
+
+    // WP12 L5: MIB quantization of the per-step ANGULAR IMPULSE (torque*dt),
+    // not the torque itself -- a MIB is a hardware impulse quantum. Inert
+    // when min_impulse_bit_nms <= 0 (the neutral default) or dt <= 0 (the
+    // single-argument call sites that predate WP12 and never intend
+    // quantization). Round-to-nearest-bit gives the standard half-bit
+    // deadband for free: a commanded impulse under half a bit rounds to the
+    // zero bin.
+    if (min_impulse_bit_nms > 0.0 && dt > 0.0) {
+        const Eigen::Vector3d impulse = delivered * dt;
+        const Eigen::Vector3d q_impulse =
+            ((impulse.array() / min_impulse_bit_nms).round() * min_impulse_bit_nms).matrix();
+        delivered = q_impulse / dt;
+    }
+    return delivered;
 }
 
 SyncReport run_tumble_sync(const Config& cfg,
@@ -52,6 +74,13 @@ SyncReport run_tumble_sync(const Config& cfg,
     double max_rate = 0.0, max_att = 0.0;
     double rate_err_deg_s = 0.0, att_err_deg = 0.0;
 
+    // WP12 L5: actuator response delay (actuator.delay_steps control steps),
+    // a FIFO of the last delay_steps COMMANDED torques. Lives here (not in
+    // ActuatorError::apply) because only this loop has the per-step command
+    // history; neutral default delay_steps = 0 never pushes/pops this deque
+    // and delivers tau immediately, so the pinned WP2 run is untouched.
+    std::deque<Eigen::Vector3d> tau_history;
+
     double t = 0.0;
     while (t < max_sim_time_s) {
         const Eigen::Vector3d w_t = target.rate();
@@ -61,9 +90,24 @@ SyncReport run_tumble_sync(const Config& cfg,
             servicer.inertia(), servicer.attitude(), servicer.rate(),
             target.attitude(), w_t, w_t_dot);
 
-        // Actuator dispersion (WP5): delivered torque = actuator.apply(tau).
-        // Neutral default => tau, so the pinned WP2 run is byte-identical.
-        servicer.step(actuator.apply(tau), cfg.control_dt);
+        // WP12 L5: apply the actuator lag BEFORE the scale/misalign/fault/MIB
+        // map (the delay is a transport lag on the COMMAND, upstream of the
+        // actuator's own realization error).
+        Eigen::Vector3d tau_delayed = tau;
+        if (actuator.delay_steps > 0) {
+            tau_history.push_back(tau);
+            if (static_cast<int>(tau_history.size()) > actuator.delay_steps) {
+                tau_delayed = tau_history.front();
+                tau_history.pop_front();
+            } else {
+                tau_delayed = Eigen::Vector3d::Zero();  // nothing delivered yet during fill-up
+            }
+        }
+
+        // Actuator dispersion (WP5) + WP12 L5 realization error: delivered
+        // torque = actuator.apply(tau_delayed, dt). Neutral default => tau,
+        // so the pinned WP2 run is byte-identical.
+        servicer.step(actuator.apply(tau_delayed, cfg.control_dt), cfg.control_dt);
         target.step(Eigen::Vector3d::Zero(), cfg.control_dt);
         t += cfg.control_dt;
 

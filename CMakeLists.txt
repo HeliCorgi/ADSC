@@ -41,6 +41,7 @@ add_library(adsc_core
     src/cost.cpp
     src/flux.cpp
     src/guidance.cpp
+    src/propagation.cpp
 )
 target_include_directories(adsc_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(adsc_core PUBLIC Eigen3::Eigen)
@@ -76,6 +77,14 @@ target_link_libraries(decay_trade PRIVATE adsc_core adsc_flags)
 # committed data only (R6). Reuses existing code paths; no physics change.
 add_executable(sim_metrics src/main_metrics.cpp)
 target_link_libraries(sim_metrics PRIVATE adsc_core adsc_flags)
+
+# WP12 fidelity-ladder driver: regenerates generated/wp12_ladder.{csv,md} --
+# per-level (L0/L1/L2) re-verification of the committed WP5 campaign's abort
+# events, the forensic-14 per-level clearance table, and the margin-decay
+# measurement (F2). Reuses run_one_mission's WP12 audit hook + propagation.cpp;
+# does not touch a single wp5_campaign_* byte.
+add_executable(adsc_ladder src/main_ladder.cpp)
+target_link_libraries(adsc_ladder PRIVATE adsc_core adsc_flags)
 
 # Tests.
 enable_testing()
@@ -121,6 +130,13 @@ add_test(NAME forensic14 COMMAND test_forensic14)
 add_executable(test_guidance tests/test_guidance.cpp)
 target_link_libraries(test_guidance PRIVATE adsc_core adsc_flags)
 add_test(NAME guidance COMMAND test_guidance)
+
+# WP12 fidelity ladder: the MANDATORY cross-validation (L1/J2-off vs the CW
+# closed form, L2/drag-off vs L1, a bounded J2-on sanity check) plus L4/L5
+# demo assertions (D13/R14 extension of the WP1/WP11 regression discipline).
+add_executable(test_ladder tests/test_ladder.cpp)
+target_link_libraries(test_ladder PRIVATE adsc_core adsc_flags)
+add_test(NAME ladder COMMAND test_ladder)
 
 add_executable(test_cost tests/test_cost.cpp)
 target_link_libraries(test_cost PRIVATE adsc_core adsc_flags)

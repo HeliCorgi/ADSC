@@ -126,6 +126,10 @@ double TranslationEkf::update(double range_meas, const Eigen::Vector3d& los_meas
     return nis;
 }
 
+void TranslationEkf::apply_control_delta_v(const Eigen::Vector3d& dv) {
+    x_.tail<3>() += dv;
+}
+
 // ---------------------------------------------------------------------------
 // AttitudeMekf
 // ---------------------------------------------------------------------------

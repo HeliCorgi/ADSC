@@ -79,9 +79,13 @@ public:
     double sample();                       // ~ N(0,1)
     Eigen::Vector3d sample3(double sigma); // ~ N(0, sigma^2 I3)
 
-private:
+    // WP12 L4: exposed (was private) for Bernoulli gates driven directly off
+    // the raw stream (e.g. sensor-dropout draws in guidance.cpp) -- purely
+    // additive visibility change, same sequence of raw mt19937 draws as
+    // before, so every existing sample()/sample3() call path is unaffected.
     double uniform01();  // in (0,1], from raw mt19937 draws
 
+private:
     std::mt19937 gen_;
     bool   have_spare_ = false;
     double spare_      = 0.0;
@@ -114,6 +118,16 @@ public:
     // innovation, 4 dof).
     double update(double range_meas, const Eigen::Vector3d& los_meas,
                   double sigma_range, double sigma_los);
+
+    // WP12 L4: apply a KNOWN control velocity delta (a commanded guidance
+    // impulse) directly to the state estimate. The covariance is UNCHANGED:
+    // a perfectly-known, deterministic control input shifts the mean only --
+    // it does not add uncertainty the way predict()'s stochastic process
+    // noise does. Lets closed-loop guidance apply the SAME commanded impulse
+    // to the filter's own velocity estimate that it applies to the
+    // (separately propagated) truth state, so the filter's belief and the
+    // actuated vehicle agree on what was commanded.
+    void apply_control_delta_v(const Eigen::Vector3d& dv);
 
     const Vector6d& state() const { return x_; }
     const Eigen::Matrix<double, 6, 6>& covariance() const { return P_; }

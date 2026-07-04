@@ -4,6 +4,8 @@
 #include <cmath>
 #include <limits>
 
+#include "adsc/estimator.hpp"
+
 namespace adsc {
 
 namespace {
@@ -146,6 +148,11 @@ GuidedApproach::GuidedApproach(const Config& cfg)
       cw_(CwModel::from_orbit(kEarthRadius + cfg.target_altitude_km * 1000.0)) {}
 
 GuidedApproachReport GuidedApproach::fly() {
+    // WP12 L4 dispatch (R1: extends, never replaces -- everything below this
+    // guard is the ORIGINAL WP11 code, unmodified; cfg_.guid_estimate_driven
+    // defaults to false, so every existing caller is unaffected byte-for-byte).
+    if (cfg_.guid_estimate_driven) return fly_estimate_driven();
+
     GuidedApproachReport rep;
 
     // V-bar points are CW equilibria: with x = z = 0 and zero velocity the
@@ -435,6 +442,259 @@ GuidedApproachReport GuidedApproach::fly() {
     rep.min_clearance_outside_m = min_clearance_outside;
     rep.abort_feasible_every_step = abort_feasible_every_step;
     rep.los_cone_ok = los_cone_ok;
+    return rep;
+}
+
+// ============================================================================
+// WP12 L4: estimate-driven translation guidance
+// ----------------------------------------------------------------------------
+// Closes the WP11/README "estimate-driven translation guidance remains open"
+// known limit. Truth propagates the SAME deterministic CW dynamics as fly()
+// above and receives MATCHED velocity process noise at each ranging interval
+// (mirrors run_estimated_sync, estimator.hpp/WP4); range + LOS-unit-vector
+// measurements are drawn from truth with the existing WP4 sigmas, gated by a
+// Bernoulli sensor-dropout draw (a missed detection: the update is skipped,
+// but the filter still predicts), and the range measurement carries an
+// UNESTIMATED random-walk bias -- a documented estimation gap (the filter has
+// no bias state), so a large enough walk will inflate the reported NIS; that
+// is reported honestly, not hidden.
+//
+// Every guidance decision (hop transfer-velocity solves, the glideslope
+// target, the reachability screen, the contact matching burn, and the
+// post-contact retreat) reads the CURRENT TranslationEkf estimate, never
+// x_truth; the SAME resulting impulse is then applied to both x_truth (the
+// physically actuated vehicle) and the filter's own velocity estimate
+// (TranslationEkf::apply_control_delta_v -- a known control input adds no
+// uncertainty). Truth is read ONLY for the matched process noise, the
+// error-statistics accumulators, and the final honest contact-speed /
+// contact-range report (D5/WP11's truth-isolation discipline, extended to
+// translation the way WP4 already does for attitude).
+// ============================================================================
+GuidedApproachReport GuidedApproach::fly_estimate_driven() {
+    GuidedApproachReport rep;
+
+    Vector6d x_truth = Vector6d::Zero();
+    x_truth(1) = -cfg_.guid_hold_far_m;
+
+    // One fixed-seed GaussianSource drives every sensor draw (measurement
+    // noise, the dropout gate, the bias-walk increment, and the sampled
+    // initial estimate error) -- deterministic (R6).
+    GaussianSource rng(cfg_.est_seed);
+    Vector6d x0_est = x_truth;
+    x0_est.head<3>() += rng.sample3(cfg_.est_init_pos_sigma_m);
+    x0_est.tail<3>() += rng.sample3(cfg_.est_init_vel_sigma_m_s);
+    Eigen::Matrix<double, 6, 6> P0 = Eigen::Matrix<double, 6, 6>::Zero();
+    P0.block<3, 3>(0, 0) = cfg_.est_init_pos_sigma_m * cfg_.est_init_pos_sigma_m *
+                           Eigen::Matrix3d::Identity();
+    P0.block<3, 3>(3, 3) = cfg_.est_init_vel_sigma_m_s * cfg_.est_init_vel_sigma_m_s *
+                           Eigen::Matrix3d::Identity();
+    TranslationEkf ekf(cw_, x0_est, P0);
+
+    double range_bias_m = 0.0;  // unestimated random-walk range bias (documented gap)
+    double nis_sum = 0.0;  int nis_n  = 0;
+    double nees_sum = 0.0; int nees_n = 0;
+    double dv_total = 0.0;
+    bool   aborted = false;
+    bool   abort_feasible_every_step = true;
+    bool   los_cone_ok = true;
+    bool   preauth = true;  // see fly()'s identical field for the rationale
+    double min_clearance_outside = std::numeric_limits<double>::max();
+    const double dt_r = 1.0 / cfg_.ranging_rate_hz;
+
+    // Coast BOTH truth and the filter over `duration` seconds at the ranging
+    // cadence: truth carries matched velocity process noise (mirrors WP4's
+    // run_estimated_sync), the filter predicts with the analytic CW STM
+    // (exact for any dt -- sub-stepping here is for the SENSOR cadence, not
+    // numerical accuracy), and a range+LOS update is taken at every interval
+    // EXCEPT where the Bernoulli dropout draw hits. NIS is tallied only on
+    // executed updates; NEES on every sub-step (it needs only the current
+    // estimate/truth pair, no measurement).
+    const auto coast_estimated = [&](double duration) {
+        double remaining = duration;
+        while (remaining > 1e-9) {
+            const double h = std::min(dt_r, remaining);
+            x_truth = cw_.propagate(x_truth, h);
+            x_truth.tail<3>() += rng.sample3(cfg_.trans_vel_noise_m_s);
+            ekf.predict(h, cfg_.trans_vel_noise_m_s);
+
+            range_bias_m +=
+                rng.sample() * cfg_.range_bias_walk_m_per_sqrt_s * std::sqrt(h);
+
+            if (rng.uniform01() >= cfg_.sensor_dropout_prob) {
+                const Eigen::Vector3d r_true = x_truth.head<3>();
+                const double z_range =
+                    r_true.norm() + range_bias_m + cfg_.range_sigma_m * rng.sample();
+                const Eigen::Vector3d z_los =
+                    r_true.normalized() + rng.sample3(cfg_.los_sigma);
+                nis_sum += ekf.update(z_range, z_los, cfg_.range_sigma_m, cfg_.los_sigma);
+                ++nis_n;
+            }
+            const Vector6d e = ekf.state() - x_truth;
+            nees_sum += e.dot(ekf.covariance().ldlt().solve(e));
+            ++nees_n;
+
+            const double range = rel_range(x_truth);
+            if (preauth && range > cfg_.keep_out_radius_m) {
+                min_clearance_outside =
+                    std::min(min_clearance_outside, range - cfg_.keep_out_radius_m);
+            }
+            remaining -= h;
+        }
+    };
+
+    // Screen the candidate ESTIMATED post-impulse state (the vehicle has no
+    // other observable), then apply the SAME delta-v to truth and to the
+    // filter's velocity estimate.
+    const auto commit_impulse = [&](const Eigen::Vector3d& v_req) -> bool {
+        const Eigen::Vector3d r_est = ekf.state().head<3>();
+        const bool ok = reachability_screen_ok(cfg_, cw_, r_est, v_req, nullptr);
+        abort_feasible_every_step = abort_feasible_every_step && ok;
+        if (!ok) { aborted = true; return false; }
+        const Eigen::Vector3d dv = v_req - ekf.state().tail<3>();
+        dv_total += dv.norm();
+        x_truth.tail<3>() += dv;
+        ekf.apply_control_delta_v(dv);
+        return true;
+    };
+
+    const double period = cw_.period();
+    const double tau = cfg_.guid_transfer_frac_T * period;
+    const double standoff = cfg_.depart_standoff_factor * cfg_.keep_out_radius_m;
+    const double R_clear = cfg_.keep_out_radius_m + cfg_.abort_clear_margin_m;
+
+    // Last-resort clearing abort, executed from TRUTH (the physically real
+    // state) -- same principle as fly()'s abort_and_stop. Also finalizes
+    // every trailing report field, so every early-exit site below is just
+    // `if (aborted) { abort_and_stop(); return rep; }`, matching fly()'s idiom.
+    const auto abort_and_stop = [&]() {
+        const SafeAbort ab =
+            clearing_abort_for(cfg_, cw_, x_truth.head<3>(), x_truth.tail<3>());
+        x_truth.tail<3>() += ab.dv;
+        dv_total += ab.dv.norm() + ab.dv_second_burn_m_s;
+        rep.completed  = false;
+        rep.final_mode = GuidanceMode::Abort;
+        rep.dv_total_m_s = dv_total;
+        rep.min_clearance_outside_m = min_clearance_outside;
+        rep.abort_feasible_every_step = abort_feasible_every_step;
+        rep.los_cone_ok = los_cone_ok;
+        rep.est_final_pos_err_m = (ekf.state().head<3>() - x_truth.head<3>()).norm();
+        rep.est_nis_trans_mean  = (nis_n  > 0) ? nis_sum  / nis_n  : 0.0;
+        rep.est_nees_trans_mean = (nees_n > 0) ? nees_sum / nees_n : 0.0;
+        rep.est_nis_n  = nis_n;
+        rep.est_nees_n = nees_n;
+    };
+
+    // Two-impulse hold-to-hold hop along -V-bar, transfer velocity solved
+    // from the ESTIMATE (WP12 L4; compare fly()'s truth-fed hop).
+    const auto hop = [&](double y_target) {
+        if (aborted) return;
+        const Eigen::Vector3d r0 = ekf.state().head<3>();
+        const Eigen::Vector3d r_target(0.0, y_target, 0.0);
+        const Eigen::Vector3d v_req = transfer_velocity(cw_, tau, r0, r_target);
+        if (!commit_impulse(v_req)) return;
+        coast_estimated(tau);
+        if (aborted) return;
+        commit_impulse(Eigen::Vector3d::Zero());  // null arrival velocity
+    };
+
+    // ---- FarApproach -> Hold: depart the far hold, then the mid hold. ----
+    hop(-cfg_.guid_hold_mid_m);
+    if (aborted) { abort_and_stop(); return rep; }
+    hop(-standoff);
+    if (aborted) { abort_and_stop(); return rep; }
+
+    // ---- SyncHold: zero-dv dwell at the standoff (attitude sync is WP2's
+    //      job, not re-simulated here); the filter keeps converging through
+    //      the dwell via coast_estimated's ranging updates. ----
+    coast_estimated(cfg_.sync_hold_s + kSyncAllowanceS);
+
+    // ---- FinalApproach: glideslope-with-floor descent, ESTIMATE-driven. ----
+    preauth = false;  // authorized keep-out penetration begins here (D5/WP11)
+    // WP12 defensive cap: fly()'s truth-fed loop provably terminates (the
+    // commanded closing rate is always positive), but the ESTIMATE could in
+    // principle stall short of contact range under noise/dropout; this bound
+    // is ~7x the nominal ~67-step descent.
+    const int kMaxFinalApproachSteps = 500;
+    bool reached_contact_range = false;
+    for (int step = 0; step < kMaxFinalApproachSteps && !aborted; ++step) {
+        const double range_est = ekf.state().head<3>().norm();
+        if (range_est <= cfg_.guid_contact_range_m) { reached_contact_range = true; break; }
+        const double y_now = ekf.state()(1);
+        const double v_des =
+            std::max(cfg_.guid_contact_speed_m_s, cfg_.guid_glideslope_k * std::abs(y_now));
+        double y_next = y_now + v_des * cfg_.guid_step_s;  // y_now < 0, closing toward 0
+        if (y_next > -cfg_.guid_contact_range_m) y_next = -cfg_.guid_contact_range_m;
+        const Eigen::Vector3d r0 = ekf.state().head<3>();
+        const Eigen::Vector3d r_target(0.0, y_next, 0.0);
+        const Eigen::Vector3d v_req = transfer_velocity(cw_, cfg_.guid_step_s, r0, r_target);
+        if (!commit_impulse(v_req)) break;
+        coast_estimated(cfg_.guid_step_s);
+        // LOS cone about -V-bar, evaluated on the ESTIMATE.
+        if (std::abs(ekf.state()(1)) > cfg_.guid_contact_range_m) {
+            const double cone_radius =
+                std::tan(cfg_.guid_los_half_angle_rad) * std::abs(ekf.state()(1));
+            const bool los_ok =
+                std::sqrt(ekf.state()(0) * ekf.state()(0) + ekf.state()(2) * ekf.state()(2)) <=
+                cone_radius;
+            los_cone_ok = los_cone_ok && los_ok;
+        }
+    }
+    if (aborted) { abort_and_stop(); return rep; }
+    if (!reached_contact_range) { aborted = true; abort_and_stop(); return rep; }
+
+    // ---- Contact: matching burn to the design contact speed, ESTIMATE-
+    //      driven; contact speed/range REPORTED from TRUTH (honest reporting,
+    //      D5/WP11 truth-isolation). ----
+    const Eigen::Vector3d target_v(0.0, cfg_.guid_contact_speed_m_s, 0.0);
+    if (!commit_impulse(target_v)) { abort_and_stop(); return rep; }
+    rep.contact_speed_m_s = x_truth.tail<3>().norm();
+    rep.contact_range_m   = x_truth.head<3>().norm();
+
+    // ---- Retreat: RetreatHop-style two-burn departure computed from the
+    //      ESTIMATE (compare fly()'s truth-fed retreat), re-establishing the
+    //      standoff (or station-keeping in place if the post-hop range
+    //      already clears it). ----
+    {
+        const SafeAbort retreat_ab =
+            clearing_abort_for(cfg_, cw_, ekf.state().head<3>(), ekf.state().tail<3>());
+        dv_total += retreat_ab.dv.norm();
+        x_truth.tail<3>() += retreat_ab.dv;
+        ekf.apply_control_delta_v(retreat_ab.dv);
+
+        coast_estimated(0.5 * period);
+
+        // Burn 2: null vx and vz on the ESTIMATE (only those are analytically
+        // nonzero at T/2 for the drift-free family -- see fly()'s RetreatHop
+        // burn 2 comment); apply the SAME delta to truth.
+        const Eigen::Vector3d v_before_burn2 = ekf.state().tail<3>();
+        const Eigen::Vector3d v_after_burn2(0.0, v_before_burn2.y(), 0.0);
+        const Eigen::Vector3d dv2 = v_after_burn2 - v_before_burn2;
+        dv_total += dv2.norm();
+        x_truth.tail<3>() += dv2;
+        ekf.apply_control_delta_v(dv2);
+
+        if (ekf.state().head<3>().norm() < standoff) {
+            const double y_target = (ekf.state()(1) <= 0.0) ? -standoff : standoff;
+            hop(y_target);
+        } else {
+            commit_impulse(Eigen::Vector3d::Zero());  // station-keep: null residual velocity
+        }
+    }
+    if (aborted) { abort_and_stop(); return rep; }
+
+    // ---- Complete: standoff equilibrium re-established outside keep_out +
+    //      margin (TRUTH-evaluated: the honest completion criterion). ----
+    rep.completed  = x_truth.head<3>().norm() > R_clear;
+    rep.final_mode = rep.completed ? GuidanceMode::Complete : GuidanceMode::Abort;
+    rep.dv_total_m_s = dv_total;
+    rep.min_clearance_outside_m = min_clearance_outside;
+    rep.abort_feasible_every_step = abort_feasible_every_step;
+    rep.los_cone_ok = los_cone_ok;
+    rep.est_final_pos_err_m = (ekf.state().head<3>() - x_truth.head<3>()).norm();
+    rep.est_nis_trans_mean  = (nis_n  > 0) ? nis_sum  / nis_n  : 0.0;
+    rep.est_nees_trans_mean = (nees_n > 0) ? nees_sum / nees_n : 0.0;
+    rep.est_nis_n  = nis_n;
+    rep.est_nees_n = nees_n;
     return rep;
 }
 

@@ -350,7 +350,7 @@ in `include/`, `src/` and `tools/` carrying the uppercase PLACEHOLDER mark
 only in order to collect and audit it). If a value is listed here, treat
 it as unvalidated until a cited source replaces it.
 
-Total marks: **95**
+Total marks: **113**
 
 | location | line |
 |---|---|
@@ -418,22 +418,28 @@ Total marks: **95**
 | `include/adsc/mission.hpp:47` | Eigen::Vector3d target_inertia_diag{1.0, 0.6, 0.3};  // PLACEHOLDER principal moments [kg m^2] |
 | `include/adsc/mission.hpp:57` | // acceleration, so the deadband bounds the hold error). PLACEHOLDER values. |
 | `include/adsc/mission.hpp:60` | // WP3: kit + deorbit-decay trades. PLACEHOLDER physical values (R10). |
-| `include/adsc/mission.hpp:69` | // min..max range, never a point value. PLACEHOLDER values: a single |
-| `include/adsc/mission.hpp:75` | double solar_min_density_factor = 0.5;  // PLACEHOLDER solar-min scaling |
-| `include/adsc/mission.hpp:76` | double solar_max_density_factor = 8.0;  // PLACEHOLDER solar-max scaling |
-| `include/adsc/mission.hpp:84` | // WP4: sensor + estimator abstractions. All PLACEHOLDER values (R10); |
-| `src/campaign.cpp:268` | // Inter-target phasing to the next target (PLACEHOLDER flat cost). |
-| `src/campaign.cpp:382` | // Under the current flat PLACEHOLDER Delta-v cost these coincide numerically |
-| `src/campaign.cpp:402` | "includes PLACEHOLDER phasing/attach/depart time"); |
-| `src/campaign.cpp:547` | "PLACEHOLDER Delta-v cost these two coincide numerically -- every " |
-| `src/campaign.cpp:563` | "PLACEHOLDER, so those quantities take a small set of quantized values " |
-| `src/campaign.cpp:602` | "/ dv_budget_m_per_s / m/s / WP5-native, PLACEHOLDER / mission Delta-v budget /\n" |
-| `src/campaign.cpp:603` | "/ dv_used_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / sum of leg costs /\n" |
-| `src/campaign.cpp:604` | "/ dv_remaining_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / budget minus used /\n" |
-| `src/campaign.cpp:609` | "/ mission_time_s / s / WP5-native, PLACEHOLDER-derived / elapsed incl. placeholder phasing /\n" |
-| `src/campaign.cpp:616` | "/ first_closing_speed_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / target-0 capture clo... |
-| `src/campaign.cpp:617` | "/ tumble_rate_deg_per_s / deg/s / WP5-native, PLACEHOLDER-derived / realized /w_t/ of first ... |
-| `src/campaign.cpp:618` | "/ solar_factor / - / WP5-native, PLACEHOLDER-derived / realized atmospheric-density factor (... |
+| `include/adsc/mission.hpp:66` | // catalog (bare-stage) areas are kept as PLACEHOLDER constants local to |
+| `include/adsc/mission.hpp:68` | double servicer_drag_area_m2 = 0.35;  // PLACEHOLDER servicer bus drag cross-section [m^2] |
+| `include/adsc/mission.hpp:74` | // min..max range, never a point value. PLACEHOLDER values: a single |
+| `include/adsc/mission.hpp:80` | double solar_min_density_factor = 0.5;  // PLACEHOLDER solar-min scaling |
+| `include/adsc/mission.hpp:81` | double solar_max_density_factor = 8.0;  // PLACEHOLDER solar-max scaling |
+| `include/adsc/mission.hpp:89` | // WP4: sensor + estimator abstractions. All PLACEHOLDER values (R10); |
+| `include/adsc/mission.hpp:134` | double sensor_dropout_prob          = 0.05;    // PLACEHOLDER per-sample Bernoulli missed-det... |
+| `include/adsc/mission.hpp:135` | double range_bias_walk_m_per_sqrt_s = 1.0e-3;  // PLACEHOLDER unestimated range-bias random-w... |
+| `include/adsc/mission.hpp:265` | double min_impulse_bit_nms = 0.0;  // PLACEHOLDER MIB angular-impulse quantum [N m s], per ax... |
+| `include/adsc/propagation.hpp:84` | // ---- Physical constants (cited, not PLACEHOLDER) ---- |
+| `src/campaign.cpp:286` | // Inter-target phasing to the next target (PLACEHOLDER flat cost). |
+| `src/campaign.cpp:400` | // Under the current flat PLACEHOLDER Delta-v cost these coincide numerically |
+| `src/campaign.cpp:426` | "includes PLACEHOLDER phasing/attach/depart time"); |
+| `src/campaign.cpp:571` | "PLACEHOLDER Delta-v cost these two coincide numerically -- every " |
+| `src/campaign.cpp:587` | "PLACEHOLDER, so those quantities take a small set of quantized values " |
+| `src/campaign.cpp:626` | "/ dv_budget_m_per_s / m/s / WP5-native, PLACEHOLDER / mission Delta-v budget /\n" |
+| `src/campaign.cpp:627` | "/ dv_used_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / sum of leg costs /\n" |
+| `src/campaign.cpp:628` | "/ dv_remaining_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / budget minus used /\n" |
+| `src/campaign.cpp:633` | "/ mission_time_s / s / WP5-native, PLACEHOLDER-derived / elapsed incl. placeholder phasing /\n" |
+| `src/campaign.cpp:640` | "/ first_closing_speed_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / target-0 capture clo... |
+| `src/campaign.cpp:641` | "/ tumble_rate_deg_per_s / deg/s / WP5-native, PLACEHOLDER-derived / realized /w_t/ of first ... |
+| `src/campaign.cpp:642` | "/ solar_factor / - / WP5-native, PLACEHOLDER-derived / realized atmospheric-density factor (... |
 | `src/cost.cpp:321` | "debris-risk-reduction per cost; weighting is PLACEHOLDER (T5)"); |
 | `src/cost.cpp:324` | fr.band_weight, "normalized", "w(h) PLACEHOLDER; cite on fill"); |
 | `src/cost.cpp:350` | "PLACEHOLDER: fill a CITED range in WP7; no point-value dollar figure is claimed"); |
@@ -449,6 +455,18 @@ Total marks: **95**
 | `src/flux.cpp:94` | std::fprintf(f, "PLACEHOLDER spatial densities: average %.1e /km^3, peak " |
 | `src/main.cpp:137` | std::printf("  target inertia diag: %.2f / %.2f / %.2f kg m^2 (PLACEHOLDER ratios)\n", |
 | `src/main_flux.cpp:33` | std::printf("\n[T6] collector exposure (>= 1 cm; PLACEHOLDER densities, cite MASTER-8)\n"); |
+| `src/main_ladder.cpp:75` | // PLACEHOLDER bare-stage drag cross-sections (WP12 L2). Kept local to this |
+| `src/main_ladder.cpp:78` | constexpr double kSL16AreaM2 = 33.0;  // PLACEHOLDER SL-16 / Zenit-2 bare-stage cross-section... |
+| `src/main_ladder.cpp:79` | constexpr double kSL8AreaM2  = 7.5;   // PLACEHOLDER SL-8 / Kosmos-3M bare-stage cross-sectio... |
+| `src/main_ladder.cpp:82` | // PLACEHOLDER statistical/numerical-safety constants are named here. |
+| `src/main_ladder.cpp:83` | constexpr double kBcDispersionFrac = 0.30;  // PLACEHOLDER +/-30% 1-sigma per-craft ballistic... |
+| `src/main_metrics.cpp:329` | l5_act.min_impulse_bit_nms = 2.0e-4;  // PLACEHOLDER MIB angular impulse [N m s] |
+| `src/main_metrics.cpp:330` | l5_act.delay_steps         = 1;       // PLACEHOLDER one-control-step actuator lag |
+| `src/main_metrics.cpp:331` | l5_act.fault_axis          = 0;       // PLACEHOLDER: body x-axis |
+| `src/main_metrics.cpp:332` | l5_act.fault_axis_scale    = 0.5;     // PLACEHOLDER: 50% torque authority on that axis |
+| `src/main_metrics.cpp:346` | // at a 1e-3 m/s PLACEHOLDER translation MIB and re-checking the |
+| `src/main_metrics.cpp:351` | const double mib_m_s = 1.0e-3;  // PLACEHOLDER translation MIB [m/s] |
+| `src/main_metrics.cpp:355` | "contact velocity quantized at a 1e-3 m/s PLACEHOLDER translation " |
 
 ## 11. Changelog - R15 pin supersessions
 

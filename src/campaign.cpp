@@ -129,13 +129,22 @@ private:
 // intersects keep-out (generated/wp10_violation_forensics.md). The WP11
 // clearing law (compute_clearing_abort) replaces the abort itself, not just
 // the screen, so a violation is now design-unacceptable (D13).
+// WP12: optional out_r/out_v let the caller recover the EXACT dispersed
+// (r, v) this call drew, for the audit hook below -- no draw/arithmetic
+// change (both default to nullptr, and are only WRITTEN, never read, so the
+// two rng.sample3() calls and their consumption by compute_clearing_abort
+// are byte-for-byte the same as before this WP).
 SafeAbort dispersed_abort_coast(const Config& base_cfg, CampRng& rng,
-                                double disp_rel_pos_m, double disp_rel_vel_m_s) {
+                                double disp_rel_pos_m, double disp_rel_vel_m_s,
+                                Eigen::Vector3d* out_r = nullptr,
+                                Eigen::Vector3d* out_v = nullptr) {
     Mission m(base_cfg);
     const Eigen::Vector3d r0(
         0.0, -base_cfg.depart_standoff_factor * base_cfg.keep_out_radius_m, 0.0);
     const Eigen::Vector3d r = r0 + rng.sample3(disp_rel_pos_m);
     const Eigen::Vector3d v = rng.sample3(disp_rel_vel_m_s);
+    if (out_r) *out_r = r;
+    if (out_v) *out_v = v;
     return m.compute_clearing_abort(r, v);
 }
 
@@ -143,7 +152,8 @@ SafeAbort dispersed_abort_coast(const Config& base_cfg, CampRng& rng,
 
 // -------------------------------------------------------------- campaign core
 RunResult run_one_mission(const DebrisCatalog& catalog, const CampaignConfig& ccfg,
-                          const Config& base_cfg, int run_index) {
+                          const Config& base_cfg, int run_index,
+                          std::vector<CampaignAbortEvent>* audit) {
     const double deg2rad = kPi / 180.0;
     const double rad2deg = 180.0 / kPi;
 
@@ -217,10 +227,18 @@ RunResult run_one_mission(const DebrisCatalog& catalog, const CampaignConfig& cc
             ++gate_aborts; any_abort = true;
             if (dv_remaining < ccfg.dv_abort_m_s) { outcome = Outcome::DvExhausted; break; }
             dv_remaining -= ccfg.dv_abort_m_s; dv_used += ccfg.dv_abort_m_s;
+            // WP12 audit hook: capture the exact dispersed (r, v) ONLY when
+            // requested (audit != nullptr); the two rng.sample3() draws
+            // inside dispersed_abort_coast happen EITHER WAY, in the SAME
+            // order, so the campaign's RNG stream is untouched (R1).
+            Eigen::Vector3d audit_r = Eigen::Vector3d::Zero();
+            Eigen::Vector3d audit_v = Eigen::Vector3d::Zero();
             const SafeAbort ab = dispersed_abort_coast(
-                cat_cfg, rng, ccfg.disp_rel_pos_m, ccfg.disp_rel_vel_m_s);
+                cat_cfg, rng, ccfg.disp_rel_pos_m, ccfg.disp_rel_vel_m_s,
+                audit ? &audit_r : nullptr, audit ? &audit_v : nullptr);
             const double clearance = ab.coast_min_range_m - cat_cfg.keep_out_radius_m;
             worst_clearance = std::min(worst_clearance, clearance);
+            if (audit) audit->push_back(CampaignAbortEvent{i, audit_r, audit_v, ab});
             if (ab.coast_min_range_m < cat_cfg.keep_out_radius_m) {
                 outcome = Outcome::KeepOutViolation; break;
             }
@@ -390,8 +408,14 @@ std::vector<SummaryRow> summarize(const std::vector<RunResult>& runs) {
     rate_row("gate_abort_run_rate", n_abort,
              "runs with >=1 closing-speed gate abort = abort-path exposure "
              "(spec 'abort rate'); Wilson 95% CI (z=1.959963984540054)");
+    // WP12 note-string ride-along (design-doc-authorized): the campaign's own
+    // keep-out screen is L0 (linear CW) under dispersion set ds-v1; the
+    // WP12 fidelity ladder (generated/wp12_ladder.csv/.md) re-verifies these
+    // same abort events at L1/L2 and reports separately -- this row's note
+    // gains the level/dispersion tag so it is never read as a claim beyond
+    // L0. Changes ONLY wp5_campaign_summary.{csv,md} bytes (no number moves).
     rate_row("keep_out_violation_rate", n_keepout,
-             "Wilson 95% CI (z=1.959963984540054)");
+             "Wilson 95% CI (z=1.959963984540054); level tag L0, dispersion set ds-v1");
 
     dist_row("dv_used_m_per_s", dv_used, "m_per_s", "per mission");
     dist_row("kits_used", kits_used, "count", "per mission");
