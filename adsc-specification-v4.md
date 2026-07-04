@@ -1,6 +1,6 @@
 # ADSC v4 Specification — Open Reference Evidence Package for Minimum-Cost Debris Remediation
 
-Status: ACTIVE, revision v4.2 (supersedes v4.1 / adsc-specification-v3.md)
+Status: RETIRED, revision v4.2 — superseded by adsc-specification-v5.md (was: ACTIVE; supersedes v4.1 / adsc-specification-v3.md)
 Date: 2026-07-03
 v4.2 changes: R9 generation/reporting-tooling exception (Python 3 stdlib only,
 no pip); R6 addendum forbidding wall-clock timestamps/run times in generated
@@ -12,6 +12,13 @@ added to WP7.2; contact-energy acceptance line added to WP3; new T6
 (small-debris exclusion with committed flux calculation); §7 updated to match.
 Owner: HeliCorgi
 Audience of this file: coding agent (Claude Code) working on https://github.com/HeliCorgi/ADSC
+
+> **RETIRED (2026-07-04):** this specification is superseded by
+> [adsc-specification-v5.md](adsc-specification-v5.md). v5 carries over
+> D1–D11, R1–R13, T1–T6, and the §4 FoM from this file except where
+> explicitly amended there. The full v4.2 text is preserved below because
+> v5 (and the compliance rulepack source_reference strings) reference it
+> rather than restating it.
 
 ---
 

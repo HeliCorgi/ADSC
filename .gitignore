@@ -3,3 +3,7 @@ build/
 *.out
 __pycache__/
 *.pyc
+
+# local agent/editor tooling (not part of the evidence repository)
+.claude/
+.vscode/
