@@ -12,7 +12,7 @@ A C++17 GNC **numerical simulator** for an installer-type active-debris-remediat
 fuel is the population of massive derelict upper stages in congested orbital bands —
 fragments are the symptom — so the servicer targets the objects that would become
 the next fragment clouds, attaches a passive deorbit kit, and departs, using a
-**passively-safe approach design** with clearing-verified aborts (WP11:
+**passively-safe approach design** with clearance-verified aborts (WP11:
 keep-out violations 0 of 500 per catalog at L0, ds-v1, Wilson 95% upper bound
 0.0076, re-verified at L1 (+J2) and L2 (+drag) with zero violations
 [ds-v1/ds-v2]). ADSC is an **open, reproducible evidence package** for that architecture (spec:
@@ -115,7 +115,8 @@ implemented; v3 continues that discipline.
   error, measured at worst 0.52 m across the forensic-14 states); with drag
   forced off, L2 reproduces L1 **bit-for-bit**. Re-verifies every committed
   campaign abort event and the pinned forensic-14 states at L1/L2 with
-  **zero** keep-out violations, and measures safety-ellipse margin decay over
+  **zero** keep-out violations [L1: ds-v1; L2: ds-v2; Wilson 95% upper bound
+  0.0130 per catalog], and measures safety-ellipse margin decay over
   repeated orbits (`generated/wp12_ladder.{csv,md}`). Adds **L4**
   estimate-driven guidance (translation EKF in the loop, under measurement
   dropout and an unestimated range-bias walk) and **L5** a delta-sigma
@@ -130,8 +131,8 @@ implemented; v3 continues that discipline.
   kit mass + sail area, changing its A/m); depart transfers to a bounded,
   keep-out-clearing relative orbit. The attach reports the **contact-energy
   budget** ½·m·v² at `max_v_rel` (≈ 0.33 J for the 29.6 kg servicer at
-  0.15 m/s) — the no-fragmentation-at-contact argument for a compliant,
-  geometry-keyed clamp. Unit-tested (`tests/test_mission.cpp`). The v2
+  0.15 m/s) — the no-fragmentation-at-contact argument for a geometry-keyed
+  clamp with mechanical compliance. Unit-tested (`tests/test_mission.cpp`). The v2
   `post_capture_stabilization` is retained only as the detumble regression
   reference; the installer paradigm does not detumble the multi-tonne target.
 - **Kit deorbit-decay trades (WP3)** (`decay`): a quasi-circular drag-decay

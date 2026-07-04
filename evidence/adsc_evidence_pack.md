@@ -367,9 +367,10 @@ conformity. For the committed research profile:
 ## 8. Flight-software migration path (annex - deliberately NOT implemented)
 
 Adopters rewrite flight code; what they cannot cheaply reproduce is a
-validated architecture trade. Spending effort there is the minimum-cost
-allocation, so ADSC ships the trades and documents the migration path
-instead of pretending at flight code:
+validated architecture trade. Spending effort there is the
+cost-effective allocation (D10: cost-effectiveness, never an absolute
+minimum-cost claim), so ADSC ships the trades and documents the
+migration path instead of pretending at flight code:
 
 - Hardware abstraction layer between GNC core and device drivers.
 - Allocation-free control path (fixed-size Eigen types already; remove
