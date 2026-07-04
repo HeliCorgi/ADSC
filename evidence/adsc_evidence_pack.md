@@ -64,10 +64,13 @@ manipulator.
 **Cascade source-term framing (Kessler-precursor removal).** The collisional
 cascade's fuel is the population of massive intact derelicts in congested
 bands; fragments are the symptom. One intact-intact collision produces
-thousands of trackable fragments [CITATION NEEDED - PLACEHOLDER: cataloged
-fragment counts of an intact-intact event, e.g. the 2009 Iridium 33 /
-Cosmos 2251 collision], so removing (or equipping for removal) the objects
-that would become the next fragment clouds attacks the source term.
+thousands of trackable fragments (the 2009 Iridium 33 / Cosmos 2251
+collision: 598 + 1603 = 2201 fragments cataloged by the U.S. Space
+Surveillance Network as of January 2013; Liou, J.-C., "An Analysis of
+the FY-1C, Iridium 33, and Cosmos 2251 Fragments", NASA Orbital Debris
+Program Office, NTRS 20150003820, 2014), so removing (or equipping for
+removal) the objects that would become the next fragment clouds attacks
+the source term.
 Anchors in the open literature:
 
 - Kessler, D. J., Cour-Palais, B. G., "Collision Frequency of Artificial
@@ -85,14 +88,27 @@ Anchors in the open literature:
 - External validation of the reference target class: the environmental-
   index peak near ~800-900 km / 70-80 deg inclination reported by the ESA
   Space Debris Office's Annual Space Environment Report matches catalog_A
-  (~840 km / ~71 deg) [CITATION NEEDED - PLACEHOLDER: exact report issue /
-  document ID to be confirmed at fill time].
+  (~840 km / ~71 deg). Source: ESA Space Debris Office, "ESA's Annual
+  Space Environment Report", GEN-DB-LOG-00288-OPS-SD, Issue 10.0,
+  1 May 2026, section 7.1 ("areas with high risk concentration can be
+  observed around 850 km of mean altitude and 70-80 degrees in
+  inclination", under a 90% PMD-success assumption).
 - Population figures (>= 1 cm ~1.2 M objects) are MASTER-8-class model
-  values [CITATION NEEDED - PLACEHOLDER: MASTER-8 release documentation
-  reference], carried as PLACEHOLDER inputs in the T6 flux table.
+  values (MASTER-8, released March 2019, reference epoch November 2016:
+  Horstmann, A., Hesselbach, S., Wiedemann, C., "Enhancement of S/C
+  Fragmentation and Environment Evolution Models", Final Report, ESA
+  contract 4000115973/15/D/SR, 2020; ESA DISCOS environment statistics
+  list 1.2 M objects in the 1-10 cm band for the 08/2024 MASTER-8
+  reference population), carried as PLACEHOLDER inputs in the T6 flux
+  table.
 - Catalog class parameters (mass/altitude/inclination for the SL-16 / SL-8
-  classes) [CITATION NEEDED - PLACEHOLDER: public debris-ranking literature
-  per spec D2].
+  classes): class selection is anchored in the public debris-ranking
+  literature per spec D2 - McKnight, D., et al., "Identifying the 50
+  statistically-most-concerning derelict objects in LEO", Acta
+  Astronautica 181, 282-291, 2021, doi:10.1016/j.actaastro.2021.01.021
+  (a ranking dominated at the top by SL-16 / Zenit-2 second stages);
+  the numeric class-parameter values themselves remain PLACEHOLDER
+  constants in the auto-inventory.
 
 The GNC element is textbook-level by design (D11): Clohessy-Wiltshire
 relative motion, quaternion sliding-mode tracking, multiplicative EKF -
