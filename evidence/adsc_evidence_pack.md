@@ -10,10 +10,10 @@ numerical-simulation evidence package - NOT flight software, NOT a mission
 proposal, and nothing here is a legal determination. This is not legal
 advice. Maturity claim: TRL 4 for the GNC software element only,
 element-scoped; system-level TRL is undefined and not claimed. WP10
-forensics and WP11 safety hardening + closed-loop guidance widen the
-validated envelope at TRL 4 and do not raise it (spec v5 section 9);
-raising it requires the real-time processor-in-the-loop track (WP9,
-reserved, not started).
+forensics, WP11 safety hardening + closed-loop guidance, and the WP12
+fidelity ladder widen the validated envelope at TRL 4 and do not raise
+it (spec v5 section 9); raising it requires the real-time
+processor-in-the-loop track (WP9, reserved, not started).
 
 ## 1. Executive summary
 
@@ -177,6 +177,64 @@ WP5 campaign CSVs.
   classic covariance-inflation fake. The v2 detumble regression (settle
   19.15 s) is retained as a pinned reference.
 
+### Fidelity ladder (WP12): what each level verifies - and what it does not
+
+Runtime-selectable propagation levels on ONE code path (no fork): L0 is
+the original linear CW baseline (kept; every committed campaign number is
+byte-identical), L1 differences a full inertial two-body+J2 propagation of
+both craft into the target LVLH frame, L2 adds per-craft drag with an
+independent ballistic-coefficient dispersion stream (ds-v2 = ds-v1 + BC
+stream; the committed ds-v1 draws are untouched). The mandatory
+cross-validation is tested (ctest `ladder`): L1 with J2 disabled
+reproduces the CW closed form within a stated 2.0 m epsilon - the CW
+LINEARIZATION error itself, measured at worst 0.52 m across the
+forensic-14 states - and L2 with drag disabled reproduces L1
+bit-for-bit. Full per-level detail: `generated/wp12_ladder.md`.
+
+Re-verification of every committed campaign abort event (the WP11
+clearing-abort LAW is unchanged; the COAST is re-propagated per level):
+
+| level | set | class | events | violations | Wilson UB | clearance floor | p50 |
+|---|---|---|---:|---:|---:|---:|---:|
+| L0 | ds-v1 | SL-16 | 292 | 0 | 0.0130 | 20.0 m | 139.8 m |
+| L0 | ds-v1 | SL-8 | 291 | 0 | 0.0130 | 20.0 m | 144.0 m |
+| L1 | ds-v1 | SL-16 | 292 | 0 | 0.0130 | 19.0 m | 139.3 m |
+| L1 | ds-v1 | SL-8 | 291 | 0 | 0.0130 | 18.8 m | 143.1 m |
+| L2 | ds-v2 | SL-16 | 292 | 0 | 0.0130 | 19.0 m | 139.2 m |
+| L2 | ds-v2 | SL-8 | 291 | 0 | 0.0130 | 18.8 m | 143.0 m |
+
+Forensic-14 regression at every level: all 14 of 14 pinned cases clear
+keep-out at L0, L1 (14 of 14) and L2 (14 of 14) - the anticipated
+CW-safe-but-higher-level-unsafe case does NOT materialize for this
+dispersion set: the WP11 clearance margin absorbs the measured ~1.0-1.2 m
+of J2+drag coast erosion (clearance floor 20.0 m at L0 -> 18.8 m at L2,
+SL-8 class - the tighter of the two). A negative-negative result,
+reported with the same discipline as a positive one.
+
+Safety-ellipse margin decay under J2 (the F2 caveat, promised
+qualitatively since WP1, now MEASURED): worst 5-orbit min-range erosion
+1.40 m on the 400 m standoff ellipse [L1: two-body+J2]. The full
+per-orbit table for both geometries is in `generated/wp12_ladder.md`.
+
+- **L4 (estimate-driven guidance):** the guided approach flies on the
+  translation EKF's estimate (truth is error-recording only) under
+  measurement dropout and an UNESTIMATED range-bias random walk;
+  truth-evaluated contact speed 0.100 m/s (gate 0.15 m/s), final position
+  error 0.024 m. Consistency, reported honestly: NIS 3.99 (ideal ~4,
+  consistent) but NEES 310.4 against an ideal ~6 - the filter is
+  OPTIMISTIC about its own accuracy under the unestimated bias walk
+  (the documented estimation gap, section 6); bias states are the
+  identified fix, not implemented here. [L4: L0 dynamics + dropout +
+  bias walk, deterministic seed]
+- **L5 (actuator realization):** tumble sync re-demonstrated under a
+  delta-sigma minimum-impulse-bit actuator (MIB 2e-4 N m s PLACEHOLDER,
+  1-step command delay, one axis at 50% authority): sync at 16.28 s vs
+  16.87 s under the continuous-torque idealization - the long-standing
+  continuous-torque caveat is RETIRED by measurement, not assumption.
+  Guidance contact velocity quantized at a 1e-3 m/s translation MIB
+  still meets the gate (0.10 m/s). [L5: MIB/delay/fault on the L0 sync
+  demo, deterministic]
+
 ## 4. Deorbit-kit decay trades - the honest negatives first
 
 ![WP3 decay trade](../generated/viz/wp3_decay_trade.svg)
@@ -253,15 +311,22 @@ real and is kept visible rather than resolved by fiat:
   the closed loop (the WP4 estimate-driven acceptance carries the
   closed-loop sensor argument; the campaign reuses the truth-driven sync
   primitive for tractable N=500).
-- **Sync-hold rests on the continuous-torque approximation:** the fine
-  firing deadband that bounds the hold error assumes continuous torque; a
-  real minimum-impulse-bit DACS would chatter or need reaction wheels.
+- **Continuous-torque caveat RETIRED at L5 (WP12):** sync-hold no longer
+  rests on the continuous-torque approximation - it is re-demonstrated
+  under a delta-sigma minimum-impulse-bit actuator model with command
+  delay and a single-axis fault (section 3, fidelity ladder). Honest
+  remainder: the MIB magnitude is a PLACEHOLDER, the delta-sigma model
+  assumes ideal duty-cycling electronics, and reaction-wheel or
+  cold-gas-specific dynamics are not modeled.
 - **Estimator scope:** known target inertia (a real mission needs inertia
-  identification), Gaussian sensor abstractions (no outliers/dropouts/
-  occlusions), sensor biases are knobs but not estimated. The WP11
-  closed-loop translation guidance is truth-fed at L0: estimate-driven
-  translation guidance remains open (WP12 ladder, navigation-error
-  levels).
+  identification), Gaussian sensor abstractions with WP12-L4 dropout and
+  range-bias walk (no outliers/occlusions), sensor biases still NOT
+  estimated - and measurably so: under the unestimated bias walk the
+  translation-EKF NEES runs far above its ideal (section 3, fidelity
+  ladder), i.e. the filter underestimates its own error. Adding bias
+  states is the identified fix. Estimate-driven translation guidance now
+  exists at L4 (WP12); attitude sync in the campaign remains the
+  truth-driven WP2 primitive (documented WP5 simplification).
 - **Small-debris (1-10 cm) removal is out of scope (T6) - by physics, not
   neglect:** at 10 km/s the specific kinetic energy is 50.0 MJ/kg (12.0x TNT-
   specific-energy ratio); a 1 cm Al fragment carries 70.7 kJ (16.9 g TNT

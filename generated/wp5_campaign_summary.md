@@ -11,7 +11,7 @@ WP5 performs **no** legal or regulatory determination and produces **no** visual
 | success_rate | 0.5560 | [0.5122, 0.5990] | fraction | productive end (completed OR kit_exhausted); Wilson 95% CI (z=1.959963984540054) |
 | nonproductive_termination_rate | 0.4440 | [0.4010, 0.4878] | fraction | 1 - success_rate: runs ended by dv_exhausted OR keep_out_violation; Wilson 95% CI (z=1.959963984540054) |
 | gate_abort_run_rate | 0.4440 | [0.4010, 0.4878] | fraction | runs with >=1 closing-speed gate abort = abort-path exposure (spec 'abort rate'); Wilson 95% CI (z=1.959963984540054) |
-| keep_out_violation_rate | 0.0000 | [0.0000, 0.0076] | fraction | Wilson 95% CI (z=1.959963984540054) |
+| keep_out_violation_rate | 0.0000 | [0.0000, 0.0076] | fraction | Wilson 95% CI (z=1.959963984540054); level tag L0, dispersion set ds-v1 |
 | dv_used_m_per_s | 128.7980 | 124.000 .. 124.000 .. 136.000 | m_per_s | per mission |
 | kits_used | 3.8600 | 3.000 .. 4.000 .. 4.000 | count | per mission |
 | removals_per_mission | 3.8600 | 3.000 .. 4.000 .. 4.000 | count | per mission |
@@ -32,7 +32,7 @@ WP5 performs **no** legal or regulatory determination and produces **no** visual
 | success_rate | 0.5420 | [0.4982, 0.5852] | fraction | productive end (completed OR kit_exhausted); Wilson 95% CI (z=1.959963984540054) |
 | nonproductive_termination_rate | 0.4580 | [0.4148, 0.5018] | fraction | 1 - success_rate: runs ended by dv_exhausted OR keep_out_violation; Wilson 95% CI (z=1.959963984540054) |
 | gate_abort_run_rate | 0.4580 | [0.4148, 0.5018] | fraction | runs with >=1 closing-speed gate abort = abort-path exposure (spec 'abort rate'); Wilson 95% CI (z=1.959963984540054) |
-| keep_out_violation_rate | 0.0000 | [0.0000, 0.0076] | fraction | Wilson 95% CI (z=1.959963984540054) |
+| keep_out_violation_rate | 0.0000 | [0.0000, 0.0076] | fraction | Wilson 95% CI (z=1.959963984540054); level tag L0, dispersion set ds-v1 |
 | dv_used_m_per_s | 129.0000 | 124.000 .. 124.000 .. 136.000 | m_per_s | per mission |
 | kits_used | 3.8760 | 3.000 .. 4.000 .. 4.000 | count | per mission |
 | removals_per_mission | 3.8760 | 3.000 .. 4.000 .. 4.000 | count | per mission |

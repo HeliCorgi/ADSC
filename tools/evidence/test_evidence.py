@@ -83,7 +83,8 @@ def main():
     # 2. Required honesty sections.
     for req in ("## 6. Limitations", "This is not legal advice.",
                 "PLACEHOLDER inventory", "TRL 4",
-                "## 11. Changelog - R15 pin supersessions"):
+                "## 11. Changelog - R15 pin supersessions",
+                "### Fidelity ladder (WP12)"):
         check(req in pack, "pack lacks required element: %s" % req)
     # R14 (WP11): the keep-out claim carries an explicit fidelity-level tag
     # with the dispersion-set id and the Wilson upper bound -- a zero never

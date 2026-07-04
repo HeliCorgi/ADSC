@@ -53,6 +53,7 @@ class Data:
         self.wp5_runs_row = load_csv(os.path.join(g, "wp5_campaign_runs.csv"))[0]
         self.wp6 = load_csv(os.path.join(g, "wp6_cost_summary.csv"))
         self.wp3 = load_csv(os.path.join(g, "wp3_decay_trade.csv"))
+        self.wp12 = load_csv(os.path.join(g, "wp12_ladder.csv"))
         with open(os.path.join(g, "t6_flux_sweep.md"), encoding="utf-8") as f:
             self.t6 = {}
             for line in f:
@@ -71,6 +72,15 @@ class Data:
             if r["catalog"] == catalog and r["metric"] == metric:
                 return r
         raise KeyError((catalog, metric))
+
+    def wp12v(self, section, level, catalog, metric, item=""):
+        """One value from generated/wp12_ladder.csv (WP12 fidelity ladder)."""
+        for r in self.wp12:
+            if (r["section"] == section and r["level"] == level and
+                    r["catalog"] == catalog and r["metric"] == metric and
+                    r["item"] == item):
+                return float(r["value"])
+        raise KeyError((section, level, catalog, metric, item))
 
     def wp6q(self, catalog, record_type, metric, n_kits=None, weighting=None):
         for r in self.wp6:
@@ -199,10 +209,10 @@ def build(d):
     w("proposal, and nothing here is a legal determination. This is not legal")
     w("advice. Maturity claim: TRL 4 for the GNC software element only,")
     w("element-scoped; system-level TRL is undefined and not claimed. WP10")
-    w("forensics and WP11 safety hardening + closed-loop guidance widen the")
-    w("validated envelope at TRL 4 and do not raise it (spec v5 section 9);")
-    w("raising it requires the real-time processor-in-the-loop track (WP9,")
-    w("reserved, not started).")
+    w("forensics, WP11 safety hardening + closed-loop guidance, and the WP12")
+    w("fidelity ladder widen the validated envelope at TRL 4 and do not raise")
+    w("it (spec v5 section 9); raising it requires the real-time")
+    w("processor-in-the-loop track (WP9, reserved, not started).")
     w("")
     w("## 1. Executive summary")
     w("")
@@ -395,6 +405,100 @@ def build(d):
     w("  classic covariance-inflation fake. The v2 detumble regression (settle")
     w("  %s s) is retained as a pinned reference." % f2(ref["v2_detumble_settle_time_s"]))
     w("")
+    w("### Fidelity ladder (WP12): what each level verifies - and what it does not")
+    w("")
+    w("Runtime-selectable propagation levels on ONE code path (no fork): L0 is")
+    w("the original linear CW baseline (kept; every committed campaign number is")
+    w("byte-identical), L1 differences a full inertial two-body+J2 propagation of")
+    w("both craft into the target LVLH frame, L2 adds per-craft drag with an")
+    w("independent ballistic-coefficient dispersion stream (ds-v2 = ds-v1 + BC")
+    w("stream; the committed ds-v1 draws are untouched). The mandatory")
+    w("cross-validation is tested (ctest `ladder`): L1 with J2 disabled")
+    w("reproduces the CW closed form within a stated 2.0 m epsilon - the CW")
+    w("LINEARIZATION error itself, measured at worst 0.52 m across the")
+    w("forensic-14 states - and L2 with drag disabled reproduces L1")
+    w("bit-for-bit. Full per-level detail: `generated/wp12_ladder.md`.")
+    w("")
+    w("Re-verification of every committed campaign abort event (the WP11")
+    w("clearing-abort LAW is unchanged; the COAST is re-propagated per level):")
+    w("")
+    w("| level | set | class | events | violations | Wilson UB | clearance floor | p50 |")
+    w("|---|---|---|---:|---:|---:|---:|---:|")
+    for lvl, ds in (("L0", "ds-v1"), ("L1", "ds-v1"), ("L2", "ds-v2")):
+        for cat, short in ((A, Ashort), (B, Bshort)):
+            w("| %s | %s | %s | %d | %d | %s | %s m | %s m |" % (
+                lvl, ds, short,
+                int(d.wp12v("abort_reverify", lvl, cat, "n_events")),
+                int(d.wp12v("abort_reverify", lvl, cat, "n_violations")),
+                f4(d.wp12v("abort_reverify", lvl, cat, "wilson_high")),
+                f1(d.wp12v("abort_reverify", lvl, cat, "clearance_floor_m")),
+                f1(d.wp12v("abort_reverify", lvl, cat, "clearance_p50_m"))))
+    w("")
+    f14_total = 0
+    f14_clear = {"L0": 0, "L1": 0, "L2": 0}
+    f14_dippers = []
+    for r in d.wp12:
+        if r["section"] == "forensic14" and r["metric"] == "clears":
+            f14_total += 1
+            if float(r["value"]) >= 1.0:
+                f14_clear[r["level"]] += 1
+            else:
+                f14_dippers.append("%s@%s" % (r["item"], r["level"]))
+    n_f14 = f14_total // 3  # one row per case per level
+    if f14_dippers:
+        w("**FIRST-CLASS FINDING (negative result, spec v5 section 6):** the")
+        w("following forensic-14 cases clear at L0 but dip below keep-out at a")
+        w("higher fidelity level: %s. The committed L0 campaign numbers are"
+          % ", ".join(sorted(f14_dippers)))
+        w("unchanged; the higher-level result is the honest, R14-tagged claim.")
+    else:
+        w("Forensic-14 regression at every level: all %d of %d pinned cases clear"
+          % (f14_clear["L0"], n_f14))
+        w("keep-out at L0, L1 (%d of %d) and L2 (%d of %d) - the anticipated"
+          % (f14_clear["L1"], n_f14, f14_clear["L2"], n_f14))
+        w("CW-safe-but-higher-level-unsafe case does NOT materialize for this")
+        w("dispersion set: the WP11 clearance margin absorbs the measured ~1.0-1.2 m")
+        w("of J2+drag coast erosion (clearance floor %s m at L0 -> %s m at L2,"
+          % (f1(d.wp12v("abort_reverify", "L0", B, "clearance_floor_m")),
+             f1(d.wp12v("abort_reverify", "L2", B, "clearance_floor_m"))))
+        w("%s class - the tighter of the two). A negative-negative result,"
+          % Bshort)
+        w("reported with the same discipline as a positive one.")
+    w("")
+    erosion5 = max(
+        d.wp12v("margin_decay", "L1", A, "erosion_m", "standoff_400m/orbit=5"),
+        d.wp12v("margin_decay", "L1", B, "erosion_m", "standoff_400m/orbit=5"))
+    w("Safety-ellipse margin decay under J2 (the F2 caveat, promised")
+    w("qualitatively since WP1, now MEASURED): worst 5-orbit min-range erosion")
+    w("%s m on the 400 m standoff ellipse [L1: two-body+J2]. The full" % f2(erosion5))
+    w("per-orbit table for both geometries is in `generated/wp12_ladder.md`.")
+    w("")
+    w("- **L4 (estimate-driven guidance):** the guided approach flies on the")
+    w("  translation EKF's estimate (truth is error-recording only) under")
+    w("  measurement dropout and an UNESTIMATED range-bias random walk;")
+    w("  truth-evaluated contact speed %s m/s (gate %s m/s), final position"
+      % (f3(ref["wp12_est_guided_contact_speed_m_s"]), f2(ref["wp3_contact_speed_m_s"])))
+    w("  error %s m. Consistency, reported honestly: NIS %s (ideal ~4,"
+      % (f3(ref["wp12_est_guided_final_pos_err_m"]), f2(ref["wp12_est_nis_trans"])))
+    w("  consistent) but NEES %s against an ideal ~6 - the filter is"
+      % f1(ref["wp12_est_nees_trans"]))
+    w("  OPTIMISTIC about its own accuracy under the unestimated bias walk")
+    w("  (the documented estimation gap, section 6); bias states are the")
+    w("  identified fix, not implemented here. [L4: L0 dynamics + dropout +")
+    w("  bias walk, deterministic seed]")
+    w("- **L5 (actuator realization):** tumble sync re-demonstrated under a")
+    w("  delta-sigma minimum-impulse-bit actuator (MIB %s N m s PLACEHOLDER,"
+      % ("2e-4"))
+    w("  1-step command delay, one axis at 50%% authority): sync at %s s vs"
+      % f2(ref["wp12_l5_sync_time_s"]))
+    w("  %s s under the continuous-torque idealization - the long-standing"
+      % f2(ref["wp2_sync_time_s"]))
+    w("  continuous-torque caveat is RETIRED by measurement, not assumption.")
+    w("  Guidance contact velocity quantized at a 1e-3 m/s translation MIB")
+    w("  still meets the gate (%s m/s). [L5: MIB/delay/fault on the L0 sync"
+      % f2(ref["wp12_l5_guided_contact_speed_m_s"]))
+    w("  demo, deterministic]")
+    w("")
     w("## 4. Deorbit-kit decay trades - the honest negatives first")
     w("")
     w("![WP3 decay trade](../generated/viz/wp3_decay_trade.svg)")
@@ -488,15 +592,22 @@ def build(d):
     w("  the closed loop (the WP4 estimate-driven acceptance carries the")
     w("  closed-loop sensor argument; the campaign reuses the truth-driven sync")
     w("  primitive for tractable N=%s)." % n_runs)
-    w("- **Sync-hold rests on the continuous-torque approximation:** the fine")
-    w("  firing deadband that bounds the hold error assumes continuous torque; a")
-    w("  real minimum-impulse-bit DACS would chatter or need reaction wheels.")
+    w("- **Continuous-torque caveat RETIRED at L5 (WP12):** sync-hold no longer")
+    w("  rests on the continuous-torque approximation - it is re-demonstrated")
+    w("  under a delta-sigma minimum-impulse-bit actuator model with command")
+    w("  delay and a single-axis fault (section 3, fidelity ladder). Honest")
+    w("  remainder: the MIB magnitude is a PLACEHOLDER, the delta-sigma model")
+    w("  assumes ideal duty-cycling electronics, and reaction-wheel or")
+    w("  cold-gas-specific dynamics are not modeled.")
     w("- **Estimator scope:** known target inertia (a real mission needs inertia")
-    w("  identification), Gaussian sensor abstractions (no outliers/dropouts/")
-    w("  occlusions), sensor biases are knobs but not estimated. The WP11")
-    w("  closed-loop translation guidance is truth-fed at L0: estimate-driven")
-    w("  translation guidance remains open (WP12 ladder, navigation-error")
-    w("  levels).")
+    w("  identification), Gaussian sensor abstractions with WP12-L4 dropout and")
+    w("  range-bias walk (no outliers/occlusions), sensor biases still NOT")
+    w("  estimated - and measurably so: under the unestimated bias walk the")
+    w("  translation-EKF NEES runs far above its ideal (section 3, fidelity")
+    w("  ladder), i.e. the filter underestimates its own error. Adding bias")
+    w("  states is the identified fix. Estimate-driven translation guidance now")
+    w("  exists at L4 (WP12); attitude sync in the campaign remains the")
+    w("  truth-driven WP2 primitive (documented WP5 simplification).")
     w("- **Small-debris (1-10 cm) removal is out of scope (T6) - by physics, not")
     w("  neglect:** at 10 km/s the specific kinetic energy is %s (%s TNT-"
       % (d.t6["specific kinetic energy"][0], d.t6["TNT specific-energy ratio"][0]))
