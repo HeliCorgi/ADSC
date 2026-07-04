@@ -135,6 +135,12 @@ if(PYTHON3_EXECUTABLE)
     add_test(NAME evidence COMMAND ${PYTHON3_EXECUTABLE}
              ${CMAKE_CURRENT_SOURCE_DIR}/tools/evidence/test_evidence.py
              ${CMAKE_CURRENT_SOURCE_DIR})
+    # WP10c keep-out violation forensics audit (Python 3 stdlib only, R9):
+    # the generator's internal 1000-run replay cross-validation gate, plus
+    # determinism, committed == regenerated, taxonomy, and claim discipline.
+    add_test(NAME forensics COMMAND ${PYTHON3_EXECUTABLE}
+             ${CMAKE_CURRENT_SOURCE_DIR}/tools/forensics/test_forensics.py
+             ${CMAKE_CURRENT_SOURCE_DIR})
 else()
-    message(WARNING "python3 not found; WP7a viz and WP8 compliance tests not registered")
+    message(WARNING "python3 not found; WP7a viz, WP8 compliance, WP7 evidence and WP10c forensics tests not registered")
 endif()
