@@ -91,7 +91,9 @@ enum class FidelityLevel { L0_CW, L1_J2, L2_J2_DRAG };
 // perturbation terms are enabled (rather than the level enum) so the
 // MANDATORY test_ladder.cpp cross-validation can isolate exactly the J2 and
 // drag terms: L1 with J2 forced off must reproduce the L0 CW closed form
-// (eps 0.5 m), and L2 with drag forced off must reproduce L1 bit-for-bit
+// within the stated tolerance (kCrossValEpsM = 2.0 m, test_ladder.cpp: the
+// CW LINEARIZATION error itself, measured worst 0.52 m across the
+// forensic-14 states), and L2 with drag forced off must reproduce L1 bit-for-bit
 // (same code path, same arguments). fidelity_coast_min_range (below) is a
 // thin dispatcher on top of this for L1_J2/L2_J2_DRAG; L0_CW never calls it
 // at all (bit-identical original CW path, see above).

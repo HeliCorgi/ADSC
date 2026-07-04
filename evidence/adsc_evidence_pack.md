@@ -48,9 +48,12 @@ package's own trade shows sail-only does NOT close there (section 4, open
 trade T1); the SL-8 class is where the modeled kit closes today. Campaign
 robustness under
 dispersions (N=500 runs/catalog, fixed seed 0x5AD5C0DECAFE2026): success (productive end)
-0.556 [0.512, 0.599] (Wilson 95%) for the SL-16 class; keep-out violations **0 of 500** [L0: linear CW, dispersion set ds-v1, Wilson 95% upper bound 0.0076]
+0.556 [0.512, 0.599] (Wilson 95%) for the SL-16 class. Approach safety is a passively-safe approach
+design with clearance-verified aborts (spec section-1 binding phrase):
+keep-out violations **0 of 500** [L0: linear CW, dispersion set ds-v1, Wilson 95% upper bound 0.0076]
 (WP11 clearing-abort law; the superseded pre-WP11 rate is archived in
-section 11 per R15).
+section 11 per R15; re-verified at L1/L2 by the WP12 fidelity ladder,
+section 3).
 
 ## 2. Architecture and the installer argument
 

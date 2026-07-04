@@ -254,11 +254,14 @@ def build(d):
     w("robustness under")
     w("dispersions (N=%s runs/catalog, fixed seed %s): success (productive end)"
       % (n_runs, seed_hex))
-    w("%s for the %s class; keep-out violations %s"
-      % (rate_str(succA), Ashort,
-         ko_claim(koA, n_runs, d.wp5_runs_row["dispersion_set_id"])))
+    w("%s for the %s class. Approach safety is a passively-safe approach"
+      % (rate_str(succA), Ashort))
+    w("design with clearance-verified aborts (spec section-1 binding phrase):")
+    w("keep-out violations %s"
+      % ko_claim(koA, n_runs, d.wp5_runs_row["dispersion_set_id"]))
     w("(WP11 clearing-abort law; the superseded pre-WP11 rate is archived in")
-    w("section 11 per R15).")
+    w("section 11 per R15; re-verified at L1/L2 by the WP12 fidelity ladder,")
+    w("section 3).")
     w("")
     w("## 2. Architecture and the installer argument")
     w("")
