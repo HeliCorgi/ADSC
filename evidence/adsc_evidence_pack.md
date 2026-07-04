@@ -9,7 +9,11 @@ committed SVG; one script regenerates everything (section 9). This is a
 numerical-simulation evidence package - NOT flight software, NOT a mission
 proposal, and nothing here is a legal determination. This is not legal
 advice. Maturity claim: TRL 4 for the GNC software element only,
-element-scoped; system-level TRL is undefined and not claimed.
+element-scoped; system-level TRL is undefined and not claimed. WP10
+forensics and WP11 safety hardening + closed-loop guidance widen the
+validated envelope at TRL 4 and do not raise it (spec v5 section 9);
+raising it requires the real-time processor-in-the-loop track (WP9,
+reserved, not started).
 
 ## 1. Executive summary
 

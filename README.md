@@ -348,7 +348,10 @@ which this repo deliberately does not attempt. WP5 adds
 robustness-under-dispersions evidence, but this strengthens the TRL-4 evidence
 base rather than raising the TRL. WP6 adds a relative-unit cost/FoM model on top
 of that evidence — an economic-viability argument, not a GNC maturity change —
-so the TRL stays 4.
+so the TRL stays 4. The same holds for Phase 0 and beyond (spec v5 §9, binding):
+WP10 forensics and WP11 safety hardening + closed-loop guidance widen the
+validated envelope at TRL 4 — they do not raise it; raising it requires the
+real-time processor-in-the-loop track (WP9, reserved, not started).
 
 ## Build
 
@@ -428,7 +431,7 @@ adsc-specification-v4.md   retired v4.2 spec (superseded by v5; kept because v5
   superseded by WP11).
 - **WP11 — Safety hardening + closed-loop guidance** ✅ implemented
   (clearing-abort law, reachability screen, guided approach); keep-out
-  violations 0 of 500 per catalog at L0/ds-v1.
+  violations 0 of 500 per catalog at L0/ds-v1, Wilson 95% upper bound 0.0076.
 - **WP12–WP15 (v5)** — not started; `adsc-specification-v5.md` defines the
   fidelity ladder, kit-class trade + EDT physics, cost ranges + FoM, and the
   proposal package. WP9 remains the only path to TRL 5, unchanged by v5.
