@@ -13,7 +13,7 @@ fuel is the population of massive derelict upper stages in congested orbital ban
 fragments are the symptom — so the servicer targets the objects that would become
 the next fragment clouds, attaches a passive deorbit kit, and departs. ADSC is an
 **open, reproducible evidence package** for that architecture (spec:
-`adsc-specification-v4.md`), not flight software and not a mission proposal. It
+`adsc-specification-v5.md`), not flight software and not a mission proposal. It
 assumes the operator is, or is contracted/consented by, the launching state of the
 target; nothing in this repo assumes or enables unconsented approach to another
 state's object. Governing value: **claims must match implementation** — every
@@ -365,10 +365,12 @@ generated/      committed artifacts: WP5 campaign, WP6 cost/FoM, T6 flux, WP3 de
 evidence/       committed generated evidence artifacts (adsc_evidence_pack.md,
                 compliance matrix; same reproducibility gate as generated/)
 .github/        CI (Ubuntu + Eigen: cmake build + ctest, warnings-as-errors, reproducibility gate)
-adsc-specification-v4.md   active spec (work packages, hard rules, locked decisions)
+adsc-specification-v5.md   active spec (work packages, hard rules, locked decisions)
+adsc-specification-v4.md   retired v4.2 spec (superseded by v5; kept because v5
+                           references its D/R/T items)
 ```
 
-## Roadmap (v4 work packages — see `adsc-specification-v4.md`)
+## Roadmap (work packages — see `adsc-specification-v5.md`)
 
 - **WP1 — Relative orbital motion + passive safety** ✅ implemented.
 - **F1/F2 — Capped-abort honesty + model-scope note** ✅ implemented.
@@ -393,6 +395,10 @@ adsc-specification-v4.md   active spec (work packages, hard rules, locked decisi
   generated, claim-audited, zero hand-written numbers — the actual product).
 - **WP9 — Processor-in-the-loop / flight-software track** — **reserved, not
   started** (the only path above element TRL 4; see the spec).
+- **WP10–WP15 (v5)** — not started; `adsc-specification-v5.md` defines Phase
+  0 adoption/citations/forensics, safety hardening + closed-loop guidance,
+  fidelity ladder, kit-class trade + EDT physics, cost ranges + FoM, and the
+  proposal package. WP9 remains the only path to TRL 5, unchanged by v5.
 
 **Roadmap end state: WP1–WP8 complete.** The package is regenerable end-to-end
 with one command (`bash tools/regenerate_all.sh build`) and CI enforces
