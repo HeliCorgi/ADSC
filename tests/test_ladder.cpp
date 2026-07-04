@@ -281,6 +281,12 @@ int main() {
         l5_act.fault_axis_scale    = 0.5;
         const SyncReport l5 = run_tumble_sync(
             cfg, q_t0, w_t0, q_c0, Eigen::Vector3d::Zero(), 120.0, l5_act);
+        // Diagnostic BEFORE the assert so a failure documents its numbers in
+        // the CI log (synced flag, declare time, terminal errors).
+        std::printf("ladder: L5 MIB/delay/fault run: synced=%d sync_time=%.2f s "
+                   "final rate err %.4f deg/s, final att err %.4f deg\n",
+                   l5.synced ? 1 : 0, l5.sync_time_s,
+                   l5.final_rate_err_deg_s, l5.final_att_err_deg);
         CHECK(l5.synced);
         std::printf("ladder: L5 neutral-default byte-identity verified; MIB/delay/fault "
                    "run synced at %.2f s\n", l5.sync_time_s);

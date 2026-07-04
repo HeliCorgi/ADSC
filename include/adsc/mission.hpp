@@ -267,18 +267,20 @@ struct ActuatorError {
     int    fault_axis          = -1;   // body axis (0=x, 1=y, 2=z) scaled by fault_axis_scale below; -1 = no fault
     double fault_axis_scale    = 1.0;  // torque-scale multiplier applied ONLY to fault_axis; inert when fault_axis < 0
 
-    // Map a commanded torque to the delivered torque over one control step of
-    // duration dt: per-axis scale error, then the small body-misalignment
-    // rotation (UNCHANGED from before WP12), then the optional single-axis
-    // fault scale, then MIB quantization of the per-step ANGULAR IMPULSE
-    // (delivered torque * dt) with a half-bit deadband (round-to-nearest-bit:
-    // a commanded impulse under half a bit rounds to the zero bin, the
-    // standard MIB dead zone). dt defaults to 0.0 (quantization inert,
-    // matching the impulse-magnitude-independent pre-WP12 call sites/tests
-    // that invoke the single-argument form) so a neutral ActuatorError is the
-    // exact identity map regardless of caller: cwiseProduct with Ones()
-    // reproduces tau bit-for-bit and quat_exp(0) is the identity quaternion,
-    // so the delegating 6-arg run_tumble_sync stays byte-identical.
+    // Map a commanded torque to the delivered torque: per-axis scale error,
+    // then the small body-misalignment rotation (UNCHANGED from before WP12),
+    // then the optional single-axis fault scale. MIB quantization is NOT done
+    // here: quantizing each step independently deletes any sub-bit command
+    // every step (including the continuous torque-free feedforward, ~1e-5
+    // N m s per 10 ms step against a 1e-4 half-bit -- measured to break the
+    // sync hold on CI), whereas real pulsed DACS hardware duty-cycles unfired
+    // demand until it reaches a whole bit. That delta-sigma accumulation is
+    // per-step STATE, so it lives in run_tumble_sync's loop (MibAccumulator,
+    // mission.cpp), like the delay FIFO. Neutral ActuatorError is the exact
+    // identity map: cwiseProduct with Ones() reproduces tau bit-for-bit and
+    // quat_exp(0) is the identity quaternion, so the delegating 6-arg
+    // run_tumble_sync stays byte-identical. dt is retained in the signature
+    // for call-site stability; it is not consumed by apply() itself.
     Eigen::Vector3d apply(const Eigen::Vector3d& tau, double dt = 0.0) const;
 };
 

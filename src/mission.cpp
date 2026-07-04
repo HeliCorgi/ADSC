@@ -23,21 +23,44 @@ Eigen::Vector3d ActuatorError::apply(const Eigen::Vector3d& tau, double dt) cons
         delivered(fault_axis) *= fault_axis_scale;
     }
 
-    // WP12 L5: MIB quantization of the per-step ANGULAR IMPULSE (torque*dt),
-    // not the torque itself -- a MIB is a hardware impulse quantum. Inert
-    // when min_impulse_bit_nms <= 0 (the neutral default) or dt <= 0 (the
-    // single-argument call sites that predate WP12 and never intend
-    // quantization). Round-to-nearest-bit gives the standard half-bit
-    // deadband for free: a commanded impulse under half a bit rounds to the
-    // zero bin.
-    if (min_impulse_bit_nms > 0.0 && dt > 0.0) {
-        const Eigen::Vector3d impulse = delivered * dt;
-        const Eigen::Vector3d q_impulse =
-            ((impulse.array() / min_impulse_bit_nms).round() * min_impulse_bit_nms).matrix();
-        delivered = q_impulse / dt;
-    }
+    // WP12 L5 NOTE: MIB quantization is deliberately NOT applied here.
+    // Quantizing each control step independently (round-to-nearest bit with a
+    // half-bit dead zone) silently zeroes any sub-bit command EVERY step --
+    // and the torque-free feedforward that tracks a precessing target is a
+    // continuous sub-bit command (~1e-5 N m s per 10 ms step against a
+    // 1e-4 N m s half-bit), so per-step rounding deletes the feedforward
+    // entirely and the hold never converges (measured on CI, test_ladder L5).
+    // Real pulsed DACS hardware duty-cycles: unfired demand accumulates until
+    // it amounts to a whole impulse bit. That delta-sigma accumulation is
+    // state, so it lives in run_tumble_sync's loop (MibAccumulator below),
+    // which owns the per-step history -- same placement rationale as the
+    // delay FIFO. The `dt` parameter is retained for signature stability.
+    (void)dt;
     return delivered;
 }
+
+namespace {
+// WP12 L5: delta-sigma minimum-impulse-bit quantizer -- the standard model of
+// a duty-cycled pulsed thruster. Per axis, the commanded angular impulse
+// (torque * dt) accumulates; whole impulse bits fire when the accumulated
+// demand reaches them; the sub-bit residual carries to the next step. The
+// long-run mean delivered torque tracks the command (a real PWM DACS does
+// exactly this) while every firing remains an integer number of MIB quanta --
+// the discreteness the continuous-torque caveat ignored. Inert (exact
+// identity, zero state) when mib_nms <= 0.
+struct MibAccumulator {
+    Eigen::Vector3d residual = Eigen::Vector3d::Zero();
+
+    Eigen::Vector3d quantize(const Eigen::Vector3d& tau, double mib_nms, double dt) {
+        if (mib_nms <= 0.0 || dt <= 0.0) return tau;
+        const Eigen::Vector3d demand = residual + tau * dt;
+        const Eigen::Vector3d fired =
+            ((demand.array() / mib_nms).round() * mib_nms).matrix();
+        residual = demand - fired;
+        return fired / dt;
+    }
+};
+}  // namespace
 
 SyncReport run_tumble_sync(const Config& cfg,
                            const Eigen::Quaterniond& q_target0,
@@ -80,6 +103,9 @@ SyncReport run_tumble_sync(const Config& cfg,
     // history; neutral default delay_steps = 0 never pushes/pops this deque
     // and delivers tau immediately, so the pinned WP2 run is untouched.
     std::deque<Eigen::Vector3d> tau_history;
+    // WP12 L5: delta-sigma MIB quantizer state (see MibAccumulator above);
+    // inert exact-identity when min_impulse_bit_nms <= 0 (neutral default).
+    MibAccumulator mib;
 
     double t = 0.0;
     while (t < max_sim_time_s) {
@@ -105,9 +131,14 @@ SyncReport run_tumble_sync(const Config& cfg,
         }
 
         // Actuator dispersion (WP5) + WP12 L5 realization error: delivered
-        // torque = actuator.apply(tau_delayed, dt). Neutral default => tau,
-        // so the pinned WP2 run is byte-identical.
-        servicer.step(actuator.apply(tau_delayed, cfg.control_dt), cfg.control_dt);
+        // torque = MIB-quantized actuator.apply(tau_delayed). Neutral default
+        // => tau (apply is the identity, the quantizer is inert), so the
+        // pinned WP2 run is byte-identical.
+        const Eigen::Vector3d tau_realized =
+            actuator.apply(tau_delayed, cfg.control_dt);
+        servicer.step(mib.quantize(tau_realized, actuator.min_impulse_bit_nms,
+                                   cfg.control_dt),
+                      cfg.control_dt);
         target.step(Eigen::Vector3d::Zero(), cfg.control_dt);
         t += cfg.control_dt;
 
