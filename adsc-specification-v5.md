@@ -40,9 +40,12 @@ Language discipline (binding on README, docs, evidence pack):
 - The project anchor phrase "Kessler-precursor removal" appears in all summary
   texts.
 - Until the WP11 completion criterion is met, approach safety is described as
-  **"passively-safe approach design"** — never "strict approach safety" or
-  "safe satellite", because the current campaign shows a nonzero keep-out
-  violation rate. Upgrading this wording is itself an R15-documented change.
+  **"passively-safe approach design with clearance-verified aborts (keep-out
+  violations 0/500 per catalog [L0, ds-v1, Wilson ≤ 0.0076])"** — never "strict
+  approach safety" or "safe satellite", because the current campaign shows a
+  nonzero keep-out violation rate. Upgrading this wording is itself an
+  R15-documented change. The WP11 completion criterion is met; the WP12
+  fidelity ladder re-verifies this at L1/L2 (see `generated/wp12_ladder.md`).
 - "Minimum cost" as an absolute claim is banned. The defensible claim is
   **cost-effectiveness: cost per removal and cost per unit risk reduction.**
 

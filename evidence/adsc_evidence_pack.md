@@ -10,10 +10,10 @@ numerical-simulation evidence package - NOT flight software, NOT a mission
 proposal, and nothing here is a legal determination. This is not legal
 advice. Maturity claim: TRL 4 for the GNC software element only,
 element-scoped; system-level TRL is undefined and not claimed. WP10
-forensics and WP11 safety hardening + closed-loop guidance widen the
-validated envelope at TRL 4 and do not raise it (spec v5 section 9);
-raising it requires the real-time processor-in-the-loop track (WP9,
-reserved, not started).
+forensics, WP11 safety hardening + closed-loop guidance, and the WP12
+fidelity ladder widen the validated envelope at TRL 4 and do not raise
+it (spec v5 section 9); raising it requires the real-time
+processor-in-the-loop track (WP9, reserved, not started).
 
 ## 1. Executive summary
 
@@ -48,9 +48,12 @@ package's own trade shows sail-only does NOT close there (section 4, open
 trade T1); the SL-8 class is where the modeled kit closes today. Campaign
 robustness under
 dispersions (N=500 runs/catalog, fixed seed 0x5AD5C0DECAFE2026): success (productive end)
-0.556 [0.512, 0.599] (Wilson 95%) for the SL-16 class; keep-out violations **0 of 500** [L0: linear CW, dispersion set ds-v1, Wilson 95% upper bound 0.0076]
+0.556 [0.512, 0.599] (Wilson 95%) for the SL-16 class. Approach safety is a passively-safe approach
+design with clearance-verified aborts (spec section-1 binding phrase):
+keep-out violations **0 of 500** [L0: linear CW, dispersion set ds-v1, Wilson 95% upper bound 0.0076]
 (WP11 clearing-abort law; the superseded pre-WP11 rate is archived in
-section 11 per R15).
+section 11 per R15; re-verified at L1/L2 by the WP12 fidelity ladder,
+section 3).
 
 ## 2. Architecture and the installer argument
 
@@ -177,6 +180,64 @@ WP5 campaign CSVs.
   classic covariance-inflation fake. The v2 detumble regression (settle
   19.15 s) is retained as a pinned reference.
 
+### Fidelity ladder (WP12): what each level verifies - and what it does not
+
+Runtime-selectable propagation levels on ONE code path (no fork): L0 is
+the original linear CW baseline (kept; every committed campaign number is
+byte-identical), L1 differences a full inertial two-body+J2 propagation of
+both craft into the target LVLH frame, L2 adds per-craft drag with an
+independent ballistic-coefficient dispersion stream (ds-v2 = ds-v1 + BC
+stream; the committed ds-v1 draws are untouched). The mandatory
+cross-validation is tested (ctest `ladder`): L1 with J2 disabled
+reproduces the CW closed form within a stated 2.0 m epsilon - the CW
+LINEARIZATION error itself, measured at worst 0.52 m across the
+forensic-14 states - and L2 with drag disabled reproduces L1
+bit-for-bit. Full per-level detail: `generated/wp12_ladder.md`.
+
+Re-verification of every committed campaign abort event (the WP11
+clearing-abort LAW is unchanged; the COAST is re-propagated per level):
+
+| level | set | class | events | violations | Wilson UB | clearance floor | p50 |
+|---|---|---|---:|---:|---:|---:|---:|
+| L0 | ds-v1 | SL-16 | 292 | 0 | 0.0130 | 20.0 m | 139.8 m |
+| L0 | ds-v1 | SL-8 | 291 | 0 | 0.0130 | 20.0 m | 144.0 m |
+| L1 | ds-v1 | SL-16 | 292 | 0 | 0.0130 | 19.0 m | 139.3 m |
+| L1 | ds-v1 | SL-8 | 291 | 0 | 0.0130 | 18.8 m | 143.1 m |
+| L2 | ds-v2 | SL-16 | 292 | 0 | 0.0130 | 19.0 m | 139.2 m |
+| L2 | ds-v2 | SL-8 | 291 | 0 | 0.0130 | 18.8 m | 143.0 m |
+
+Forensic-14 regression at every level: all 14 of 14 pinned cases clear
+keep-out at L0, L1 (14 of 14) and L2 (14 of 14) - the anticipated
+CW-safe-but-higher-level-unsafe case does NOT materialize for this
+dispersion set: the WP11 clearance margin absorbs the measured ~1.0-1.2 m
+of J2+drag coast erosion (clearance floor 20.0 m at L0 -> 18.8 m at L2,
+SL-8 class - the tighter of the two). A negative-negative result,
+reported with the same discipline as a positive one.
+
+Safety-ellipse margin decay under J2 (the F2 caveat, promised
+qualitatively since WP1, now MEASURED): worst 5-orbit min-range erosion
+1.40 m on the 400 m standoff ellipse [L1: two-body+J2]. The full
+per-orbit table for both geometries is in `generated/wp12_ladder.md`.
+
+- **L4 (estimate-driven guidance):** the guided approach flies on the
+  translation EKF's estimate (truth is error-recording only) under
+  measurement dropout and an UNESTIMATED range-bias random walk;
+  truth-evaluated contact speed 0.100 m/s (gate 0.15 m/s), final position
+  error 0.024 m. Consistency, reported honestly: NIS 3.99 (ideal ~4,
+  consistent) but NEES 310.4 against an ideal ~6 - the filter is
+  OPTIMISTIC about its own accuracy under the unestimated bias walk
+  (the documented estimation gap, section 6); bias states are the
+  identified fix, not implemented here. [L4: L0 dynamics + dropout +
+  bias walk, deterministic seed]
+- **L5 (actuator realization):** tumble sync re-demonstrated under a
+  delta-sigma minimum-impulse-bit actuator (MIB 2e-4 N m s PLACEHOLDER,
+  1-step command delay, one axis at 50% authority): sync at 16.28 s vs
+  16.87 s under the continuous-torque idealization - the long-standing
+  continuous-torque caveat is RETIRED by measurement, not assumption.
+  Guidance contact velocity quantized at a 1e-3 m/s translation MIB
+  still meets the gate (0.10 m/s). [L5: MIB/delay/fault on the L0 sync
+  demo, deterministic]
+
 ## 4. Deorbit-kit decay trades - the honest negatives first
 
 ![WP3 decay trade](../generated/viz/wp3_decay_trade.svg)
@@ -253,15 +314,22 @@ real and is kept visible rather than resolved by fiat:
   the closed loop (the WP4 estimate-driven acceptance carries the
   closed-loop sensor argument; the campaign reuses the truth-driven sync
   primitive for tractable N=500).
-- **Sync-hold rests on the continuous-torque approximation:** the fine
-  firing deadband that bounds the hold error assumes continuous torque; a
-  real minimum-impulse-bit DACS would chatter or need reaction wheels.
+- **Continuous-torque caveat RETIRED at L5 (WP12):** sync-hold no longer
+  rests on the continuous-torque approximation - it is re-demonstrated
+  under a delta-sigma minimum-impulse-bit actuator model with command
+  delay and a single-axis fault (section 3, fidelity ladder). Honest
+  remainder: the MIB magnitude is a PLACEHOLDER, the delta-sigma model
+  assumes ideal duty-cycling electronics, and reaction-wheel or
+  cold-gas-specific dynamics are not modeled.
 - **Estimator scope:** known target inertia (a real mission needs inertia
-  identification), Gaussian sensor abstractions (no outliers/dropouts/
-  occlusions), sensor biases are knobs but not estimated. The WP11
-  closed-loop translation guidance is truth-fed at L0: estimate-driven
-  translation guidance remains open (WP12 ladder, navigation-error
-  levels).
+  identification), Gaussian sensor abstractions with WP12-L4 dropout and
+  range-bias walk (no outliers/occlusions), sensor biases still NOT
+  estimated - and measurably so: under the unestimated bias walk the
+  translation-EKF NEES runs far above its ideal (section 3, fidelity
+  ladder), i.e. the filter underestimates its own error. Adding bias
+  states is the identified fix. Estimate-driven translation guidance now
+  exists at L4 (WP12); attitude sync in the campaign remains the
+  truth-driven WP2 primitive (documented WP5 simplification).
 - **Small-debris (1-10 cm) removal is out of scope (T6) - by physics, not
   neglect:** at 10 km/s the specific kinetic energy is 50.0 MJ/kg (12.0x TNT-
   specific-energy ratio); a 1 cm Al fragment carries 70.7 kJ (16.9 g TNT
@@ -302,9 +370,10 @@ conformity. For the committed research profile:
 ## 8. Flight-software migration path (annex - deliberately NOT implemented)
 
 Adopters rewrite flight code; what they cannot cheaply reproduce is a
-validated architecture trade. Spending effort there is the minimum-cost
-allocation, so ADSC ships the trades and documents the migration path
-instead of pretending at flight code:
+validated architecture trade. Spending effort there is the
+cost-effective allocation (D10: cost-effectiveness, never an absolute
+minimum-cost claim), so ADSC ships the trades and documents the
+migration path instead of pretending at flight code:
 
 - Hardware abstraction layer between GNC core and device drivers.
 - Allocation-free control path (fixed-size Eigen types already; remove
@@ -350,7 +419,7 @@ in `include/`, `src/` and `tools/` carrying the uppercase PLACEHOLDER mark
 only in order to collect and audit it). If a value is listed here, treat
 it as unvalidated until a cited source replaces it.
 
-Total marks: **95**
+Total marks: **113**
 
 | location | line |
 |---|---|
@@ -418,22 +487,28 @@ Total marks: **95**
 | `include/adsc/mission.hpp:47` | Eigen::Vector3d target_inertia_diag{1.0, 0.6, 0.3};  // PLACEHOLDER principal moments [kg m^2] |
 | `include/adsc/mission.hpp:57` | // acceleration, so the deadband bounds the hold error). PLACEHOLDER values. |
 | `include/adsc/mission.hpp:60` | // WP3: kit + deorbit-decay trades. PLACEHOLDER physical values (R10). |
-| `include/adsc/mission.hpp:69` | // min..max range, never a point value. PLACEHOLDER values: a single |
-| `include/adsc/mission.hpp:75` | double solar_min_density_factor = 0.5;  // PLACEHOLDER solar-min scaling |
-| `include/adsc/mission.hpp:76` | double solar_max_density_factor = 8.0;  // PLACEHOLDER solar-max scaling |
-| `include/adsc/mission.hpp:84` | // WP4: sensor + estimator abstractions. All PLACEHOLDER values (R10); |
-| `src/campaign.cpp:268` | // Inter-target phasing to the next target (PLACEHOLDER flat cost). |
-| `src/campaign.cpp:382` | // Under the current flat PLACEHOLDER Delta-v cost these coincide numerically |
-| `src/campaign.cpp:402` | "includes PLACEHOLDER phasing/attach/depart time"); |
-| `src/campaign.cpp:547` | "PLACEHOLDER Delta-v cost these two coincide numerically -- every " |
-| `src/campaign.cpp:563` | "PLACEHOLDER, so those quantities take a small set of quantized values " |
-| `src/campaign.cpp:602` | "/ dv_budget_m_per_s / m/s / WP5-native, PLACEHOLDER / mission Delta-v budget /\n" |
-| `src/campaign.cpp:603` | "/ dv_used_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / sum of leg costs /\n" |
-| `src/campaign.cpp:604` | "/ dv_remaining_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / budget minus used /\n" |
-| `src/campaign.cpp:609` | "/ mission_time_s / s / WP5-native, PLACEHOLDER-derived / elapsed incl. placeholder phasing /\n" |
-| `src/campaign.cpp:616` | "/ first_closing_speed_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / target-0 capture clo... |
-| `src/campaign.cpp:617` | "/ tumble_rate_deg_per_s / deg/s / WP5-native, PLACEHOLDER-derived / realized /w_t/ of first ... |
-| `src/campaign.cpp:618` | "/ solar_factor / - / WP5-native, PLACEHOLDER-derived / realized atmospheric-density factor (... |
+| `include/adsc/mission.hpp:66` | // catalog (bare-stage) areas are kept as PLACEHOLDER constants local to |
+| `include/adsc/mission.hpp:68` | double servicer_drag_area_m2 = 0.35;  // PLACEHOLDER servicer bus drag cross-section [m^2] |
+| `include/adsc/mission.hpp:74` | // min..max range, never a point value. PLACEHOLDER values: a single |
+| `include/adsc/mission.hpp:80` | double solar_min_density_factor = 0.5;  // PLACEHOLDER solar-min scaling |
+| `include/adsc/mission.hpp:81` | double solar_max_density_factor = 8.0;  // PLACEHOLDER solar-max scaling |
+| `include/adsc/mission.hpp:89` | // WP4: sensor + estimator abstractions. All PLACEHOLDER values (R10); |
+| `include/adsc/mission.hpp:134` | double sensor_dropout_prob          = 0.05;    // PLACEHOLDER per-sample Bernoulli missed-det... |
+| `include/adsc/mission.hpp:135` | double range_bias_walk_m_per_sqrt_s = 1.0e-3;  // PLACEHOLDER unestimated range-bias random-w... |
+| `include/adsc/mission.hpp:265` | double min_impulse_bit_nms = 0.0;  // PLACEHOLDER MIB angular-impulse quantum [N m s], per ax... |
+| `include/adsc/propagation.hpp:84` | // ---- Physical constants (cited, not PLACEHOLDER) ---- |
+| `src/campaign.cpp:286` | // Inter-target phasing to the next target (PLACEHOLDER flat cost). |
+| `src/campaign.cpp:400` | // Under the current flat PLACEHOLDER Delta-v cost these coincide numerically |
+| `src/campaign.cpp:426` | "includes PLACEHOLDER phasing/attach/depart time"); |
+| `src/campaign.cpp:571` | "PLACEHOLDER Delta-v cost these two coincide numerically -- every " |
+| `src/campaign.cpp:587` | "PLACEHOLDER, so those quantities take a small set of quantized values " |
+| `src/campaign.cpp:626` | "/ dv_budget_m_per_s / m/s / WP5-native, PLACEHOLDER / mission Delta-v budget /\n" |
+| `src/campaign.cpp:627` | "/ dv_used_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / sum of leg costs /\n" |
+| `src/campaign.cpp:628` | "/ dv_remaining_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / budget minus used /\n" |
+| `src/campaign.cpp:633` | "/ mission_time_s / s / WP5-native, PLACEHOLDER-derived / elapsed incl. placeholder phasing /\n" |
+| `src/campaign.cpp:640` | "/ first_closing_speed_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / target-0 capture clo... |
+| `src/campaign.cpp:641` | "/ tumble_rate_deg_per_s / deg/s / WP5-native, PLACEHOLDER-derived / realized /w_t/ of first ... |
+| `src/campaign.cpp:642` | "/ solar_factor / - / WP5-native, PLACEHOLDER-derived / realized atmospheric-density factor (... |
 | `src/cost.cpp:321` | "debris-risk-reduction per cost; weighting is PLACEHOLDER (T5)"); |
 | `src/cost.cpp:324` | fr.band_weight, "normalized", "w(h) PLACEHOLDER; cite on fill"); |
 | `src/cost.cpp:350` | "PLACEHOLDER: fill a CITED range in WP7; no point-value dollar figure is claimed"); |
@@ -449,6 +524,18 @@ Total marks: **95**
 | `src/flux.cpp:94` | std::fprintf(f, "PLACEHOLDER spatial densities: average %.1e /km^3, peak " |
 | `src/main.cpp:137` | std::printf("  target inertia diag: %.2f / %.2f / %.2f kg m^2 (PLACEHOLDER ratios)\n", |
 | `src/main_flux.cpp:33` | std::printf("\n[T6] collector exposure (>= 1 cm; PLACEHOLDER densities, cite MASTER-8)\n"); |
+| `src/main_ladder.cpp:75` | // PLACEHOLDER bare-stage drag cross-sections (WP12 L2). Kept local to this |
+| `src/main_ladder.cpp:78` | constexpr double kSL16AreaM2 = 33.0;  // PLACEHOLDER SL-16 / Zenit-2 bare-stage cross-section... |
+| `src/main_ladder.cpp:79` | constexpr double kSL8AreaM2  = 7.5;   // PLACEHOLDER SL-8 / Kosmos-3M bare-stage cross-sectio... |
+| `src/main_ladder.cpp:82` | // PLACEHOLDER statistical/numerical-safety constants are named here. |
+| `src/main_ladder.cpp:83` | constexpr double kBcDispersionFrac = 0.30;  // PLACEHOLDER +/-30% 1-sigma per-craft ballistic... |
+| `src/main_metrics.cpp:329` | l5_act.min_impulse_bit_nms = 2.0e-4;  // PLACEHOLDER MIB angular impulse [N m s] |
+| `src/main_metrics.cpp:330` | l5_act.delay_steps         = 1;       // PLACEHOLDER one-control-step actuator lag |
+| `src/main_metrics.cpp:331` | l5_act.fault_axis          = 0;       // PLACEHOLDER: body x-axis |
+| `src/main_metrics.cpp:332` | l5_act.fault_axis_scale    = 0.5;     // PLACEHOLDER: 50% torque authority on that axis |
+| `src/main_metrics.cpp:346` | // at a 1e-3 m/s PLACEHOLDER translation MIB and re-checking the |
+| `src/main_metrics.cpp:351` | const double mib_m_s = 1.0e-3;  // PLACEHOLDER translation MIB [m/s] |
+| `src/main_metrics.cpp:355` | "contact velocity quantized at a 1e-3 m/s PLACEHOLDER translation " |
 
 ## 11. Changelog - R15 pin supersessions
 

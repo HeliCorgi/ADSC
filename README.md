@@ -12,9 +12,10 @@ A C++17 GNC **numerical simulator** for an installer-type active-debris-remediat
 fuel is the population of massive derelict upper stages in congested orbital bands —
 fragments are the symptom — so the servicer targets the objects that would become
 the next fragment clouds, attaches a passive deorbit kit, and departs, using a
-**passively-safe approach design** with clearing-verified aborts (WP11:
+**passively-safe approach design** with clearance-verified aborts (WP11:
 keep-out violations 0 of 500 per catalog at L0, ds-v1, Wilson 95% upper bound
-0.0076). ADSC is an **open, reproducible evidence package** for that architecture (spec:
+0.0076, re-verified at L1 (+J2) and L2 (+drag) with zero violations
+[ds-v1/ds-v2]). ADSC is an **open, reproducible evidence package** for that architecture (spec:
 `adsc-specification-v5.md`), not flight software and not a mission proposal. It
 assumes the operator is, or is contracted/consented by, the launching state of the
 target; nothing in this repo assumes or enables unconsented approach to another
@@ -101,6 +102,28 @@ implemented; v3 continues that discipline.
   plus the pinned forensic-14 regression (`tests/test_forensic14.cpp`): the
   legacy law reproduces all 14 WP10c violations analytically, the clearing law
   clears every one.
+- **Fidelity ladder (WP12)** (`propagation`, `adsc_ladder`): runtime-selectable
+  **L0/L1/L2** propagation on **one code path** (no fork) — L0 is the original
+  WP1 Clohessy-Wiltshire linearization (every committed WP5 number stays
+  byte-identical), L1 differences a full inertial two-body+J2 RK4 propagation
+  of both craft into the target's instantaneous LVLH frame, L2 adds a
+  per-craft free-molecular drag term under an **independent**
+  ballistic-coefficient dispersion stream (`ds-v2`; the committed campaign's
+  own `ds-v1` stream is untouched). The mandatory cross-validation is tested
+  (`tests/test_ladder.cpp`): with J2 forced off, L1 reproduces the CW closed
+  form within a stated **2.0 m** linearization bound (the CW model's own
+  error, measured at worst 0.52 m across the forensic-14 states); with drag
+  forced off, L2 reproduces L1 **bit-for-bit**. Re-verifies every committed
+  campaign abort event and the pinned forensic-14 states at L1/L2 with
+  **zero** keep-out violations [L1: ds-v1; L2: ds-v2; Wilson 95% upper bound
+  0.0130 per catalog], and measures safety-ellipse margin decay over
+  repeated orbits (`generated/wp12_ladder.{csv,md}`). Adds **L4**
+  estimate-driven guidance (translation EKF in the loop, under measurement
+  dropout and an unestimated range-bias walk) and **L5** a delta-sigma
+  minimum-impulse-bit actuator model (command delay + single-axis fault),
+  re-demonstrating tumble sync under real actuator quantization. Unit-tested
+  (`tests/test_ladder.cpp`). Regenerate with `./build/adsc_ladder` (ladder) /
+  `./build/sim_metrics` (L4/L5 rows of `generated/reference_metrics.csv`).
 - **Installer mission flow (WP3)** (`run_installer_mission`): the mission runs
   as approach → sync → attach → depart. Approach verifies the passively-safe
   corridor; sync gates on WP2; **attach** clamps at the gated closing speed and
@@ -108,8 +131,8 @@ implemented; v3 continues that discipline.
   kit mass + sail area, changing its A/m); depart transfers to a bounded,
   keep-out-clearing relative orbit. The attach reports the **contact-energy
   budget** ½·m·v² at `max_v_rel` (≈ 0.33 J for the 29.6 kg servicer at
-  0.15 m/s) — the no-fragmentation-at-contact argument for a compliant,
-  geometry-keyed clamp. Unit-tested (`tests/test_mission.cpp`). The v2
+  0.15 m/s) — the no-fragmentation-at-contact argument for a geometry-keyed
+  clamp with mechanical compliance. Unit-tested (`tests/test_mission.cpp`). The v2
   `post_capture_stabilization` is retained only as the detumble regression
   reference; the installer paradigm does not detumble the multi-tonne target.
 - **Kit deorbit-decay trades (WP3)** (`decay`): a quasi-circular drag-decay
@@ -256,32 +279,49 @@ verify rather than a claim in prose.
   models are Gaussian abstractions (no outliers, no dropouts, no star-tracker
   occlusion, no vision pose ambiguity); gyro/rangefinder biases exist as
   Config knobs but are **not estimated** (the consistency tests assume the
-  zero defaults). The translation state is estimated and consistency-tested
-  but not used for control in the WP11 guided-approach demo, which is
-  truth-fed at L0 (`generated/wp11_guidance_modes.md`); estimate-driven
-  translation guidance remains open for the WP12 fidelity ladder
-  (navigation-error levels).
-- **Continuous-torque DACS approximation**, not a discrete-impulse thruster
-  allocator with real minimum-impulse-bit quantization.
-- **Sync-hold relies on the continuous-torque approximation** (WP2 observation):
-  the fine firing deadband (3×10⁻⁴ on the sliding variable) that bounds the
-  sync-hold error assumes continuous torque; a real minimum-impulse-bit DACS
-  would either chatter around that deadband or need reaction wheels to hold it.
+  zero defaults). The translation state is estimated, consistency-tested and —
+  since WP12 L4 — **used for control**: the guided approach flies on the
+  translation EKF's estimate under measurement dropout and an unestimated
+  range-bias walk (see the closed-loop guidance bullet below for the measured
+  numbers, including the honest NEES inconsistency that unestimated bias
+  produces). Attitude sync in the campaign remains the truth-driven WP2
+  primitive (documented WP5 simplification).
+- **Continuous-torque DACS approximation — retired at L5 (WP12).** The v2–v4
+  controller assumed continuous torque, with sync-hold relying on that
+  approximation (the fine firing deadband, 3×10⁻⁴ on the sliding variable,
+  bounded the sync-hold error only under continuous torque). WP12 L5
+  re-demonstrates sync under a delta-sigma minimum-impulse-bit actuator model
+  (MIB 2×10⁻⁴ N·m·s PLACEHOLDER, 1-step command delay, single-axis 50% fault)
+  [L5: MIB delta-sigma, 1-step delay, single-axis fault]: sync at **16.28 s**
+  vs **16.87 s** continuous (`wp12_l5_sync_time_s` = 16.280000,
+  `wp2_sync_time_s` = 16.870000, `generated/reference_metrics.csv`). Honest
+  remainder: the MIB magnitude is PLACEHOLDER and ideal duty-cycling (no
+  thruster hardware model, no minimum on-time) is still assumed.
 - **Thermal model is a single lumped PCM bucket** — no eclipse/sunlight
   radiative balance, no per-node conduction.
-- **Closed-loop rendezvous guidance closes at L0 (WP11); estimate-driven
-  guidance stays open.** A deterministic, truth-fed L0 guided-approach mode
+- **Closed-loop rendezvous guidance: L0 truth-fed (WP11) plus L4
+  estimate-driven (WP12).** A deterministic, truth-fed L0 guided-approach mode
   machine (far_approach → hold → sync_hold → final_approach → contact →
   retreat, with a reachability screen evaluated before every committed
-  impulse — screen held at every step in the demo: yes) now flies the
-  approach to contact (`generated/wp11_guidance_modes.md`). The contact
-  speed is PRODUCED by a glideslope-with-floor profile (0.10 m/s design)
-  rather than merely gated, closing the long-standing "gate, not guidance"
-  limit at L0; the v_rel ≤ 0.15 m/s gate is retained as an independent check,
-  not removed. This guidance is truth-fed, not estimate-driven:
-  estimate-driven translation guidance remains open for the WP12 fidelity
-  ladder (navigation-error levels). As of WP4 the attitude-sync loop
-  consumes estimates from noisy sensors; the truth-driven variants remain in
+  impulse — screen held at every step in the demo: yes) still flies the
+  approach to contact truth-fed (`generated/wp11_guidance_modes.md`). The
+  contact speed is PRODUCED by a glideslope-with-floor profile (0.10 m/s
+  design) rather than merely gated, closing the long-standing "gate, not
+  guidance" limit at L0; the v_rel ≤ 0.15 m/s gate is retained as an
+  independent check, not removed. **WP12 L4 makes this guidance
+  ESTIMATE-DRIVEN**: the translation EKF is in the loop (truth is
+  error-recording only) under measurement dropout and an unestimated
+  range-bias random walk; the truth-evaluated contact speed is **0.0998 m/s**
+  (`wp12_est_guided_contact_speed_m_s` = 0.099759, gate 0.15 m/s,
+  `generated/reference_metrics.csv`) [L4: L0 dynamics + dropout + bias walk,
+  deterministic seed]. Honest addition: under the unestimated bias walk the
+  translation-EKF NEES runs to **~310** (`wp12_est_nees_trans` = 310.437825)
+  against an ideal **~6** — the filter is optimistic about (i.e.
+  underestimates) its own error; adding bias states is the identified fix,
+  not implemented here (evidence pack §3 fidelity ladder, §6 limitations).
+  As of WP4 the attitude-sync loop consumes estimates from noisy sensors;
+  attitude sync in the campaign remains the truth-driven WP2 primitive
+  (documented WP5 simplification), and the truth-driven variants remain in
   the test suite as the control-law regression references.
 - **Decay model is first-order and single-object** (WP3): quasi-circular drag
   decay over an exponential atmosphere with a single altitude-independent
@@ -349,9 +389,11 @@ robustness-under-dispersions evidence, but this strengthens the TRL-4 evidence
 base rather than raising the TRL. WP6 adds a relative-unit cost/FoM model on top
 of that evidence — an economic-viability argument, not a GNC maturity change —
 so the TRL stays 4. The same holds for Phase 0 and beyond (spec v5 §9, binding):
-WP10 forensics and WP11 safety hardening + closed-loop guidance widen the
-validated envelope at TRL 4 — they do not raise it; raising it requires the
-real-time processor-in-the-loop track (WP9, reserved, not started).
+WP10 forensics, WP11 safety hardening + closed-loop guidance, and the WP12
+fidelity ladder (higher-fidelity propagation is a wider validated envelope,
+not a maturity change) widen the validated envelope at TRL 4 — they do not
+raise it; raising it requires the real-time processor-in-the-loop track
+(WP9, reserved, not started).
 
 ## Build
 
@@ -391,7 +433,8 @@ tools/regenerate_all.sh  single regeneration entry point (CI runs exactly this)
 generated/      committed artifacts: WP5 campaign, WP6 cost/FoM, T6 flux, WP3 decay,
                 reference_metrics CSVs, viz/ SVGs, compliance_findings.json,
                 WP10/WP11 forensics (wp10_violation_forensics.{md,csv} — legacy-law
-                archive since WP11; wp11_abort_audit.{md,csv}; wp11_guidance_modes.md)
+                archive since WP11; wp11_abort_audit.{md,csv}; wp11_guidance_modes.md),
+                WP12 fidelity-ladder re-verification (wp12_ladder.{csv,md})
 evidence/       committed generated evidence artifacts (adsc_evidence_pack.md,
                 compliance matrix; same reproducibility gate as generated/)
 .github/        CI (Ubuntu + Eigen: cmake build + ctest, warnings-as-errors, reproducibility gate)
@@ -432,12 +475,17 @@ adsc-specification-v4.md   retired v4.2 spec (superseded by v5; kept because v5
 - **WP11 — Safety hardening + closed-loop guidance** ✅ implemented
   (clearing-abort law, reachability screen, guided approach); keep-out
   violations 0 of 500 per catalog at L0/ds-v1, Wilson 95% upper bound 0.0076.
-- **WP12–WP15 (v5)** — not started; `adsc-specification-v5.md` defines the
-  fidelity ladder, kit-class trade + EDT physics, cost ranges + FoM, and the
-  proposal package. WP9 remains the only path to TRL 5, unchanged by v5.
+- **WP12 — Fidelity ladder** ✅ implemented (L0/L1/L2 + L4/L5 elements; zero
+  keep-out violations re-verified at L1/L2 [ds-v1/ds-v2]; the
+  CW-safe-but-higher-level-unsafe case does NOT materialize for this
+  dispersion set — measured, see `generated/wp12_ladder.md`).
+- **WP13–WP15 (v5)** — not started; `adsc-specification-v5.md` defines the
+  kit-class trade + EDT physics, cost ranges + FoM, and the proposal package.
+  WP9 remains the only path to TRL 5, unchanged by v5.
 
-**Roadmap end state: WP1–WP8 complete; Phase 0 (WP10) and WP11 safety
-hardening complete.** The package is regenerable end-to-end with one command
+**Roadmap end state: WP1–WP8 complete; Phase 0 (WP10), WP11 safety
+hardening, and WP12 fidelity ladder complete.** The package is regenerable
+end-to-end with one command
 (`bash tools/regenerate_all.sh build`) and CI enforces byte-identity of every
 committed artifact on every push.
 
@@ -496,8 +544,9 @@ subset if a faster smoke run is ever wanted). Rates carry a Wilson 95% CI
 (z = 1.959963984540054); distributions are p05/p50/p95.
 
 <!-- WP5-NUMBERS-START (filled from CI adsc_campaign, seed 0x5AD5C0DECAFE2026) -->
-The full N = 500 campaign (both catalog presets) runs in **≈ 10.7 s** on the CI
-runner. `success` here means a **productive end** — the mission installed its
+The full N = 500 campaign (both catalog presets) runs in a few tens of seconds
+on a CI runner (see the Actions log of the current run for the actual figure).
+`success` here means a **productive end** — the mission installed its
 full 4-kit complement (`kit_exhausted`) or cleared all 6 targets (`completed`) —
 not one cut short by Δv exhaustion or a keep-out violation.
 
@@ -546,9 +595,10 @@ campaign (schema 1.0), re-running the engine across a kits-carried sweep at the
 fixed master seed; the baseline (N = 4) reproduces `wp5_campaign_runs.csv`.
 
 <!-- WP6-NUMBERS-START (filled from CI adsc_cost) -->
-The full sweep (500 runs × 2 catalogs × N = 1..8 kits) runs in **≈ 70 s** on CI,
-and the baseline (N = 4) removals reproduce the committed WP5 CSV exactly
-(`MATCH (schema 1.0 consumed)`).
+The full sweep (500 runs × 2 catalogs × N = 1..8 kits) runs in a few tens of
+seconds on a CI runner (see the Actions log of the current run for the actual
+figure), and the baseline (N = 4) removals reproduce the committed WP5 CSV
+exactly (`MATCH (schema 1.0 consumed)`).
 
 **Amortization curve — cost/removal vs kits carried N (SL-16 class):**
 

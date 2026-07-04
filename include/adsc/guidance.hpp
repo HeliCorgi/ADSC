@@ -86,6 +86,15 @@ struct GuidedApproachReport {
     bool          abort_feasible_every_step = false;  // reachability screen held at every guidance step and hold
     bool          los_cone_ok = true;
     std::vector<GuidedPhaseLog> phases;
+
+    // WP12 L4 (estimate-driven mode only; left at 0 for the truth-fed L0
+    // demo). truth is used only for error recording and this honest
+    // reporting -- never fed back into a guidance decision.
+    double est_final_pos_err_m = 0.0;  // |estimate - truth| position error at end of run [m]
+    double est_nis_trans_mean  = 0.0;  // translation-EKF NIS mean over executed (non-dropped) updates (4 dof; expect ~4 if consistent)
+    double est_nees_trans_mean = 0.0;  // translation-EKF NEES mean over every sub-step (6 dof; expect ~6, coarse)
+    int    est_nis_n  = 0;             // number of NIS samples (excludes Bernoulli-dropped updates)
+    int    est_nees_n = 0;             // number of NEES samples
 };
 
 // Deterministic L0 closed-loop translation-guidance demo (WP11): flies the
@@ -95,9 +104,20 @@ class GuidedApproach {
 public:
     explicit GuidedApproach(const Config& cfg);
 
+    // Dispatches on cfg.guid_estimate_driven: false (default) runs the
+    // ORIGINAL WP11 truth-fed demo below, UNCHANGED (R1, byte-identical);
+    // true runs fly_estimate_driven() (WP12 L4).
     GuidedApproachReport fly();
 
 private:
+    // WP12 L4: closed-loop translation guidance driven by a TranslationEkf
+    // estimate instead of truth (see guidance.cpp for the full description).
+    // Truth still propagates (deterministic CW coast, same dynamics as fly())
+    // and is used ONLY for matched process-noise injection, error recording,
+    // and the honest contact-speed/final-position report -- never for a
+    // guidance decision or the reachability screen.
+    GuidedApproachReport fly_estimate_driven();
+
     Config  cfg_;
     CwModel cw_;
 };

@@ -66,7 +66,13 @@ def main():
                      (r"guarantee", "guarantee(d/s)"),
                      (r"approved", "approved"),
                      (r"licensed", "licensed"),
-                     (r"compliant\b", "compliant")):
+                     (r"compliant\b", "compliant"),
+                     # spec v5 section 1: "minimum cost" as an absolute claim
+                     # is banned (cost-effectiveness is the defensible claim).
+                     # The D10 reference sentence spells out the ban itself, so
+                     # exclude the quoted-ban phrasing via a negative check on
+                     # the exact allowed sentence rather than a lookbehind:
+                     (r"minimum[\s-]*cost(?!\s+claim)", "minimum cost (absolute claim)")):
         check(re.search(pat, low) is None,
               "pack contains forbidden claim language: %s" % why)
     check(re.search(r"\bTRL\s*[56]\b", pack) is None,
@@ -83,7 +89,8 @@ def main():
     # 2. Required honesty sections.
     for req in ("## 6. Limitations", "This is not legal advice.",
                 "PLACEHOLDER inventory", "TRL 4",
-                "## 11. Changelog - R15 pin supersessions"):
+                "## 11. Changelog - R15 pin supersessions",
+                "### Fidelity ladder (WP12)"):
         check(req in pack, "pack lacks required element: %s" % req)
     # R14 (WP11): the keep-out claim carries an explicit fidelity-level tag
     # with the dispersion-set id and the Wilson upper bound -- a zero never

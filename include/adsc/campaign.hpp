@@ -236,9 +236,29 @@ struct RunResult {
         "determination";
 };
 
+// WP12 audit hook: one captured closing-speed-gate abort event, recorded
+// (when requested) by run_one_mission below purely for LATER re-verification
+// at other fidelity levels (fidelity_coast_min_range, propagation.hpp/
+// src/main_ladder.cpp) -- NOT consumed by run_one_mission itself, and NOT a
+// draw/arithmetic change (R1): capturing these fields is a pure side-channel
+// read of state the function already computes.
+struct CampaignAbortEvent {
+    int target_index = 0;                              // index within THIS mission's target loop (0-based)
+    Eigen::Vector3d r = Eigen::Vector3d::Zero();        // dispersed relative position at the abort, target LVLH [m]
+    Eigen::Vector3d v = Eigen::Vector3d::Zero();        // dispersed relative velocity at the abort, target LVLH [m/s]
+    SafeAbort ab;                                       // WP11 clearing-abort law output (commanded dv, coast_min_range_m, ...)
+};
+
 // Run a single mission (deterministic given catalog + cfg + run_index).
+//
+// `audit`, if non-null, appends one CampaignAbortEvent per closing-speed-gate
+// abort this run commits (WP12). This is a PURE ADDITION: when audit is
+// nullptr (every existing call site, including run_campaign below), the RNG
+// draw order and every arithmetic result are UNCHANGED from before this WP,
+// so generated/wp5_campaign_runs.csv stays byte-identical (R1/R15).
 RunResult run_one_mission(const DebrisCatalog& catalog, const CampaignConfig& ccfg,
-                          const Config& base_cfg, int run_index);
+                          const Config& base_cfg, int run_index,
+                          std::vector<CampaignAbortEvent>* audit = nullptr);
 
 // Run the full campaign for one catalog preset (n_runs missions).
 std::vector<RunResult> run_campaign(const DebrisCatalog& catalog,

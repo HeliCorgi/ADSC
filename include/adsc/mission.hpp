@@ -61,6 +61,11 @@ struct Config {
     double kit_mass_kg          = 2.4;    // installed deorbit-kit mass [kg]
     double kit_sail_area_m2     = 120.0;  // installed drag-sail area [m^2]
     double drag_cd              = 2.2;    // free-molecular drag coefficient [-]
+    // WP12 L2 (fidelity ladder): servicer bus drag cross-section, used only by
+    // the ladder emitter's per-craft ballistic coefficient (Cd*A/m); the
+    // catalog (bare-stage) areas are kept as PLACEHOLDER constants local to
+    // src/main_ladder.cpp rather than added to DebrisCatalog (R10).
+    double servicer_drag_area_m2 = 0.35;  // PLACEHOLDER servicer bus drag cross-section [m^2]
     // Stop altitude: below ~150-200 km the orbit decays within days regardless
     // of A/m, so decay is integrated to a handoff altitude and the object is
     // handed to rapid reentry; integrating lower adds negligible time.
@@ -120,6 +125,14 @@ struct Config {
     double guid_contact_speed_m_s = 0.10;    // DESIGN contact speed produced by guidance (< max_v_rel gate 0.15)
     double guid_los_half_angle_rad = 0.35;   // LOS cone half-angle about -V-bar on final approach [rad]
     double guid_inside_floor_frac  = 0.8;    // inside-sphere abort: retreat may not come closer than this fraction of the range at abort
+
+    // WP12 L4: estimate-driven translation guidance (closed the "truth-fed
+    // only" WP11 known limit). Default false: EVERY existing caller of
+    // GuidedApproach::fly() takes the ORIGINAL WP11 truth-fed branch
+    // unconditionally, byte-identical (R1) -- see guidance.hpp/.cpp.
+    bool   guid_estimate_driven         = false;
+    double sensor_dropout_prob          = 0.05;    // PLACEHOLDER per-sample Bernoulli missed-detection probability [-]
+    double range_bias_walk_m_per_sqrt_s = 1.0e-3;  // PLACEHOLDER unestimated range-bias random-walk diffusion coefficient [m/sqrt(s)]; NOT carried as a filter state (documented estimation gap)
 
     double control_dt           = 0.01;   // GNC loop step [s]
     double pcm_capacity_j       = 5000.0;
@@ -241,8 +254,34 @@ struct ActuatorError {
     Eigen::Vector3d scale        = Eigen::Vector3d::Zero();  // fractional per-axis torque-scale error [-]
     Eigen::Vector3d misalign_rad = Eigen::Vector3d::Zero();  // small-angle body misalignment [rad]
 
-    // Map a commanded torque to the delivered torque. Neutral default => tau.
-    Eigen::Vector3d apply(const Eigen::Vector3d& tau) const;
+    // WP12 L5 additive fields (retires the "continuous-torque DACS
+    // approximation" README known limit): a real DACS delivers torque in
+    // discrete minimum-impulse-bit (MIB) quanta, may lag the command by a
+    // fixed number of control steps, and may carry a partial single-axis
+    // fault. Neutral defaults (0 MIB = no quantization, 0 delay, fault_axis
+    // = -1 = no fault axis selected) reproduce the pinned WP2/WP5 numbers
+    // byte-identically -- see apply() below and run_tumble_sync's delay
+    // buffer (mission.cpp).
+    double min_impulse_bit_nms = 0.0;  // PLACEHOLDER MIB angular-impulse quantum [N m s], per axis; 0 = continuous (no quantization)
+    int    delay_steps         = 0;    // actuator response lag [control steps]; 0 = no delay (buffer lives in run_tumble_sync's loop, not here -- only the caller has the per-step command history)
+    int    fault_axis          = -1;   // body axis (0=x, 1=y, 2=z) scaled by fault_axis_scale below; -1 = no fault
+    double fault_axis_scale    = 1.0;  // torque-scale multiplier applied ONLY to fault_axis; inert when fault_axis < 0
+
+    // Map a commanded torque to the delivered torque: per-axis scale error,
+    // then the small body-misalignment rotation (UNCHANGED from before WP12),
+    // then the optional single-axis fault scale. MIB quantization is NOT done
+    // here: quantizing each step independently deletes any sub-bit command
+    // every step (including the continuous torque-free feedforward, ~1e-5
+    // N m s per 10 ms step against a 1e-4 half-bit -- measured to break the
+    // sync hold on CI), whereas real pulsed DACS hardware duty-cycles unfired
+    // demand until it reaches a whole bit. That delta-sigma accumulation is
+    // per-step STATE, so it lives in run_tumble_sync's loop (MibAccumulator,
+    // mission.cpp), like the delay FIFO. Neutral ActuatorError is the exact
+    // identity map: cwiseProduct with Ones() reproduces tau bit-for-bit and
+    // quat_exp(0) is the identity quaternion, so the delegating 6-arg
+    // run_tumble_sync stays byte-identical. dt is retained in the signature
+    // for call-site stability; it is not consumed by apply() itself.
+    Eigen::Vector3d apply(const Eigen::Vector3d& tau, double dt = 0.0) const;
 };
 
 // WP2: closed-loop tumble synchronization. The target tumbles torque-free
