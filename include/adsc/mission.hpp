@@ -29,6 +29,11 @@ struct Config {
     double target_altitude_km   = 825.0;   // PLACEHOLDER: SL-16-class band (D2) [km]
     double keep_out_radius_m    = 200.0;   // approach keep-out sphere radius [m]
 
+    // WP11 clearing-abort law (D13) design margin: NOT a physical placeholder
+    // (R10) -- it is a chosen safety margin above the physical keep-out
+    // sphere that the analytic bounded ellipse must clear.
+    double abort_clear_margin_m = 20.0;   // WP11 clearance margin above keep-out [m]
+
     // F1: post-abort coast verification sweep (numerical check parameters,
     // not physical placeholders).
     double abort_coast_check_periods = 2.0;  // horizon [target orbital periods]
@@ -102,6 +107,20 @@ struct Config {
     double est_stats_start_s       = 40.0;
     uint32_t est_seed              = 20260703u;  // fixed RNG seed (R6)
 
+    // WP11 closed-loop translation guidance: fixed hold ranges and a
+    // glideslope-with-floor final-approach profile (D13/D5 extension). All
+    // design values (R10) except guid_contact_speed_m_s, which is compared
+    // directly against the existing max_v_rel physical gate.
+    double guid_hold_far_m        = 1200.0;  // far V-bar hold range [m] (matches approach_rho_far_m)
+    double guid_hold_mid_m        = 800.0;   // intermediate V-bar hold [m]
+    double guid_transfer_frac_T   = 0.25;    // hold-to-hold transfer time as a fraction of the orbital period
+    double guid_glideslope_k      = 2.5e-4;  // glideslope gain: commanded closing speed = k * range [1/s] (0.10 m/s at 400 m)
+    double guid_step_s            = 60.0;    // guidance impulse interval on final approach [s]
+    double guid_contact_range_m   = 1.0;     // contact interface range [m]
+    double guid_contact_speed_m_s = 0.10;    // DESIGN contact speed produced by guidance (< max_v_rel gate 0.15)
+    double guid_los_half_angle_rad = 0.35;   // LOS cone half-angle about -V-bar on final approach [rad]
+    double guid_inside_floor_frac  = 0.8;    // inside-sphere abort: retreat may not come closer than this fraction of the range at abort
+
     double control_dt           = 0.01;   // GNC loop step [s]
     double pcm_capacity_j       = 5000.0;
     double max_safe_time_s      = 14400.0; // 4 h
@@ -118,17 +137,84 @@ struct Config {
 struct SafeAbort {
     enum class Status {
         Clean,   // full impulse delivered: drift-free safety ellipse
-        Capped   // |dv| hit Config::abort_dv: residual drift remains
+        Capped,  // |dv| hit Config::abort_dv: residual drift remains
+
+        // WP11 (D13): compute_safe_abort's Clean/Capped semantics above are
+        // UNCHANGED (F1 pin) -- these two additional statuses are produced
+        // only by the new compute_clearing_abort / clearing_abort_for, never
+        // by the legacy compute_safe_abort. WP10c forensics found that a
+        // Clean, uncapped drift-null impulse does not guarantee the
+        // resulting bounded ellipse CLEARS the keep-out sphere; the clearing
+        // law escalates instead of accepting that outcome.
+        BoundedClearing,  // reshaped (radial) impulse: bounded AND clears keep-out + margin
+        // Two-impulse radial retreat hop (WP11 escalation of last resort).
+        // A PURE along-track opening-drift burn was evaluated and REJECTED
+        // (spec v5 section 10 negative result): its oscillation amplitude
+        // ~4*dv/n is km-scale, swamping typical ~100 m keep-out geometry, so
+        // the coast swings back through near-zero range before the secular
+        // drift ever opens the gap (verified numerically, both delta signs,
+        // coast minima of a few meters against a required >=0.8*range).
+        // RetreatHop instead swaps the radial offset sign (x0 -> -x0) via a
+        // half-period two-impulse hop, landing on a drift-free ellipse whose
+        // analytic minimum clears keep-out + margin, while the transient leg
+        // itself opens monotonically for the geometries where it is reached.
+        RetreatHop
     };
 
+    // BURN 1 of Clean/BoundedClearing/Capped (single impulse), or of
+    // RetreatHop's two-impulse hop (see dv_second_burn_m_s below).
     Eigen::Vector3d dv = Eigen::Vector3d::Zero();  // commanded impulse [m/s]
     Status status = Status::Clean;
 
+    // WP11: magnitude of RetreatHop's second (half-period-later) burn. 0 for
+    // every other status. Reported separately (rather than folded into dv)
+    // because the two burns are separated by half an orbital period -- the
+    // caller sums |dv| + dv_second_burn_m_s for the total maneuver cost.
+    double dv_second_burn_m_s = 0.0;
+
     // Minimum range to the target over the post-burn coast, propagated for
     // Config::abort_coast_check_periods orbital periods at
-    // Config::abort_coast_check_dt_s. Reported for Clean and Capped alike. [m]
+    // Config::abort_coast_check_dt_s. Reported for every status; for
+    // RetreatHop this covers BOTH burns and the coast between them. [m]
     double coast_min_range_m = 0.0;
+
+    // WP11: analytic (sampled closed-form) minimum range of the post-burn
+    // DRIFT-FREE coast (relmotion::bounded_coast_min_range). For Clean /
+    // BoundedClearing this is the immediate post-burn ellipse; for
+    // RetreatHop this is the TERMINAL ellipse after both burns (the hop
+    // target). -1 when the post-burn state carries secular drift (Capped):
+    // there is no bounded ellipse to report.
+    double bounded_min_range_m = -1.0;
 };
+
+// WP11 clearing-abort law (D13), as a free function so it can be evaluated
+// against a candidate state WITHOUT a full Mission (fuel/body state) -- a
+// reachability screen over candidate impulses (e.g. a future translation-
+// guidance loop) needs exactly this. Mission::compute_clearing_abort
+// delegates to this with cfg_/cw_.
+//
+// compute_safe_abort's drift-null impulse alone does not guarantee the
+// resulting bounded ellipse CLEARS the keep-out sphere (WP10c forensics:
+// generated/wp10_violation_forensics.md, 14/1000 committed runs were clean,
+// uncapped aborts whose safety ellipse still intersected keep-out). This law
+// escalates instead of accepting that outcome:
+//   1. drift-null baseline (== compute_safe_abort's impulse): accepted only
+//      if its analytic ellipse (bounded_coast_min_range) clears
+//      cfg.keep_out_radius_m + cfg.abort_clear_margin_m;
+//   2. bounded-clearing: a radial (x) burn reshapes the ellipse to widen the
+//      corner nearest the keep-out sphere, still drift-free;
+//   3. retreat hop: if neither bounded option is reachable within cfg.abort_dv,
+//      a two-impulse half-period hop that swaps the radial-offset sign
+//      (x0 -> -x0), landing on a drift-free ellipse whose analytic minimum
+//      clears keep-out + margin. Falls back to the legacy Capped semantics
+//      (no bounded-orbit claim) if even the two-burn hop exceeds the budget.
+//      (A pure along-track opening-drift burn was evaluated and REJECTED --
+//      see SafeAbort::Status::RetreatHop's comment.)
+// Every branch reports the coast-verified minimum range (same RK4 sweep as
+// the legacy law), never merely an implied guarantee.
+SafeAbort clearing_abort_for(const Config& cfg, const CwModel& cw,
+                             const Eigen::Vector3d& r_rel,
+                             const Eigen::Vector3d& v_rel);
 
 // Outcome of a tumble-synchronization run (WP2).
 struct SyncReport {
@@ -294,6 +380,22 @@ public:
     // coast_min_range_m is the verified minimum range of the post-burn coast.
     SafeAbort compute_safe_abort(const Eigen::Vector3d& r_rel,
                                  const Eigen::Vector3d& v_rel) const;
+
+    // WP11 clearing-abort law (D13): an escalation ladder on top of
+    // compute_safe_abort's drift-null impulse. WP10c forensics found the
+    // legacy law can null the drift into a BOUNDED orbit that still
+    // intersects the keep-out sphere (14/1000 campaign runs, all clean,
+    // uncapped aborts); this law only accepts the drift-null baseline when
+    // its analytic ellipse CLEARS keep-out + abort_clear_margin_m, else
+    // reshapes the ellipse with a radial burn, else spends the full budget on
+    // a two-impulse retreat hop that swaps the radial-offset sign and lands
+    // on a clearing ellipse (or falls back to the legacy Capped semantics if
+    // even that exceeds the budget). See SafeAbort::Status for the four
+    // possible outcomes and clearing_abort_for (mission.cpp) for the
+    // analytic derivation. Does NOT modify or replace compute_safe_abort
+    // (R1/R15: the legacy law stays regression-tested).
+    SafeAbort compute_clearing_abort(const Eigen::Vector3d& r_rel,
+                                     const Eigen::Vector3d& v_rel) const;
 
     // Point-mass parallel-axis inertia contribution from a captured body at
     // r_attach, applied to the vehicle inertia (with regularization).

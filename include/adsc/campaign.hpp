@@ -29,6 +29,23 @@ namespace adsc {
 // estimate-driven acceptance rather than re-simulated in every campaign run --
 // a documented WP5 simplification (see README known limits).
 //
+// Keep-out abort screen (WP10c / WP11): the per-target gate-abort event calls
+// the abort law from the outer departure standoff, perturbed by the
+// initial-relative-state dispersion, and screens the coast-verified minimum
+// range against the keep-out sphere. Under the LEGACY drift-null law
+// (compute_safe_abort), WP10c forensics (generated/wp10_violation_forensics.md)
+// found 14/1000 committed runs where a CLEAN, uncapped abort still produced a
+// bounded ellipse that intersects keep-out -- a geometric property of the
+// dispersed entry state, not a thruster-authority (cap) failure. WP11 (D13)
+// replaces the screened abort with the clearing-abort law
+// (compute_clearing_abort / clearing_abort_for, mission.hpp): it only accepts
+// the drift-null baseline when its analytic ellipse clears keep-out + a design
+// margin, else reshapes the ellipse with a radial burn, else escalates to a
+// two-impulse radial retreat hop landing on a clearing ellipse. A keep-out
+// violation is therefore design-unacceptable rather than an
+// expected-at-some-rate tail event; see dispersed_abort_coast (campaign.cpp)
+// for the exact draw-order-preserving refactor.
+//
 // Determinism (R6): one fixed master seed; every per-run seed is derived from
 // it by a SplitMix64 finalizer of (master_seed XOR catalog_salt, run_index),
 // where catalog_salt is an FNV-1a hash of the preset name so each catalog runs
@@ -51,8 +68,13 @@ namespace adsc {
 // ============================================================================
 
 // Stable schema identifier stamped into every generated CSV row. Do not change
-// casually after this PR: WP6/WP7/WP8 tooling keys off it.
-inline const char* wp5_schema_version() { return "1.0"; }
+// casually after this PR: WP6/WP7/WP8 tooling keys off it. 1.0 -> 1.1 (WP11) is
+// an ADDITIVE bump only: two new trailing columns (dispersion_set_id,
+// worst_abort_clearance_m) and the keep-out screen now runs the WP11 clearing
+// law (compute_clearing_abort) instead of the legacy compute_safe_abort;
+// every existing column keeps its exact meaning. Consumers updated in the
+// same PR per R15.
+inline const char* wp5_schema_version() { return "1.1"; }
 
 // z for a 95% two-sided interval (spec-fixed constant).
 constexpr double kWilsonZ95 = 1.959963984540054;
@@ -96,6 +118,9 @@ struct CampaignConfig {
     // --- randomness (R6) ---
     uint64_t master_seed = 0x5AD5C0DECAFE2026ULL;  // fixed master seed
     int      n_runs      = 500;                    // full target (>=500, spec)
+
+    // --- WP11 dispersion-set versioning (R15) ---
+    const char* dispersion_set_id = "ds-v1";  // R15: version tag for the dispersion configuration above; stamped into every runs-CSV row
 
     // --- campaign layer ---
     int    targets_per_mission = 6;      // N targets in one plane per mission
@@ -187,6 +212,12 @@ struct RunResult {
     double first_closing_speed_m_s = 0.0;  // capture closing speed of target 0 [m/s]
     double tumble_rate_deg_s       = 0.0;  // realized |w_t| of target 0 [deg/s]
     double solar_factor            = 0.0;  // realized atmospheric-density factor [-]
+
+    // WP11 (schema 1.1): dispersion-set tag + keep-out screen audit.
+    std::string dispersion_set_id;
+    // min over this run's abort events of (coast-verified min range -
+    // keep_out_radius); <0 blank in CSV when the run had no abort events.
+    double worst_abort_clearance_m = -1.0;
 
     // compliance metadata (passive, future-facing for WP7/WP8; no legal claim)
     bool        research_only                       = true;

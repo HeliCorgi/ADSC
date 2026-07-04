@@ -40,6 +40,7 @@ add_library(adsc_core
     src/campaign.cpp
     src/cost.cpp
     src/flux.cpp
+    src/guidance.cpp
 )
 target_include_directories(adsc_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(adsc_core PUBLIC Eigen3::Eigen)
@@ -106,6 +107,20 @@ add_test(NAME estimator COMMAND test_estimator)
 add_executable(test_campaign tests/test_campaign.cpp)
 target_link_libraries(test_campaign PRIVATE adsc_core adsc_flags)
 add_test(NAME campaign COMMAND test_campaign)
+
+# WP11 forensic-14 regression: pins the 14 keep-out-violating runs classified
+# in generated/wp10_violation_forensics.csv (WP10c) as a permanent regression
+# that the WP11 clearing-abort law clears (D13, R15).
+add_executable(test_forensic14 tests/test_forensic14.cpp)
+target_link_libraries(test_forensic14 PRIVATE adsc_core adsc_flags)
+add_test(NAME forensic14 COMMAND test_forensic14)
+
+# WP11 closed-loop translation guidance: bounded_coast_min_range
+# cross-validation, the clearing-abort escalation ladder, and the
+# GuidedApproach demo (D13/D5).
+add_executable(test_guidance tests/test_guidance.cpp)
+target_link_libraries(test_guidance PRIVATE adsc_core adsc_flags)
+add_test(NAME guidance COMMAND test_guidance)
 
 add_executable(test_cost tests/test_cost.cpp)
 target_link_libraries(test_cost PRIVATE adsc_core adsc_flags)

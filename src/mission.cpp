@@ -435,6 +435,183 @@ SafeAbort Mission::compute_safe_abort(const Eigen::Vector3d& r_rel,
     return out;
 }
 
+namespace {
+// Shared post-burn coast verification for the WP11 clearing-abort law: the
+// SAME RK4 sweep as the legacy compute_safe_abort (F1), so every status
+// (Clean/BoundedClearing/Capped) reports a genuinely propagated minimum
+// range rather than an implied guarantee. (RetreatHop, Stage 3 below, does
+// its own two-burn coast verification inline, since it must apply burn 2
+// partway through.)
+double coast_verify_min_range(const Config& cfg, const CwModel& cw,
+                              const Eigen::Vector3d& r_rel,
+                              const Eigen::Vector3d& v_rel,
+                              const Eigen::Vector3d& dv) {
+    Vector6d x;
+    x << r_rel, (v_rel + dv);
+    double min_range = rel_range(x);
+    const double horizon = cfg.abort_coast_check_periods * cw.period();
+    const double dt = cfg.abort_coast_check_dt_s;
+    double t = 0.0;
+    while (t < horizon) {
+        x = cw.propagate_rk4(x, dt, dt);
+        min_range = std::min(min_range, rel_range(x));
+        t += dt;
+    }
+    return min_range;
+}
+}  // namespace
+
+SafeAbort clearing_abort_for(const Config& cfg, const CwModel& cw,
+                             const Eigen::Vector3d& r_rel,
+                             const Eigen::Vector3d& v_rel) {
+    SafeAbort out;
+    const double n = cw.n();
+    const double dv_max = cfg.abort_dv;
+    const double R_clear = cfg.keep_out_radius_m + cfg.abort_clear_margin_m;
+    const double x0 = r_rel.x();
+    const double y0 = r_rel.y();
+    const double z0 = r_rel.z();
+
+    // ---- STAGE 1: drift-null baseline (== compute_safe_abort's impulse). ----
+    const Eigen::Vector3d v1(0.0, -2.0 * n * x0, 0.0);
+    const Eigen::Vector3d dv1 = v1 - v_rel;
+    if (dv1.norm() <= dv_max) {
+        const double m1 = bounded_coast_min_range(x0, y0, z0, 0.0, 0.0, n);
+        if (m1 >= R_clear) {
+            out.dv = dv1;
+            out.status = SafeAbort::Status::Clean;
+            out.bounded_min_range_m = m1;
+            out.coast_min_range_m =
+                coast_verify_min_range(cfg, cw, r_rel, v_rel, out.dv);
+            return out;
+        }
+    }
+
+    // ---- STAGE 2: bounded-clearing radial shaping. ----
+    // Only reachable outside the clearance radius: a radial rate reshapes the
+    // ellipse's along-track excursion, but there is no radial DOF left to
+    // shape once the standoff itself is inside R_clear.
+    if (std::abs(y0) > R_clear) {
+        const double g = std::abs(y0) - R_clear;
+        const double u = x0 * x0 / g - 0.25 * g;
+        if (u > 0.0) {
+            const double neg_sign_y0 = (y0 < 0.0) ? 1.0 : -1.0;  // -sign(y0)
+            const double vx_star = neg_sign_y0 * n * u;
+            const Eigen::Vector3d v2(vx_star, -2.0 * n * x0, 0.0);
+            const Eigen::Vector3d dv2 = v2 - v_rel;
+            if (dv2.norm() <= dv_max) {
+                const double m2 =
+                    bounded_coast_min_range(x0, y0, z0, vx_star, 0.0, n);
+                if (m2 >= R_clear) {
+                    out.dv = dv2;
+                    out.status = SafeAbort::Status::BoundedClearing;
+                    out.bounded_min_range_m = m2;
+                    out.coast_min_range_m =
+                        coast_verify_min_range(cfg, cw, r_rel, v_rel, out.dv);
+                    return out;
+                }
+            }
+        }
+        // u <= 0 (or the shaped impulse still fails the checks above): stage
+        // 1's analytic check should already have accepted this geometry;
+        // fall through to stage 3 defensively rather than assume it cannot
+        // happen.
+    }
+
+    // ---- STAGE 3: two-impulse radial retreat hop (WP11 escalation of last
+    // resort; see SafeAbort::Status::RetreatHop for why a pure along-track
+    // opening-drift burn was evaluated and REJECTED -- spec v5 section 10
+    // negative result). ----
+    const Eigen::Vector3d& b = dv1;  // the drift-null dv (same as stage 1's)
+    const double b_norm = b.norm();
+
+    // Legacy capped fallback, shared by the pre-check below and by the
+    // two-burn hop's own budget check further down. A plain if/else (not a
+    // ternary) for the guarded scale, since Eigen's scalar-multiple and
+    // Zero() expression templates do not share a common type.
+    const auto capped_fallback = [&]() {
+        SafeAbort capped;
+        capped.dv = Eigen::Vector3d::Zero();
+        if (b_norm > 1e-12) capped.dv = (dv_max / b_norm) * b;
+        capped.status = SafeAbort::Status::Capped;
+        capped.bounded_min_range_m = -1.0;
+        capped.dv_second_burn_m_s = 0.0;
+        capped.coast_min_range_m =
+            coast_verify_min_range(cfg, cw, r_rel, v_rel, capped.dv);
+        return capped;
+    };
+    if (b_norm >= dv_max) return capped_fallback();
+
+    // Retreat-hop target: shift the along-track offset far enough that the
+    // TERMINAL ellipse (after both burns swap x0 -> -x0, z0 -> -z0) clears
+    // keep-out + margin, with an extra margin allowance covering the 2|x0|
+    // along-track swing of that terminal ellipse itself.
+    const double sigma = (y0 <= 0.0) ? 1.0 : -1.0;  // push away along -/+ V-bar
+    const double S = std::max(
+        0.0, (R_clear + 2.0 * std::abs(x0) + cfg.abort_clear_margin_m) - std::abs(y0));
+    const double v_hop = n * S / 4.0;
+
+    // BURN 1: the usual drift-null vy plus a radial (x) kick of sigma*v_hop
+    // that starts the half-period hop (also nulls any existing vz, matching
+    // the drift-free family bounded_coast_min_range assumes).
+    const Eigen::Vector3d v_plus(sigma * v_hop, -2.0 * n * x0, 0.0);
+    const Eigen::Vector3d dv_burn1 = v_plus - v_rel;
+    if (dv_burn1.norm() + v_hop > dv_max) {
+        // Total two-burn budget (burn 2's magnitude is exactly v_hop)
+        // exceeds the thruster cap: fall back to the legacy capped law.
+        return capped_fallback();
+    }
+
+    out.dv = dv_burn1;
+    out.status = SafeAbort::Status::RetreatHop;
+    // Analytic TERMINAL ellipse (after both burns): x0 -> -x0, z0 -> -z0, the
+    // along-track offset walked by sigma*4*v_hop/n, drift-free (vx=vz=0
+    // there).
+    const double y_final = y0 - sigma * 4.0 * v_hop / n;
+    out.bounded_min_range_m =
+        bounded_coast_min_range(-x0, y_final, -z0, 0.0, 0.0, n);
+
+    // Coast-verify BOTH burns with the same RK4 sweep as every other stage,
+    // applying burn 2 at the step closest to the half-period point. For the
+    // final-approach corridor geometry (x0, z0 small) y(t) opens
+    // MONOTONICALLY over [0, T/2] (ydot = -sigma*2*v_hop*sin(nt) has constant
+    // sign there), so the transient minimum is simply the range at abort --
+    // the hop never closes before it opens, for the geometry where it is
+    // reached. Analytically burn 2's state is x=-x0, y=y0-sigma*4*v_hop/n,
+    // z=-z0 with velocity (-sigma*v_hop, 2 n x0, 0): vy is ALREADY the
+    // drift-free rate for the new radial offset -x0 (vy = -2n*(-x0) = 2n*x0),
+    // so burn 2 only nulls vx (and vz, to absorb numerical residue from the
+    // discretized sweep) -- it never touches vy.
+    Vector6d x;
+    x << r_rel, (v_rel + dv_burn1);
+    double min_range = rel_range(x);
+    const double horizon = cfg.abort_coast_check_periods * cw.period();
+    const double dt = cfg.abort_coast_check_dt_s;
+    const double half_period = 0.5 * cw.period();
+    bool burn2_applied = false;
+    double t = 0.0;
+    while (t < horizon) {
+        x = cw.propagate_rk4(x, dt, dt);
+        t += dt;
+        min_range = std::min(min_range, rel_range(x));
+        if (!burn2_applied && t >= half_period) {
+            const Eigen::Vector3d v_before_burn2 = x.tail<3>();
+            x(3) = 0.0;  // null vx
+            x(5) = 0.0;  // null vz (numerical residue only; analytic vz = 0)
+            out.dv_second_burn_m_s = (v_before_burn2 - x.tail<3>()).norm();
+            burn2_applied = true;
+            min_range = std::min(min_range, rel_range(x));
+        }
+    }
+    out.coast_min_range_m = min_range;
+    return out;
+}
+
+SafeAbort Mission::compute_clearing_abort(const Eigen::Vector3d& r_rel,
+                                          const Eigen::Vector3d& v_rel) const {
+    return clearing_abort_for(cfg_, cw_, r_rel, v_rel);
+}
+
 void Mission::update_inertia_on_capture(const Eigen::Vector3d& r_attach,
                                         double debris_mass) {
     const double r2 = r_attach.squaredNorm();

@@ -58,6 +58,16 @@ struct SafetyEllipse {
     double min_range() const;
 };
 
+// Minimum 3D range over one period of the DRIFT-FREE coast through
+// (x0, y0, z0) with radial/cross-track velocities (vx, vz) and the
+// drift-null along-track rate vy = -2 n x0. Closed form (WP11):
+//   x(t) = x0 c + (vx/n) s,  y(t) = y0 - 2 x0 s + 2 (vx/n)(c - 1),
+//   z(t) = z0 c + (vz/n) s      [c = cos nt, s = sin nt]
+// Sampled at the same 1440-point (0.25 deg) resolution as
+// SafetyEllipse::min_range; cross-validated against stm() in the tests.
+double bounded_coast_min_range(double x0, double y0, double z0,
+                               double vx, double vz, double n);
+
 // Clohessy-Wiltshire relative dynamics about a circular target orbit.
 class CwModel {
 public:
