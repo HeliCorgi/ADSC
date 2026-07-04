@@ -82,8 +82,16 @@ def main():
 
     # 2. Required honesty sections.
     for req in ("## 6. Limitations", "This is not legal advice.",
-                "PLACEHOLDER inventory", "TRL 4"):
+                "PLACEHOLDER inventory", "TRL 4",
+                "## 11. Changelog - R15 pin supersessions"):
         check(req in pack, "pack lacks required element: %s" % req)
+    # R14 (WP11): the keep-out claim carries an explicit fidelity-level tag
+    # with the dispersion-set id and the Wilson upper bound -- a zero never
+    # stands bare.
+    check(re.search(r"keep-out violations \*\*0 of \d+\*\* \[L0: linear CW, "
+                    r"dispersion set ds-v1, Wilson 95% upper bound 0\.\d+\]",
+                    pack) is not None,
+          "keep-out claim lacks the R14 level tag / Wilson upper bound")
     check("element" in pack[pack.find("TRL 4"):pack.find("TRL 4") + 200],
           "TRL 4 statement is not element-scoped")
     # citation discipline: the pack either cites fully or marks the gap -

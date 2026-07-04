@@ -44,7 +44,9 @@ package's own trade shows sail-only does NOT close there (section 4, open
 trade T1); the SL-8 class is where the modeled kit closes today. Campaign
 robustness under
 dispersions (N=500 runs/catalog, fixed seed 0x5AD5C0DECAFE2026): success (productive end)
-0.556 [0.512, 0.599] (Wilson 95%) for the SL-16 class; keep-out violation rate 0.014 [0.007, 0.029] (Wilson 95%).
+0.556 [0.512, 0.599] (Wilson 95%) for the SL-16 class; keep-out violations **0 of 500** [L0: linear CW, dispersion set ds-v1, Wilson 95% upper bound 0.0076]
+(WP11 clearing-abort law; the superseded pre-WP11 rate is archived in
+section 11 per R15).
 
 ## 2. Architecture and the installer argument
 
@@ -132,10 +134,26 @@ WP5 campaign CSVs.
   the 2.0 m/s thruster budget, the bounded-orbit property is LOST, and the
   code reports the actual propagated coast minimum (3565.7 m) instead of
   implying safety.
-- **Campaign-level keep-out exposure (WP5):** violation rate 0.014 [0.007, 0.029] (Wilson 95%) over 500
-  dispersed missions (SL-16 class; the SL-8 class matches at the same seed
-  discipline); abort-path exposure (runs with >= 1 closing-speed gate
-  abort) 0.444 [0.401, 0.488] (Wilson 95%) - the 0.15 m/s gate is genuinely exercised, not decorative.
+- **Campaign-level keep-out result (WP5/WP11, D13):** keep-out violations
+  **0 of 500** [L0: linear CW, dispersion set ds-v1, Wilson 95% upper bound 0.0076]
+  (SL-16 class; the SL-8 class matches at the same seed discipline). A zero
+  still carries an interval (R14). The WP11 clearing-abort law accepts an
+  abort only when the analytic post-burn ellipse clears the keep-out
+  sphere plus a design margin, and escalates otherwise; the independent
+  replay audit is `generated/wp11_abort_audit.md`, the archived pre-WP11
+  forensics are `generated/wp10_violation_forensics.md`, and the
+  superseded rate is archived in section 11 (R15). Abort-path exposure
+  (runs with >= 1 closing-speed gate abort) 0.444 [0.401, 0.488] (Wilson 95%) -
+  the 0.15 m/s gate is genuinely exercised, not decorative.
+- **Closed-loop translation guidance (WP11):** the L0 guided-approach
+  demo flies far approach -> hold -> sync -> final approach -> contact ->
+  retreat with a reachability screen evaluated before every committed
+  impulse (screen held at every step: yes). The contact speed is PRODUCED
+  by the glideslope-with-floor profile at 0.10 m/s (the 0.15 m/s gate is
+  retained as an independent check, closing the long-standing 'gate, not
+  guidance' known limit at L0); total demo Delta-v 2.53 m/s. [L0: linear
+  CW, truth-fed guidance, deterministic; mode machine and per-mode abort
+  conditions: `generated/wp11_guidance_modes.md`]
 
 ![WP5 keep-out rate](../generated/viz/wp5_keepout_rate.svg)
 
@@ -189,7 +207,7 @@ with Wilson 95% intervals - never point estimates alone:
 | success (productive end) | 0.556 [0.512, 0.599] (Wilson 95%) |
 | nonproductive termination | 0.444 [0.401, 0.488] (Wilson 95%) |
 | gate-abort exposure | 0.444 [0.401, 0.488] (Wilson 95%) |
-| keep-out violation | 0.014 [0.007, 0.029] (Wilson 95%) |
+| keep-out violation | 0.000 [0.000, 0.008] (Wilson 95%) [L0, ds-v1] |
 | removals per mission | p05 3 / p50 4 / p95 4 |
 | Delta-v used [m/s] | p05 124 / p50 124 / p95 136 |
 | sync arrival [s] | p05 14.47 / p50 17.68 / p95 20.09 |
@@ -198,8 +216,8 @@ with Wilson 95% intervals - never point estimates alone:
 
 Under the current flat PLACEHOLDER leg costs the nonproductive-
 termination and gate-abort RATES coincide numerically at this seed
-(aborting missions almost always also exhaust the Delta-v budget; a
-few end in a keep-out violation instead - see the runs CSV); they are
+(aborting missions almost always also exhaust the Delta-v budget;
+since WP11 none ends in a keep-out violation); they are
 distinct concepts and separate columns.
 The amortization curve (section 1) bottoms at N=4 because the **Delta-v
 budget, not the kit count, caps removals** - the honest capacity story a
@@ -236,8 +254,10 @@ real and is kept visible rather than resolved by fiat:
   real minimum-impulse-bit DACS would chatter or need reaction wheels.
 - **Estimator scope:** known target inertia (a real mission needs inertia
   identification), Gaussian sensor abstractions (no outliers/dropouts/
-  occlusions), sensor biases are knobs but not estimated, translation is
-  estimated but not used for control (no closed-loop rendezvous guidance).
+  occlusions), sensor biases are knobs but not estimated. The WP11
+  closed-loop translation guidance is truth-fed at L0: estimate-driven
+  translation guidance remains open (WP12 ladder, navigation-error
+  levels).
 - **Small-debris (1-10 cm) removal is out of scope (T6) - by physics, not
   neglect:** at 10 km/s the specific kinetic energy is 50.0 MJ/kg (12.0x TNT-
   specific-energy ratio); a 1 cm Al fragment carries 70.7 kJ (16.9 g TNT
@@ -425,6 +445,38 @@ Total marks: **95**
 | `src/flux.cpp:94` | std::fprintf(f, "PLACEHOLDER spatial densities: average %.1e /km^3, peak " |
 | `src/main.cpp:137` | std::printf("  target inertia diag: %.2f / %.2f / %.2f kg m^2 (PLACEHOLDER ratios)\n", |
 | `src/main_flux.cpp:33` | std::printf("\n[T6] collector exposure (>= 1 cm; PLACEHOLDER densities, cite MASTER-8)\n"); |
+
+## 11. Changelog - R15 pin supersessions
+
+Every change to a quoted number is recorded here with the superseded
+value, the physical/algorithmic reason, and where the old state is
+archived. Silent updates are banned (R15).
+
+- **WP11 (2026-07): campaign keep-out violation rate re-baselined.**
+  Superseded value: `0.014 [0.007, 0.029] (Wilson 95%)` per catalog
+  (7 of 500 runs in each), quoted here and in the README from WP5
+  through WP10; archived at the release tag `v0.10-phase0-baseline`
+  and forensically classified in `generated/wp10_violation_forensics.md`.
+  Reason (algorithmic, deliberate): WP10c classified every violation as
+  a clean-abort safety-ellipse keep-out intersection - the legacy
+  drift-null abort law bounds the post-abort orbit but does not make it
+  clear the keep-out sphere. WP11 (D13) replaced the campaign's
+  screened abort with the clearing-abort law (analytic ellipse
+  clearance + design margin, with a bounded radial reshape and a
+  two-impulse retreat-hop escalation). Dispersion set unchanged
+  (ds-v1, stamped in the runs CSV since schema 1.1): the comparison is
+  seed-for-seed. Current value: keep-out violations
+  **0 of 500** [L0: linear CW, dispersion set ds-v1, Wilson 95% upper bound 0.0076]
+  per catalog; independent replay audit in
+  `generated/wp11_abort_audit.md`. Campaign schema 1.0 -> 1.1
+  (additive: `dispersion_set_id`, `worst_abort_clearance_m`) in the
+  same change. The legacy GNC pins (19.15 / 424.3 / 16.87 / 17.07 s)
+  are untouched and still regression-tested; the legacy abort law
+  remains in the codebase with the forensic-14 regression
+  (`tests/test_forensic14.cpp`). Distribution rows that moved with the
+  14 re-baselined runs (dv_used, kits_used, removals, sync/mission
+  times, dv_exhausted and gate_abort counts) regenerate from the
+  committed CSVs as always.
 
 ---
 *Generated by `tools/evidence/make_evidence.py` from committed artifacts
