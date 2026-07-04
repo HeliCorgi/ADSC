@@ -332,32 +332,32 @@ Total marks: **95**
 |---|---|
 | `include/adsc/campaign.hpp:17` | // as a parameterized Delta-v / time cost (PLACEHOLDER, no plane-change |
 | `include/adsc/campaign.hpp:22` | // Dispersions (all PLACEHOLDER where not physically validated, centralized in |
-| `include/adsc/campaign.hpp:93` | // All PLACEHOLDER values are marked; none is a physically validated figure. |
-| `include/adsc/campaign.hpp:103` | double dv_budget_m_s       = 140.0;  // PLACEHOLDER servicer Delta-v budget [m/s] |
-| `include/adsc/campaign.hpp:105` | // Per-leg Delta-v cost model (PLACEHOLDER; parameterized, no plane-change |
-| `include/adsc/campaign.hpp:107` | double dv_approach_m_s = 8.0;    // PLACEHOLDER rendezvous/approach [m/s] |
-| `include/adsc/campaign.hpp:108` | double dv_sync_m_s     = 3.0;    // PLACEHOLDER proximity + attitude sync [m/s] |
-| `include/adsc/campaign.hpp:109` | double dv_depart_m_s   = 5.0;    // PLACEHOLDER safe departure [m/s] |
-| `include/adsc/campaign.hpp:110` | double dv_abort_m_s    = 4.0;    // PLACEHOLDER safe-abort maneuver [m/s] |
-| `include/adsc/campaign.hpp:111` | double dv_phasing_m_s  = 15.0;   // PLACEHOLDER inter-target phasing hop [m/s] |
-| `include/adsc/campaign.hpp:113` | // Per-leg time model (PLACEHOLDER), for the mission elapsed-time metric. |
-| `include/adsc/campaign.hpp:114` | double t_attach_s   = 300.0;      // PLACEHOLDER clamp + install [s] |
-| `include/adsc/campaign.hpp:115` | double t_depart_s   = 600.0;      // PLACEHOLDER departure settle [s] |
-| `include/adsc/campaign.hpp:116` | double t_phasing_s  = 86400.0;    // PLACEHOLDER inter-target phasing [s] |
-| `include/adsc/campaign.hpp:118` | // --- dispersions (PLACEHOLDER 1-sigma unless noted) --- |
-| `include/adsc/campaign.hpp:122` | double nominal_closing_m_s    = 0.10;   // PLACEHOLDER nominal capture closing speed [m/s] |
-| `include/adsc/campaign.hpp:123` | double disp_closing_sigma_m_s = 0.045;  // PLACEHOLDER (P(>0.15) ~ 0.13) [m/s] |
-| `include/adsc/campaign.hpp:126` | double disp_rel_pos_m   = 40.0;   // PLACEHOLDER per-axis initial rel-position [m] |
-| `include/adsc/campaign.hpp:127` | double disp_rel_vel_m_s = 0.02;   // PLACEHOLDER per-axis initial rel-velocity [m/s] |
-| `include/adsc/campaign.hpp:130` | double disp_tumble_rate_frac = 0.40;  // PLACEHOLDER fractional 1-sigma on /w_t/ [-] |
-| `include/adsc/campaign.hpp:131` | double disp_tumble_axis_rad  = 0.30;  // PLACEHOLDER tumble-axis tilt 1-sigma [rad] |
-| `include/adsc/campaign.hpp:132` | double disp_init_att_rad     = 0.35;  // PLACEHOLDER servicer att-offset 1-sigma [rad] |
-| `include/adsc/campaign.hpp:135` | double disp_actuator_scale        = 0.10;  // PLACEHOLDER ~+/-10% torque-scale 1-sigma [-] |
-| `include/adsc/campaign.hpp:136` | double disp_actuator_misalign_rad = 0.01;  // PLACEHOLDER axis-misalignment 1-sigma [rad] |
-| `include/adsc/campaign.hpp:140` | double disp_sensor_noise_frac = 0.30;   // PLACEHOLDER fractional 1-sigma on sensor sigmas [-] |
-| `include/adsc/campaign.hpp:141` | double disp_sensor_bias_rad   = 5.0e-4; // PLACEHOLDER sensor bias 1-sigma [rad] |
-| `include/adsc/campaign.hpp:145` | double nominal_solar_factor   = 1.0;   // PLACEHOLDER mean atmospheric-density factor [-] |
-| `include/adsc/campaign.hpp:146` | double disp_solar_factor_frac = 0.50;  // PLACEHOLDER fractional 1-sigma [-] |
+| `include/adsc/campaign.hpp:115` | // All PLACEHOLDER values are marked; none is a physically validated figure. |
+| `include/adsc/campaign.hpp:128` | double dv_budget_m_s       = 140.0;  // PLACEHOLDER servicer Delta-v budget [m/s] |
+| `include/adsc/campaign.hpp:130` | // Per-leg Delta-v cost model (PLACEHOLDER; parameterized, no plane-change |
+| `include/adsc/campaign.hpp:132` | double dv_approach_m_s = 8.0;    // PLACEHOLDER rendezvous/approach [m/s] |
+| `include/adsc/campaign.hpp:133` | double dv_sync_m_s     = 3.0;    // PLACEHOLDER proximity + attitude sync [m/s] |
+| `include/adsc/campaign.hpp:134` | double dv_depart_m_s   = 5.0;    // PLACEHOLDER safe departure [m/s] |
+| `include/adsc/campaign.hpp:135` | double dv_abort_m_s    = 4.0;    // PLACEHOLDER safe-abort maneuver [m/s] |
+| `include/adsc/campaign.hpp:136` | double dv_phasing_m_s  = 15.0;   // PLACEHOLDER inter-target phasing hop [m/s] |
+| `include/adsc/campaign.hpp:138` | // Per-leg time model (PLACEHOLDER), for the mission elapsed-time metric. |
+| `include/adsc/campaign.hpp:139` | double t_attach_s   = 300.0;      // PLACEHOLDER clamp + install [s] |
+| `include/adsc/campaign.hpp:140` | double t_depart_s   = 600.0;      // PLACEHOLDER departure settle [s] |
+| `include/adsc/campaign.hpp:141` | double t_phasing_s  = 86400.0;    // PLACEHOLDER inter-target phasing [s] |
+| `include/adsc/campaign.hpp:143` | // --- dispersions (PLACEHOLDER 1-sigma unless noted) --- |
+| `include/adsc/campaign.hpp:147` | double nominal_closing_m_s    = 0.10;   // PLACEHOLDER nominal capture closing speed [m/s] |
+| `include/adsc/campaign.hpp:148` | double disp_closing_sigma_m_s = 0.045;  // PLACEHOLDER (P(>0.15) ~ 0.13) [m/s] |
+| `include/adsc/campaign.hpp:151` | double disp_rel_pos_m   = 40.0;   // PLACEHOLDER per-axis initial rel-position [m] |
+| `include/adsc/campaign.hpp:152` | double disp_rel_vel_m_s = 0.02;   // PLACEHOLDER per-axis initial rel-velocity [m/s] |
+| `include/adsc/campaign.hpp:155` | double disp_tumble_rate_frac = 0.40;  // PLACEHOLDER fractional 1-sigma on /w_t/ [-] |
+| `include/adsc/campaign.hpp:156` | double disp_tumble_axis_rad  = 0.30;  // PLACEHOLDER tumble-axis tilt 1-sigma [rad] |
+| `include/adsc/campaign.hpp:157` | double disp_init_att_rad     = 0.35;  // PLACEHOLDER servicer att-offset 1-sigma [rad] |
+| `include/adsc/campaign.hpp:160` | double disp_actuator_scale        = 0.10;  // PLACEHOLDER ~+/-10% torque-scale 1-sigma [-] |
+| `include/adsc/campaign.hpp:161` | double disp_actuator_misalign_rad = 0.01;  // PLACEHOLDER axis-misalignment 1-sigma [rad] |
+| `include/adsc/campaign.hpp:165` | double disp_sensor_noise_frac = 0.30;   // PLACEHOLDER fractional 1-sigma on sensor sigmas [-] |
+| `include/adsc/campaign.hpp:166` | double disp_sensor_bias_rad   = 5.0e-4; // PLACEHOLDER sensor bias 1-sigma [rad] |
+| `include/adsc/campaign.hpp:170` | double nominal_solar_factor   = 1.0;   // PLACEHOLDER mean atmospheric-density factor [-] |
+| `include/adsc/campaign.hpp:171` | double disp_solar_factor_frac = 0.50;  // PLACEHOLDER fractional 1-sigma [-] |
 | `include/adsc/cost.hpp:25` | // emitted as a point value (R6/D10): only a cited RANGE via the PLACEHOLDER |
 | `include/adsc/cost.hpp:36` | // All parameters live in CostConfig and are marked PLACEHOLDER (R10). WP6 |
 | `include/adsc/cost.hpp:44` | // `altitude_km` under each weighting. PLACEHOLDER values -- fill with citations |
@@ -390,26 +390,26 @@ Total marks: **95**
 | `include/adsc/flux.hpp:39` | // >=1 cm population and the removal-fraction target. PLACEHOLDER (MASTER-8 |
 | `include/adsc/flux.hpp:41` | double population_ge_1cm       = 1.2e6;  // PLACEHOLDER object count |
 | `include/adsc/mission.hpp:29` | double target_altitude_km   = 825.0;   // PLACEHOLDER: SL-16-class band (D2) [km] |
-| `include/adsc/mission.hpp:41` | double sync_target_rate_deg_s = 2.0;    // PLACEHOLDER: tumble rate, spec range 0.5-5 [deg/s] |
-| `include/adsc/mission.hpp:42` | Eigen::Vector3d target_inertia_diag{1.0, 0.6, 0.3};  // PLACEHOLDER principal moments [kg m^2] |
-| `include/adsc/mission.hpp:52` | // acceleration, so the deadband bounds the hold error). PLACEHOLDER values. |
-| `include/adsc/mission.hpp:55` | // WP3: kit + deorbit-decay trades. PLACEHOLDER physical values (R10). |
-| `include/adsc/mission.hpp:64` | // min..max range, never a point value. PLACEHOLDER values: a single |
-| `include/adsc/mission.hpp:70` | double solar_min_density_factor = 0.5;  // PLACEHOLDER solar-min scaling |
-| `include/adsc/mission.hpp:71` | double solar_max_density_factor = 8.0;  // PLACEHOLDER solar-max scaling |
-| `include/adsc/mission.hpp:79` | // WP4: sensor + estimator abstractions. All PLACEHOLDER values (R10); |
-| `src/campaign.cpp:250` | // Inter-target phasing to the next target (PLACEHOLDER flat cost). |
-| `src/campaign.cpp:362` | // Under the current flat PLACEHOLDER Delta-v cost these coincide numerically |
-| `src/campaign.cpp:382` | "includes PLACEHOLDER phasing/attach/depart time"); |
-| `src/campaign.cpp:519` | "PLACEHOLDER Delta-v cost these two coincide numerically -- every " |
-| `src/campaign.cpp:532` | "PLACEHOLDER, so those quantities take a small set of quantized values " |
-| `src/campaign.cpp:571` | "/ dv_budget_m_per_s / m/s / WP5-native, PLACEHOLDER / mission Delta-v budget /\n" |
-| `src/campaign.cpp:572` | "/ dv_used_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / sum of leg costs /\n" |
-| `src/campaign.cpp:573` | "/ dv_remaining_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / budget minus used /\n" |
-| `src/campaign.cpp:578` | "/ mission_time_s / s / WP5-native, PLACEHOLDER-derived / elapsed incl. placeholder phasing /\n" |
-| `src/campaign.cpp:585` | "/ first_closing_speed_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / target-0 capture clo... |
-| `src/campaign.cpp:586` | "/ tumble_rate_deg_per_s / deg/s / WP5-native, PLACEHOLDER-derived / realized /w_t/ of first ... |
-| `src/campaign.cpp:587` | "/ solar_factor / - / WP5-native, PLACEHOLDER-derived / realized atmospheric-density factor (... |
+| `include/adsc/mission.hpp:46` | double sync_target_rate_deg_s = 2.0;    // PLACEHOLDER: tumble rate, spec range 0.5-5 [deg/s] |
+| `include/adsc/mission.hpp:47` | Eigen::Vector3d target_inertia_diag{1.0, 0.6, 0.3};  // PLACEHOLDER principal moments [kg m^2] |
+| `include/adsc/mission.hpp:57` | // acceleration, so the deadband bounds the hold error). PLACEHOLDER values. |
+| `include/adsc/mission.hpp:60` | // WP3: kit + deorbit-decay trades. PLACEHOLDER physical values (R10). |
+| `include/adsc/mission.hpp:69` | // min..max range, never a point value. PLACEHOLDER values: a single |
+| `include/adsc/mission.hpp:75` | double solar_min_density_factor = 0.5;  // PLACEHOLDER solar-min scaling |
+| `include/adsc/mission.hpp:76` | double solar_max_density_factor = 8.0;  // PLACEHOLDER solar-max scaling |
+| `include/adsc/mission.hpp:84` | // WP4: sensor + estimator abstractions. All PLACEHOLDER values (R10); |
+| `src/campaign.cpp:268` | // Inter-target phasing to the next target (PLACEHOLDER flat cost). |
+| `src/campaign.cpp:382` | // Under the current flat PLACEHOLDER Delta-v cost these coincide numerically |
+| `src/campaign.cpp:402` | "includes PLACEHOLDER phasing/attach/depart time"); |
+| `src/campaign.cpp:547` | "PLACEHOLDER Delta-v cost these two coincide numerically -- every " |
+| `src/campaign.cpp:563` | "PLACEHOLDER, so those quantities take a small set of quantized values " |
+| `src/campaign.cpp:602` | "/ dv_budget_m_per_s / m/s / WP5-native, PLACEHOLDER / mission Delta-v budget /\n" |
+| `src/campaign.cpp:603` | "/ dv_used_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / sum of leg costs /\n" |
+| `src/campaign.cpp:604` | "/ dv_remaining_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / budget minus used /\n" |
+| `src/campaign.cpp:609` | "/ mission_time_s / s / WP5-native, PLACEHOLDER-derived / elapsed incl. placeholder phasing /\n" |
+| `src/campaign.cpp:616` | "/ first_closing_speed_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / target-0 capture clo... |
+| `src/campaign.cpp:617` | "/ tumble_rate_deg_per_s / deg/s / WP5-native, PLACEHOLDER-derived / realized /w_t/ of first ... |
+| `src/campaign.cpp:618` | "/ solar_factor / - / WP5-native, PLACEHOLDER-derived / realized atmospheric-density factor (... |
 | `src/cost.cpp:321` | "debris-risk-reduction per cost; weighting is PLACEHOLDER (T5)"); |
 | `src/cost.cpp:324` | fr.band_weight, "normalized", "w(h) PLACEHOLDER; cite on fill"); |
 | `src/cost.cpp:350` | "PLACEHOLDER: fill a CITED range in WP7; no point-value dollar figure is claimed"); |
