@@ -7,4 +7,5 @@ evidence/**     text eol=lf
 tools/viz/*.py  text eol=lf
 tools/compliance/**  text eol=lf
 tools/evidence/**    text eol=lf
+tools/forensics/**   text eol=lf
 tools/*.sh      text eol=lf
