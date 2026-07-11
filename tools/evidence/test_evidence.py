@@ -107,11 +107,21 @@ def main():
                      (r"ds-v2", "L2 ladder re-verification (ds-v2 stream)"),
                      (r"\[L4: L0 dynamics \+ dropout",
                       "L4 estimate-driven guidance"),
-                     (r"\[L5: MIB/delay/fault", "L5 actuator realization")):
+                     (r"\[L5: MIB/delay/fault", "L5 actuator realization"),
+                     (r"\[model: EDT-v1 aligned-dipole",
+                      "EDT-v1 model-scope tag")):
         check(re.search(tag, pack) is not None,
               "pack lacks R14-tagged headline claim: %s" % why)
     check("element" in pack[pack.find("TRL 4"):pack.find("TRL 4") + 200],
           "TRL 4 statement is not element-scoped")
+    # T7 honesty check (WP13): libration/dynamic tether stability must be
+    # flagged as an open, unresolved risk -- never claimed solved.
+    check("libration" in low, "pack lacks 'libration' (T7 honesty check)")
+    check(re.search(r"\bT7\b", pack) is not None,
+          "pack lacks a 'T7' reference (T7 honesty check)")
+    check(re.search(r"UNRESOLVED", pack) is not None or
+          re.search(r"\bOPEN\b", pack) is not None,
+          "pack lacks 'UNRESOLVED' or 'OPEN' for the T7 libration caveat")
     # citation discipline: the pack either cites fully or marks the gap -
     # the marker must exist for the knowingly-unconfirmed external sources.
     check("[CITATION NEEDED - PLACEHOLDER" in pack,
@@ -167,6 +177,18 @@ def main():
             must_contain("%.0f..%.0f m^2" % (float(r["value_solar_max"]),
                                              float(r["value_solar_min"])),
                          "25-yr sail area range for %s" % r["catalog"])
+    # WP13 EDT-v1 deorbit-time band for the SL-16 / Zenit-2 catalog, formatted
+    # exactly as make_evidence.py's edt_band_str(row, f1) formats it.
+    wp13 = load_csv(os.path.join(g, "wp13_kit_trade.csv"))
+    for r in wp13:
+        if (r["catalog"] == "SL-16 / Zenit-2 second stage"
+                and r["record_type"] == "edt_years"):
+            must_contain("%.1f..%.1f" % (float(r["value_lo"]),
+                                         float(r["value_hi"])),
+                         "SL-16 EDT-v1 deorbit-time band (WP13)")
+            break
+    else:
+        check(False, "SL-16 edt_years row not found in wp13_kit_trade.csv")
     # rates with Wilson interval formatting
     for metric in ("success_rate", "keep_out_violation_rate",
                    "gate_abort_run_rate"):
