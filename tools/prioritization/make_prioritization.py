@@ -320,9 +320,11 @@ def build_rows(d):
                         "record_type=currency_anchor_derived); cross-checked "
                         "against that same file's own "
                         "record_type=cost_per_removal_musd row for this "
-                        "catalog/scenario -- identical by construction, since "
-                        "the anchor was itself derived from this catalog's "
-                        "baseline cost" % (cat, n, s, f6(anchors[s]["estimate"])))
+                        "catalog/scenario -- consistent to display precision "
+                        "(this tool multiplies by the 6dp-rounded anchor while "
+                        "the wp6 row uses the full-precision anchor, so the "
+                        "last printed digit can differ by rounding path)"
+                        % (cat, n, s, f6(anchors[s]["estimate"])))
             else:
                 note = ("= cost_per_removal_CU(catalog=%s;baseline N=%d) x "
                         "anchor_musd_per_cu[%s]=%s MUSD/CU (generated/"

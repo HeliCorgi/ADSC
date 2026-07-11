@@ -675,7 +675,7 @@ Total marks: **140** (decision-critical: **56**, moderate: **43**, cosmetic: **4
 | `src/main_metrics.cpp:351` | moderate | const double mib_m_s = 1.0e-3;  // PLACEHOLDER translation MIB [m/s] |
 | `src/main_metrics.cpp:355` | cosmetic | "contact velocity quantized at a 1e-3 m/s PLACEHOLDER translation " |
 | `tools/prioritization/make_prioritization.py:150` | cosmetic | "from 840-850 km) remains PLACEHOLDER: the McKnight ranking gives a " |
-| `tools/prioritization/make_prioritization.py:501` | cosmetic | "years band above folds libration in only as a flat PLACEHOLDER " |
+| `tools/prioritization/make_prioritization.py:503` | cosmetic | "years band above folds libration in only as a flat PLACEHOLDER " |
 | `tools/prioritization/test_prioritization.py:146` | cosmetic | check("PLACEHOLDER" in md_txt, |
 | `tools/prioritization/test_prioritization.py:148` | cosmetic | "still PLACEHOLDER") |
 | `tools/readme/fill_readme_numbers.py:244` | moderate | L.append("PLACEHOLDER* %sv cost the two coincide numerically %s every " |
