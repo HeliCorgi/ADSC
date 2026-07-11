@@ -476,7 +476,7 @@ in `include/`, `src/` and `tools/` carrying the uppercase PLACEHOLDER mark
 only in order to collect and audit it). If a value is listed here, treat
 it as unvalidated until a cited source replaces it.
 
-Total marks: **130**
+Total marks: **136**
 
 | location | line |
 |---|---|
@@ -508,28 +508,28 @@ Total marks: **130**
 | `include/adsc/campaign.hpp:166` | double disp_sensor_bias_rad   = 5.0e-4; // PLACEHOLDER sensor bias 1-sigma [rad] |
 | `include/adsc/campaign.hpp:170` | double nominal_solar_factor   = 1.0;   // PLACEHOLDER mean atmospheric-density factor [-] |
 | `include/adsc/campaign.hpp:171` | double disp_solar_factor_frac = 0.50;  // PLACEHOLDER fractional 1-sigma [-] |
-| `include/adsc/cost.hpp:25` | // emitted as a point value (R6/D10): only a cited RANGE via the PLACEHOLDER |
-| `include/adsc/cost.hpp:36` | // All parameters live in CostConfig and are marked PLACEHOLDER (R10). WP6 |
-| `include/adsc/cost.hpp:44` | // `altitude_km` under each weighting. PLACEHOLDER values -- fill with citations |
-| `include/adsc/cost.hpp:52` | double spatial;      // PLACEHOLDER normalized spatial-density weight |
-| `include/adsc/cost.hpp:53` | double criticality;  // PLACEHOLDER normalized criticality-style weight |
-| `include/adsc/cost.hpp:59` | // All PLACEHOLDER; grouped so nothing is a bare literal in the cost logic (R10). |
-| `include/adsc/cost.hpp:62` | double c_dev_cu           = 100.0;  // PLACEHOLDER program development (per-campaign allocati... |
-| `include/adsc/cost.hpp:63` | double c_bus_cu           = 3.0;    // PLACEHOLDER bus mass-CER coefficient [CU] |
-| `include/adsc/cost.hpp:64` | double c_bus_exponent     = 0.7;    // PLACEHOLDER bus mass-CER exponent [-] |
-| `include/adsc/cost.hpp:65` | double c_kit_cu           = 4.0;    // PLACEHOLDER per-kit cost [CU] |
-| `include/adsc/cost.hpp:66` | double c_launch_cu_per_kg = 0.5;    // PLACEHOLDER launch cost coefficient [CU/kg] |
-| `include/adsc/cost.hpp:67` | double c_ops_cu_per_day   = 2.0;    // PLACEHOLDER operations cost [CU/day] |
-| `include/adsc/cost.hpp:69` | // Launch band factor (higher / more-inclined orbits cost more). PLACEHOLDER. |
-| `include/adsc/cost.hpp:70` | double launch_band_ref_km        = 700.0;  // PLACEHOLDER reference altitude [km] |
-| `include/adsc/cost.hpp:71` | double launch_band_per_100km     = 0.06;   // PLACEHOLDER cost slope [-/100 km] |
-| `include/adsc/cost.hpp:72` | double launch_band_ref_incl_deg  = 60.0;   // PLACEHOLDER reference inclination [deg] |
-| `include/adsc/cost.hpp:73` | double launch_band_per_deg       = 0.004;  // PLACEHOLDER cost slope [-/deg] |
-| `include/adsc/cost.hpp:80` | double tornado_delta_frac = 0.30;   // PLACEHOLDER +/-30% |
-| `include/adsc/cost.hpp:85` | double cu_to_musd_low  = 0.0;  // PLACEHOLDER (cited range, WP7) |
-| `include/adsc/cost.hpp:86` | double cu_to_musd_high = 0.0;  // PLACEHOLDER (cited range, WP7) |
-| `include/adsc/cost.hpp:88` | // Normalized congestion-weight table (PLACEHOLDER; cite on fill). Peaks |
-| `include/adsc/cost.hpp:101` | // Launch band factor for a target band (PLACEHOLDER model). |
+| `include/adsc/cost.hpp:41` | // PLACEHOLDER (R10) and untouched by WP14. WP6/WP14 implement the cost model |
+| `include/adsc/cost.hpp:49` | // `altitude_km` under each weighting. PLACEHOLDER values -- fill with citations |
+| `include/adsc/cost.hpp:57` | double spatial;      // PLACEHOLDER normalized spatial-density weight |
+| `include/adsc/cost.hpp:58` | double criticality;  // PLACEHOLDER normalized criticality-style weight |
+| `include/adsc/cost.hpp:64` | // WP14 itemized absolute-cost row (low/mid/high, cited or PLACEHOLDER). Source: |
+| `include/adsc/cost.hpp:67` | // (analog) 2026-07-11]" / "[training-data extrapolation]" / "[PLACEHOLDER]" |
+| `include/adsc/cost.hpp:68` | // (D10: sourced-or-PLACEHOLDER, never fabricated). This table is separate |
+| `include/adsc/cost.hpp:87` | // All PLACEHOLDER; grouped so nothing is a bare literal in the cost logic (R10). |
+| `include/adsc/cost.hpp:90` | double c_dev_cu           = 100.0;  // PLACEHOLDER program development (per-campaign allocati... |
+| `include/adsc/cost.hpp:91` | double c_bus_cu           = 3.0;    // PLACEHOLDER bus mass-CER coefficient [CU] |
+| `include/adsc/cost.hpp:92` | double c_bus_exponent     = 0.7;    // PLACEHOLDER bus mass-CER exponent [-] |
+| `include/adsc/cost.hpp:93` | double c_kit_cu           = 4.0;    // PLACEHOLDER per-kit cost [CU] |
+| `include/adsc/cost.hpp:94` | double c_launch_cu_per_kg = 0.5;    // PLACEHOLDER launch cost coefficient [CU/kg] |
+| `include/adsc/cost.hpp:95` | double c_ops_cu_per_day   = 2.0;    // PLACEHOLDER operations cost [CU/day] |
+| `include/adsc/cost.hpp:97` | // Launch band factor (higher / more-inclined orbits cost more). PLACEHOLDER. |
+| `include/adsc/cost.hpp:98` | double launch_band_ref_km        = 700.0;  // PLACEHOLDER reference altitude [km] |
+| `include/adsc/cost.hpp:99` | double launch_band_per_100km     = 0.06;   // PLACEHOLDER cost slope [-/100 km] |
+| `include/adsc/cost.hpp:100` | double launch_band_ref_incl_deg  = 60.0;   // PLACEHOLDER reference inclination [deg] |
+| `include/adsc/cost.hpp:101` | double launch_band_per_deg       = 0.004;  // PLACEHOLDER cost slope [-/deg] |
+| `include/adsc/cost.hpp:108` | double tornado_delta_frac = 0.30;   // PLACEHOLDER +/-30% |
+| `include/adsc/cost.hpp:122` | // Normalized congestion-weight table (PLACEHOLDER; cite on fill). Peaks |
+| `include/adsc/cost.hpp:135` | // Launch band factor for a target band (PLACEHOLDER model). |
 | `include/adsc/decay.hpp:34` | DebrisCatalog catalog_D();  // US Delta-class stage (PLACEHOLDER) |
 | `include/adsc/decay.hpp:111` | double kit_mass_kg = 20.0;          // PLACEHOLDER EDT kit mass (tether + deployer + electron... |
 | `include/adsc/decay.hpp:112` | double avg_current_a = 2.0;         // PLACEHOLDER average bare-tether collected current, BET... |
@@ -569,15 +569,21 @@ Total marks: **130**
 | `src/campaign.cpp:640` | "/ first_closing_speed_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / target-0 capture clo... |
 | `src/campaign.cpp:641` | "/ tumble_rate_deg_per_s / deg/s / WP5-native, PLACEHOLDER-derived / realized /w_t/ of first ... |
 | `src/campaign.cpp:642` | "/ solar_factor / - / WP5-native, PLACEHOLDER-derived / realized atmospheric-density factor (... |
-| `src/cost.cpp:321` | "debris-risk-reduction per cost; weighting is PLACEHOLDER (T5)"); |
-| `src/cost.cpp:324` | fr.band_weight, "normalized", "w(h) PLACEHOLDER; cite on fill"); |
-| `src/cost.cpp:350` | "PLACEHOLDER: fill a CITED range in WP7; no point-value dollar figure is claimed"); |
-| `src/cost.cpp:365` | "PLACEHOLDER cited range, filled in WP7. All cost/FoM parameters are " |
-| `src/cost.cpp:366` | "PLACEHOLDER (see `CostConfig`). Cost, cost/removal and FoM are " |
-| `src/cost.cpp:414` | "tables are PLACEHOLDER and must be filled with citations.\n\n" |
-| `src/cost.cpp:448` | "/ notes / provenance / PLACEHOLDER caveats /\n" |
-| `src/cost.cpp:460` | "  sum m_i*w(h_i)/C_campaign (spec ?4). The two weightings are PLACEHOLDER and\n" |
-| `src/cost.cpp:467` | "- **currency_anchor** (global): `cu_to_musd_range` -- a PLACEHOLDER cited\n" |
+| `src/cost.cpp:18` | // ends with its verified-status flag; D10 (sourced-or-PLACEHOLDER, never |
+| `src/cost.cpp:74` | "do not invent a subscription figure. [PLACEHOLDER]"}, |
+| `src/cost.cpp:470` | // licensing_fcc_annual x3 yr, and the PLACEHOLDER ssa_tracking row |
+| `src/cost.cpp:524` | "debris-risk-reduction per cost; weighting is PLACEHOLDER (T5)"); |
+| `src/cost.cpp:527` | fr.band_weight, "normalized", "w(h) PLACEHOLDER; cite on fill"); |
+| `src/cost.cpp:590` | "licensing_fcc_annual*3yr and ssa_tracking (PLACEHOLDER) are " |
+| `src/cost.cpp:628` | "ssa_tracking (PLACEHOLDER, 0); outside the CU model and outside " |
+| `src/cost.cpp:720` | "sentinels left at 0.0. All cost/FoM parameters are PLACEHOLDER (see " |
+| `src/cost.cpp:769` | "tables are PLACEHOLDER and must be filled with citations.\n\n" |
+| `src/cost.cpp:819` | "/ notes / provenance / PLACEHOLDER caveats / WP14 arithmetic strings /\n" |
+| `src/cost.cpp:834` | "  sum m_i*w(h_i)/C_campaign (spec ?4). The two weightings are PLACEHOLDER and\n" |
+| `src/cost.cpp:859` | "  note (D10: every row is sourced-or-PLACEHOLDER; a PLACEHOLDER row's note\n" |
+| `src/cost.cpp:860` | "  ends `[PLACEHOLDER]` and its value is 0, never fabricated).\n" |
+| `src/cost.cpp:868` | "  licensing_fcc_application, licensing_fcc_annual, and the PLACEHOLDER\n" |
+| `src/cost.cpp:877` | "  licensing_fcc_annual x3 yr + ssa_tracking (PLACEHOLDER, 0), outside the CU\n" |
 | `src/decay.cpp:83` | return {"US Delta-class stage (PLACEHOLDER)", 0.0, 0.0, 0.0, true}; |
 | `src/flux.cpp:81` | "figures are PLACEHOLDER (MASTER-8 / ESA spatial-density class; cite at " |
 | `src/flux.cpp:94` | std::fprintf(f, "PLACEHOLDER spatial densities: average %.1e /km^3, peak " |
