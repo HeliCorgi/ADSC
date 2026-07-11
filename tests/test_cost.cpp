@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -35,6 +36,78 @@ static const AmortPoint* at_n(const CatalogCost& cq, int n) {
     for (const AmortPoint& a : cq.amortization)
         if (a.n_kits == n) return &a;
     return nullptr;
+}
+
+// Manual QUOTE-AWARE comma split (NOT std::getline-on-stringstream: that
+// silently drops a trailing empty field, e.g. the blank cost_scenario column
+// on every pre-WP14 row, misaligning every column-index lookup below).
+// Quote-awareness is REQUIRED: several WP14 quoted notes fields contain
+// literal commas (e.g. the currency_anchor_derived arithmetic note), so a
+// plain comma split would shift the cost_scenario column out of position.
+// RFC-4180-lite: '"' toggles the quoted state; a doubled '""' inside quotes
+// is an escaped quote; commas inside quotes are field content. Quotes are
+// stripped from the returned fields.
+static std::vector<std::string> split_csv_line(const std::string& line) {
+    std::vector<std::string> f;
+    std::string cur;
+    bool quoted = false;
+    for (std::size_t i = 0; i < line.size(); ++i) {
+        const char c = line[i];
+        if (quoted) {
+            if (c == '"') {
+                if (i + 1 < line.size() && line[i + 1] == '"') { cur += '"'; ++i; }
+                else quoted = false;
+            } else {
+                cur += c;
+            }
+        } else if (c == '"') {
+            quoted = true;
+        } else if (c == ',') {
+            f.push_back(cur);
+            cur.clear();
+        } else {
+            cur += c;
+        }
+    }
+    f.push_back(cur);
+    return f;
+}
+
+// schema 1.1 column order: 0 schema_version 1 catalog 2 record_type 3 n_kits
+// 4 param 5 weighting 6 metric 7 estimate 8 p05 9 p50 10 p95 11 units 12 notes
+// 13 cost_scenario.
+static std::vector<std::vector<std::string>> parse_csv_rows(const std::string& csv_text) {
+    std::vector<std::vector<std::string>> rows;
+    std::stringstream ss(csv_text);
+    std::string line;
+    std::getline(ss, line);  // header
+    while (std::getline(ss, line)) {
+        if (!line.empty()) rows.push_back(split_csv_line(line));
+    }
+    return rows;
+}
+
+// First row matching every non-null filter; returns the value at `col`
+// (std::atof) or a sentinel if no row matches. Pass nullptr to skip a filter,
+// or "" to require the column be literally blank.
+static double find_csv_val(const std::vector<std::vector<std::string>>& rows,
+                           const char* record_type, const char* metric,
+                           const char* weighting, const char* cost_scenario,
+                           int col) {
+    for (const std::vector<std::string>& f : rows) {
+        if (f.size() <= static_cast<std::size_t>(col)) continue;
+        if (record_type && f[2] != record_type) continue;
+        if (metric && f[6] != metric) continue;
+        if (weighting && f[5] != weighting) continue;
+        if (cost_scenario && f[13] != cost_scenario) continue;
+        return std::atof(f[col].c_str());
+    }
+    return -999999.0;  // sentinel: no matching row found
+}
+
+static bool ends_with(const std::string& s, const std::string& suffix) {
+    return s.size() >= suffix.size() &&
+          s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
 int main() {
@@ -179,14 +252,27 @@ int main() {
         const std::string header = txt.substr(0, txt.find('\n'));
         const char* cols[] = {"schema_version", "catalog", "record_type", "n_kits",
                               "param", "weighting", "metric", "estimate", "p05",
-                              "p50", "p95", "units", "notes"};
+                              "p50", "p95", "units", "notes", "cost_scenario"};
         for (const char* c : cols) CHECK(header.find(c) != std::string::npos);
         const char* rts[] = {"amortization", "fom", "tornado", "cost_component",
-                             "currency_anchor"};
+                             "currency_anchor", "cost_component_musd",
+                             "currency_anchor_derived", "campaign_cost_musd",
+                             "cost_per_removal_musd", "cost_per_risk_equiv_mass"};
         for (const char* rt : rts) CHECK(txt.find(rt) != std::string::npos);
 
-        // No point-value currency: '$' must never appear in any WP6 artifact,
-        // and the CU->currency anchor is left unfilled (low = high = 0).
+        // No point-value currency: '$' must never appear in any WP6/WP14
+        // artifact (this scan runs over `txt`/md/sch AFTER the WP14 rows are
+        // written, so it covers the new cost_component_musd /
+        // currency_anchor_derived / campaign_cost_musd / cost_per_removal_musd
+        // / cost_per_risk_equiv_mass(_musd) rows too -- no separate scan
+        // needed). `CostConfig::cu_to_musd_low/high` are UNUSED SENTINELS,
+        // intentionally left at 0.0 post-WP14: the real WP14 currency anchor
+        // is derived at runtime from the cited itemized table (see
+        // `currency_anchor_derived` checks below) and written straight into
+        // the CSV -- it never round-trips through these two config fields, so
+        // their ==0.0 assert below is still exactly what should hold, just
+        // for a different reason than pre-WP14 ("not yet filled" ->
+        // "deliberately bypassed").
         CHECK(txt.find('$') == std::string::npos);
         CHECK(slurp(md).find('$') == std::string::npos);
         CHECK(slurp(sch).find('$') == std::string::npos);
@@ -196,6 +282,79 @@ int main() {
         for (const std::string& wd : forbidden) {
             CHECK(txt.find(wd) == std::string::npos);
             CHECK(slurp(md).find(wd) == std::string::npos);
+        }
+
+        // 7b. WP14: itemized USD table + derived anchor/campaign-cost/
+        //     cost-per-risk rows written into the same CSV.
+        {
+            // Table shape + D10 (sourced-or-PLACEHOLDER, never fabricated):
+            // every row's note is non-empty and ends with one of the four
+            // verified-status flags.
+            int n_items = 0;
+            const CostItemUsd* items = wp14_cost_items(&n_items);
+            CHECK(n_items >= 11);
+            for (int i = 0; i < n_items; ++i) {
+                CHECK(items[i].item != nullptr && items[i].item[0] != '\0');
+                CHECK(items[i].unit != nullptr && items[i].unit[0] != '\0');
+                const std::string note = items[i].note ? items[i].note : "";
+                CHECK(!note.empty());
+                CHECK(ends_with(note, "[web-verified 2026-07-11]") ||
+                      ends_with(note, "[web-verified (analog) 2026-07-11]") ||
+                      ends_with(note, "[training-data extrapolation]") ||
+                      ends_with(note, "[PLACEHOLDER]"));
+            }
+
+            const std::vector<std::vector<std::string>> rows = parse_csv_rows(txt);
+
+            // currency_anchor_derived: a real, cited low<high range (distinct
+            // from the unused cu_to_musd_low/high sentinels above).
+            const double anchor_low =
+                find_csv_val(rows, "currency_anchor_derived", "anchor_musd_per_cu",
+                            nullptr, "low", 7);
+            const double anchor_high =
+                find_csv_val(rows, "currency_anchor_derived", "anchor_musd_per_cu",
+                            nullptr, "high", 7);
+            CHECK(anchor_low > 0.0);
+            CHECK(anchor_high > anchor_low);
+
+            // campaign_cost_musd: with_reserves (contingency applied over
+            // base_total, plus the additive insurance_line) strictly exceeds
+            // the pre-reserve base_total at every scenario that has a
+            // nonzero contingency pct; check the high scenario (contingency
+            // 30%, insurance 12% -- both nonzero, so the contingency
+            // multiplier is > 1 and insurance_line is a positive add-on, so
+            // the inequality is strict either way).
+            const double campaign_base_total_high =
+                find_csv_val(rows, "campaign_cost_musd", "base_total", nullptr,
+                            "high", 7);
+            const double campaign_with_reserves_high =
+                find_csv_val(rows, "campaign_cost_musd", "with_reserves", nullptr,
+                            "high", 7);
+            CHECK(campaign_base_total_high > 0.0);
+            CHECK(campaign_with_reserves_high > campaign_base_total_high);
+
+            // Inverse-FoM identity: cost_per_risk_equiv_mass (CU/kg) is
+            // DEFINED as the reciprocal of fom (kg/CU) at each percentile,
+            // with p05/p95 swapped (1/x is monotone-decreasing for x>0).
+            // Inverse-FoM identity BY CONSTRUCTION: each
+            // cost_per_risk_equiv_mass percentile is the reciprocal of the
+            // already-computed FoM percentile (NOT the percentile of a
+            // per-run-reciprocal distribution -- order statistics interpolate,
+            // so those would differ). The CSV stores the value through the
+            // fixed "%.6f" format, so the honest exact comparison is against
+            // the reciprocal ROUND-TRIPPED through the same format: identical
+            // strings parse to identical doubles.
+            const double csv_risk_p50_criticality = find_csv_val(
+                rows, "fom", "cost_per_risk_equiv_mass", "criticality", "", 9);
+            const double fom_p50_criticality =
+                report.catalogs.front().fom[1].fom_p50;  // index 1 == Criticality
+            CHECK(report.catalogs.front().fom[1].weighting == Weighting::Criticality);
+            CHECK(fom_p50_criticality > 0.0);
+            CHECK(csv_risk_p50_criticality > 0.0);
+            char expect_buf[64];
+            std::snprintf(expect_buf, sizeof expect_buf, "%.6f",
+                          1.0 / fom_p50_criticality);
+            CHECK(std::abs(csv_risk_p50_criticality - std::atof(expect_buf)) < 1e-15);
         }
     }
 
