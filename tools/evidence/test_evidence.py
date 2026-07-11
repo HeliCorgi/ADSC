@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""WP7 evidence-pack claim audit (registered with ctest as `evidence`).
+"""WP7 evidence-pack claim audit (registered with ctest as `evidence`);
+extended in WP15 (R16) to also audit docs/*.md.
 
   test_evidence.py <repo_root>
 
@@ -16,6 +17,11 @@ Checks (non-zero exit on any failure, R4):
   4. Determinism: two generator runs are byte-identical (SHA-256), and the
      regenerated pack matches the committed evidence/adsc_evidence_pack.md.
   5. Hygiene: ASCII only, no timestamp markers, referenced SVG figures exist.
+  6. (WP15/R16) docs/*.md: the same banned-word scan as (1) extends to every
+     docs/*.md file; every spec-mandated docs/ file exists; the R15 pin list
+     (the WP15 content map's headline pinned numbers) never appears as bare,
+     hand-typed prose outside a DOCS-*-START/END generated-include block --
+     see scan_docs_r16()'s own docstring for the exact enforcement scope.
 """
 import csv
 import hashlib
@@ -41,6 +47,209 @@ def sha(path):
 def load_csv(path):
     with open(path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
+
+
+# ---------------------------------------------------------------------------
+# WP15 (R16): docs/ claims-audit extension.
+# ---------------------------------------------------------------------------
+
+# Every docs/*.md file the spec mandates for WP15 (spec:270-274 core list +
+# the WP15 instructions' task 4 deliverables). Listed explicitly so a file
+# that goes missing (or gets renamed without updating this list) fails loudly
+# instead of being silently skipped.
+REQUIRED_DOCS = [
+    "concept.md", "technical_architecture.md", "gnc.md", "safety.md",
+    "target_selection.md", "cost_model.md", "legal_regulatory.md",
+    "limitations.md", "roadmap.md", "pitch_agencies.md",
+    "one_pager.md", "technical_summary_5p.md", "pitch_deck.md",
+    "release_engineering.md",
+]
+
+# R15 pin list (spec R15's named legacy GNC pins, plus the WP15 content map's
+# other headline pinned numbers -- amortization/FoM/anchor/sail-area figures)
+# that must never appear as bare, hand-typed prose in docs/*.md outside a
+# DOCS-*-START/END generated-include block (R16). This is an explicit,
+# growing literal-string list checked as exact substrings -- it mirrors the
+# R14 pattern-list precedent in check 2 below (an enumerated, hand-maintained
+# list that must grow with new headline numbers, not a general "any digit"
+# rule, which would false-positive on citation years/DOIs/page ranges -- see
+# the WP15 content map section 5, trap 4).
+R15_DOCS_PINS = [
+    "19.15", "424.3", "16.87", "17.07", "16.28", "0.333", "44.80", "157.07",
+    "0.285", "156.70", "200.90", "31.35", "21.32", "135..2155", "7..115",
+    "0.0076", "0.0130",
+]
+
+# Enforcement scope for the pin scan below (documented per the R14
+# pattern-list precedent, per WP15 instructions task 3):
+#   - A pin occurrence is EXEMPT if the line falls inside a committed
+#     DOCS-*-START/END marker block (fill_docs_numbers.py's generated-include
+#     mechanism already keeps that text byte-checked against its source CSV).
+#   - Otherwise a pin occurrence is EXEMPT if its own markdown paragraph (a
+#     run of consecutive non-blank lines -- the natural "logical line" of a
+#     wrapped markdown sentence, since these docs hand-wrap at ~78-80 cols),
+#     OR the very next paragraph (the "citation trailed after the prose"
+#     convention used throughout docs/), contains one of the four explicit
+#     reference phrases: "evidence pack", "generated/", "reference_metrics",
+#     "regenerate".
+#   - A pin occurrence is ALSO exempt if its paragraph contains the spec's
+#     fixed anchor phrase "clearance-verified aborts" -- the mandatory,
+#     verbatim approach-safety wording formula (spec section 1) pins 0.0076
+#     inline BY DESIGN (R15: "any further upgrade of this wording is itself
+#     an R15-documented change"); it is a fixed, board-approved SENTENCE, not
+#     a place a generated include belongs. This mirrors the pack's own
+#     "minimum cost (?!\\s+claim)" carve-out for its own reference sentence.
+#   - Anything else is a genuine violation: a number that should be sourced
+#     via the include mechanism or an explicit reference, hand-typed instead.
+_EXEMPT_PHRASES = ("evidence pack", "generated/", "reference_metrics",
+                    "regenerate")
+_FORMULA_ANCHOR = "clearance-verified aborts"
+_DOCS_MARKER_RE = re.compile(
+    r"<!-- DOCS-[A-Za-z0-9-]+-START.*?-->.*?<!-- DOCS-[A-Za-z0-9-]+-END -->",
+    re.DOTALL)
+
+
+def _marker_block_lines(text):
+    """Set of 0-based line indices that fall inside any committed
+    DOCS-*-START/END marker block (inclusive of the marker-comment lines
+    themselves)."""
+    lines_in_block = set()
+    for m in _DOCS_MARKER_RE.finditer(text):
+        start_line = text.count("\n", 0, m.start())
+        end_line = text.count("\n", 0, m.end())
+        lines_in_block.update(range(start_line, end_line + 1))
+    return lines_in_block
+
+
+def _paragraphs(lines):
+    """List of paragraphs, each a list of 0-based line indices, splitting on
+    blank lines (a markdown "paragraph" -- a tight bullet list with no blank
+    lines between items counts as one paragraph, which is deliberate: list
+    items commonly share a single citation for the whole list)."""
+    paras = []
+    current = []
+    for i, line in enumerate(lines):
+        if line.strip() == "":
+            if current:
+                paras.append(current)
+                current = []
+        else:
+            current.append(i)
+    if current:
+        paras.append(current)
+    return paras
+
+
+# Banned-word families (same concepts as the evidence-pack scan, check 1
+# above). Unlike the evidence pack -- which is written to avoid these words
+# ENTIRELY, so a bare re.search over the whole file works -- docs/ is more
+# discursive prose that explicitly DISCUSSES these very topics ("the only
+# path to TRL 5", "guarantees are model-scoped", "'minimum cost' ... is
+# banned"): an honest disclaiming/hedging sentence, not an overclaim. So each
+# match is checked against its own paragraph (a run of consecutive non-blank
+# lines) for one of these documented hedge/negation markers before being
+# treated as a genuine violation -- an explicit, growing allowlist, same
+# discipline as the R14 pattern list and the pack's own single
+# "minimum cost(?!\\s+claim)" carve-out, just generalized to docs/ prose:
+#   not / never / no       -- plain negation ("is not claimed", "no claim")
+#   banned                 -- self-referential ban statement
+#   reserved                -- the WP9-reserved framing (TRL/roadmap prose)
+#   requires                -- "reaching TRL 5 ... requires ..." framing
+#   only in / only path     -- explicit model/track scoping (tightened, not
+#                              bare "only", to avoid exempting a genuine
+#                              overclaim that happens to contain "only")
+#   model-scoped            -- the R14 explicit scoping tag
+#   lost                    -- "the ... guarantee is lost" (explicit failure
+#                              admission, the opposite of a claim)
+#   overclaims              -- meta-description of the audit's own banned-
+#                              word list (technical_architecture.md
+#                              describing what ctest `evidence` rejects)
+_DOCS_BANNED_PATTERNS = (
+    (r"flight[\s-]*(ready|proven)", "flight-ready/-proven"),
+    (r"proven\s+in\s+flight", "proven in flight"),
+    (r"guarantee", "guarantee(d/s)"),
+    (r"approved", "approved"),
+    (r"licensed", "licensed"),
+    (r"compliant\b", "compliant"),
+    (r"minimum[\s-]*cost(?!\s+claim)", "minimum cost (absolute claim)"),
+    (r"\bTRL\s*[56]\b", "TRL 5/6 claim"),
+)
+_HEDGE_RE = re.compile(
+    r"\b(not|never|no|banned|reserved|requires|lost|overclaims)\b"
+    r"|only (in|path)"
+    r"|model-scoped",
+    re.IGNORECASE)
+
+
+def scan_docs_r16(repo):
+    """Returns a list of human-readable failure strings for the WP15/R16
+    docs/ claims-audit extension: banned words (same families as the pack
+    scan above, hedge-context-aware -- see _DOCS_BANNED_PATTERNS), required
+    docs/ files present, and the R15 pin list never appearing as bare prose
+    outside a marker block or an exempt citation (see the enforcement-scope
+    comment above _EXEMPT_PHRASES)."""
+    docs_dir = os.path.join(repo, "docs")
+    problems = []
+
+    for name in REQUIRED_DOCS:
+        if not os.path.exists(os.path.join(docs_dir, name)):
+            problems.append("required docs/%s is missing" % name)
+
+    if not os.path.isdir(docs_dir):
+        return problems
+
+    for name in sorted(os.listdir(docs_dir)):
+        if not name.endswith(".md"):
+            continue
+        path = os.path.join(docs_dir, name)
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+
+        lines = text.split("\n")
+        block_lines = _marker_block_lines(text)
+        paras = _paragraphs(lines)
+        para_of_line = {}
+        for pi, para in enumerate(paras):
+            for li in para:
+                para_of_line[li] = pi
+
+        def context_for(li, lookahead=1):
+            pi = para_of_line.get(li)
+            covering = list(paras[pi]) if pi is not None else []
+            for k in range(1, lookahead + 1):
+                if pi is not None and pi + k < len(paras):
+                    covering = covering + list(paras[pi + k])
+            return "\n".join(lines[i] for i in covering)
+
+        for pat, why in _DOCS_BANNED_PATTERNS:
+            for m in re.finditer(pat, text, re.IGNORECASE):
+                li = text.count("\n", 0, m.start())
+                if li in block_lines:
+                    continue
+                if _HEDGE_RE.search(context_for(li)) is not None:
+                    continue
+                problems.append(
+                    "docs/%s:%d contains forbidden claim language with no "
+                    "nearby hedge/negation: %s" % (name, li + 1, why))
+
+        for pin in R15_DOCS_PINS:
+            for li, line in enumerate(lines):
+                if pin not in line:
+                    continue
+                if li in block_lines:
+                    continue
+                context = context_for(li)
+                if _FORMULA_ANCHOR in context:
+                    continue
+                if any(p in context for p in _EXEMPT_PHRASES):
+                    continue
+                problems.append(
+                    "docs/%s:%d has pin '%s' outside a DOCS-* marker block "
+                    "with no nearby evidence-pack/generated//"
+                    "reference_metrics/regenerate citation (R16)"
+                    % (name, li + 1, pin))
+
+    return problems
 
 
 def main():
@@ -254,6 +463,11 @@ def main():
         regen = f.read()
     check(regen.replace(b"\r\n", b"\n") == pack.replace("\r\n", "\n").encode("utf-8"),
           "regenerated pack differs from the committed one")
+
+    # 6. (WP15/R16) docs/ claims-audit extension: banned words, required
+    # files present, R15 pin list never bare-typed outside a marker block.
+    for problem in scan_docs_r16(repo):
+        check(False, problem)
 
     if fails:
         for m2 in fails:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""README marker-block filler (WP14 review item 0.4b / C4).
+"""README marker-block filler (WP14 review item 0.4b / C4; WP15 R16 digest).
 
   fill_readme_numbers.py <repo_root> [--check]
 
@@ -22,6 +22,16 @@ does not reflow). This closes the review's C4 finding: before this tool,
 README.md was hand-updated and could silently drift from the committed CSVs
 it claims to summarize.
 
+WP15 (proposal package, R16) shrank README's own blocks to a compact
+"Key results" digest (a handful of headline rows, ~4-6 lines each) --
+the full WP5/WP6 tables these blocks used to carry now live in
+docs/safety.md's DOCS-WP5-FULL block and docs/cost_model.md's DOCS-WP6-FULL
+block respectively, filled by the sibling tool `tools/docs/fill_docs_numbers.py`
+(which reuses this file's original, full-table template functions verbatim,
+renamed build_wp5_full()/build_wp6_full()). README's digest and docs/'s full
+tables are two independently-generated views of the SAME committed CSVs, so
+neither can drift from the other without a --check failure somewhere.
+
 Default mode rewrites README.md in place. `--check` instead exits non-zero
 if the regenerated blocks differ from the committed file (for CI: a stale
 README fails the build instead of silently drifting -- see ci.yml).
@@ -42,16 +52,11 @@ import sys
 # ---- Unicode glyphs used inside the README blocks, named so the source
 # ---- file itself stays ASCII-only (spec R11) while the generated text
 # ---- is not -- each is an explicit \uXXXX escape, never a literal byte.
-EM = "\u2014"     # em dash
-MINUS = "\u2212"  # minus sign (distinct from ASCII hyphen)
+# (The full-table glyph set -- GE/SUBI/SIGMA/DOT/PM/GG/MINUS -- moved with
+# the full-table builders to tools/docs/fill_docs_numbers.py in WP15; only
+# the two glyphs the compact digest still uses remain here.)
 DELTA = "\u0394"  # Greek capital delta (used for "Dv")
-GE = "\u2265"     # >=
 TIMES = "\u00d7"  # multiplication sign
-SUBI = "\u1d62"   # Latin subscript small letter i
-SIGMA = "\u03a3"  # Greek capital sigma
-DOT = "\u00b7"    # middle dot
-PM = "\u00b1"     # plus-minus sign
-GG = "\u226b"     # much-greater-than
 
 WP5_START = ("<!-- WP5-NUMBERS-START (filled from CI adsc_campaign, seed "
              "0x5AD5C0DECAFE2026) -->")
@@ -65,10 +70,6 @@ WP6_END = "<!-- WP6-NUMBERS-END -->"
 CATALOG_SHORT = {
     "SL-16 / Zenit-2 second stage": "SL-16",
     "SL-8 / Kosmos-3M second stage": "SL-8",
-}
-CATALOG_FOM_LABEL = {
-    "SL-16 / Zenit-2 second stage": "SL-16 (~9 t, 840 km)",
-    "SL-8 / Kosmos-3M second stage": "SL-8 (~1.4 t, 750 km)",
 }
 
 
@@ -130,16 +131,15 @@ class Wp6Data:
                 return r
         raise KeyError((catalog, record_type, metric, n_kits, weighting))
 
-    def first_row(self, catalog, record_type):
+    def anchor(self, scenario):
+        """currency_anchor_derived row for cost_scenario in {low, mid, high}
+        (WP14; catalog-blank, always at the baseline N)."""
         for r in self.rows:
-            if r["catalog"] == catalog and r["record_type"] == record_type:
+            if (r["record_type"] == "currency_anchor_derived"
+                    and r["metric"] == "anchor_musd_per_cu"
+                    and r["cost_scenario"] == scenario):
                 return r
-        raise KeyError((catalog, record_type))
-
-    def rows_of(self, catalog, record_type, metric):
-        return [r for r in self.rows
-                if r["catalog"] == catalog and r["record_type"] == record_type
-                and r["metric"] == metric]
+        raise KeyError(scenario)
 
 
 def rate_cell(row):
@@ -157,238 +157,91 @@ def ko_cell(row):
     return "%s [%s, %s]" % (rate_cell(row), m.group(1), m.group(2))
 
 
-def pctl(row, fmt):
-    return "%s / %s / %s" % (fmt(row["p05"]), fmt(row["p50"]), fmt(row["p95"]))
-
-
-def count(row):
-    return int(round(float(row["estimate"])))
-
-
-def build_wp5_block(d5):
-    A, B = d5.catalogs[0], d5.catalogs[1]
-    n_runs = d5.n_runs
-
-    succA, succB = d5.m(A, "success_rate"), d5.m(B, "success_rate")
-    nptA, nptB = (d5.m(A, "nonproductive_termination_rate"),
-                  d5.m(B, "nonproductive_termination_rate"))
-    gaA, gaB = d5.m(A, "gate_abort_run_rate"), d5.m(B, "gate_abort_run_rate")
-    koA, koB = (d5.m(A, "keep_out_violation_rate"),
-                d5.m(B, "keep_out_violation_rate"))
-    dvA, dvB = d5.m(A, "dv_used_m_per_s"), d5.m(B, "dv_used_m_per_s")
-    kuA, kuB = d5.m(A, "kits_used"), d5.m(B, "kits_used")
-    rmA, rmB = (d5.m(A, "removals_per_mission"),
-                d5.m(B, "removals_per_mission"))
-    syA, syB = d5.m(A, "sync_arrival_time_s"), d5.m(B, "sync_arrival_time_s")
-
-    dvexA, dvexB = count(d5.m(A, "dv_exhausted")), count(d5.m(B, "dv_exhausted"))
-    kitexA, kitexB = (count(d5.m(A, "kit_exhausted")),
-                      count(d5.m(B, "kit_exhausted")))
-    koCountA, koCountB = (count(d5.m(A, "keep_out_violation")),
-                          count(d5.m(B, "keep_out_violation")))
-    compA, compB = count(d5.m(A, "completed")), count(d5.m(B, "completed"))
-    gaCountA, gaCountB = (count(d5.m(A, "gate_abort")),
-                          count(d5.m(B, "gate_abort")))
-    stCountA, stCountB = (count(d5.m(A, "sync_timeout")),
-                          count(d5.m(B, "sync_timeout")))
-
-    m = re.search(r"level tag (\S+), dispersion set (\S+)", koA["notes"])
-    l0tag, dstag = m.group(1), m.group(2)
-    dv_limited_pct = int(round(100.0 * dvexA / n_runs))
-
-    L = []
-    L.append("The full N = %d campaign (both catalog presets) runs in a few "
-              "tens of seconds" % n_runs)
-    L.append("on a CI runner (see the Actions log of the current run for the "
-              "actual figure).")
-    L.append("`success` here means a **productive end** %s the mission "
-              "installed its" % EM)
-    L.append("full 4-kit complement (`kit_exhausted`) or cleared all 6 "
-              "targets (`completed`) %s" % EM)
-    L.append("not one cut short by %sv exhaustion or a keep-out violation."
-              % DELTA)
-    L.append("")
-    L.append("| metric | SL-16 / Zenit-2 class | SL-8 / Kosmos-3M class |")
-    L.append("|---|---|---|")
-    L.append("| success rate | %s | %s |" % (rate_cell(succA), rate_cell(succB)))
-    L.append("| nonproductive-termination rate (= 1 %s success) | %s | %s |"
-              % (MINUS, rate_cell(nptA), rate_cell(nptB)))
-    L.append("| gate-abort-run rate (abort-path exposure) | %s | %s |"
-              % (rate_cell(gaA), rate_cell(gaB)))
-    L.append("| keep-out-violation rate | %s | %s |"
-              % (ko_cell(koA), ko_cell(koB)))
-    L.append("| %sv used p05/p50/p95 [m/s] | %s | %s |"
-              % (DELTA, pctl(dvA, f0), pctl(dvB, f0)))
-    L.append("| kits used p05/p50/p95 | %s | %s |"
-              % (pctl(kuA, f0), pctl(kuB, f0)))
-    L.append("| removals/mission p05/p50/p95 | %s | %s |"
-              % (pctl(rmA, f0), pctl(rmB, f0)))
-    L.append("| sync arrival p05/p50/p95 [s] | %s | %s |"
-              % (pctl(syA, f2), pctl(syB, f2)))
-    L.append("| failure counts (runs) | dv_exhausted %d, kit_exhausted %d, "
-              "keep_out %d, completed %d | dv_exhausted %d, kit_exhausted "
-              "%d, keep_out %d, completed %d |"
-              % (dvexA, kitexA, koCountA, compA, dvexB, kitexB, koCountB, compB))
-    L.append("| per-target events | gate_abort %d, sync_timeout %d | "
-              "gate_abort %d, sync_timeout %d |"
-              % (gaCountA, stCountA, gaCountB, stCountB))
-    L.append("")
-    L.append("Two abort-related rates are reported and are deliberately "
-              "distinct:")
-    L.append("**`gate-abort-run rate`** is the abort-path exposure (fraction "
-              "of runs with %s 1" % GE)
-    L.append("closing-speed gate abort %s what the spec calls the \"abort "
-              "rate\"), while" % EM)
-    L.append("**`nonproductive-termination rate`** is 1 %s success. Under "
-              "the current *flat" % MINUS)
-    L.append("PLACEHOLDER* %sv cost the two coincide numerically %s every "
-              "aborting mission needs" % (DELTA, EM))
-    L.append("an extra target-slot to still install its kits and so "
-              "exhausts the 140 m/s")
-    L.append("budget %s but they are separate concepts and will diverge "
-              "once the cost model" % EM)
-    L.append("gains structure. The honest campaign finding: the servicer is "
-              "**%sv-limited about" % DELTA)
-    L.append("%d%% of the time** (`dv_exhausted` = %d/%d) and installs its "
-              "full kit" % (dv_limited_pct, dvexA, n_runs))
-    L.append("complement the rest; the attitude sync **never** times out "
-              "across the sampled")
-    L.append("tumble/attitude/actuator dispersions, and keep-out violations "
-              "are **%d of %d**" % (koCountA, n_runs))
-    L.append("per catalog [%s: linear CW, dispersion set %s, Wilson 95%% "
-              "upper bound" % (l0tag, dstag))
-    L.append("%s] %s the WP11 clearing-abort law accepts an abort only when "
-              "the analytic" % (f4(koA["wilson_high"]), EM))
-    L.append("post-burn ellipse clears keep-out plus a design margin "
-              "(mechanism forensics:")
-    L.append("`generated/wp10_violation_forensics.md`; audit:")
-    L.append("`generated/wp11_abort_audit.md`). `completed` (all 6 targets) "
-              "is 0 by")
-    L.append("construction %s 4 kits cannot service 6 targets. The `%sv "
-              "used` / `kits used`" % (EM, DELTA))
-    L.append("percentiles matching across the two presets is expected (a "
-              "flat PLACEHOLDER cost")
-    L.append("takes quantized, catalog-independent values %s not a "
-              "copy-paste bug). Full per-run" % EM)
-    L.append("records and the column schema are in "
-              "[generated/](generated/).")
-    return "\n".join(L)
-
-
-def build_wp6_block(d5, d6):
-    A, B = d5.catalogs[0], d5.catalogs[1]
-    Ashort, Bshort = CATALOG_SHORT[A], CATALOG_SHORT[B]
-    n_runs = d5.n_runs
-
+def amortization_min(d6, catalog):
+    """(nmin, cost_per_removal p50 at nmin, ratio_to_n1 p50 at nmin) -- nmin
+    is the kit count that minimizes cost/removal on the amortization sweep
+    (currently 4, Dv-budget-limited; computed, never hardcoded, so a future
+    model change that shifts the curve's minimum is picked up automatically)."""
     ns = sorted({int(r["n_kits"]) for r in d6.rows
                  if r["record_type"] == "amortization"
                  and r["metric"] == "cost_per_removal"})
-    cprA = {n: float(d6.q(A, "amortization", "cost_per_removal", n)["p50"])
-            for n in ns}
-    cprB = {n: float(d6.q(B, "amortization", "cost_per_removal", n)["p50"])
-            for n in ns}
-    nmin = min(ns, key=lambda n: cprA[n])
-    nmax = max(ns)
-    # Curated display subset (first 3 points, the curve minimum, one past
-    # it, and the sweep max) -- matches the committed table exactly and
-    # keeps it short; the full sweep is in the committed CSV.
-    display_ns = sorted(set(n for n in (1, 2, 3, nmin, nmin + 1, nmax)
-                             if n in ns))
+    cpr = {n: float(d6.q(catalog, "amortization", "cost_per_removal", n)["p50"])
+           for n in ns}
+    nmin = min(ns, key=lambda n: cpr[n])
+    ratio = float(d6.q(catalog, "amortization", "cost_per_removal_ratio_to_n1",
+                       nmin)["p50"])
+    return nmin, cpr[nmin], ratio
 
-    baseline_n = int(d6.first_row(A, "cost_component")["n_kits"])
 
-    ratio_min = float(d6.q(A, "amortization", "cost_per_removal_ratio_to_n1",
-                           nmin)["p50"])
-    pct_min = ratio_min * 100.0
-    saving_x = 1.0 / ratio_min
-    catalog_gap_pct = abs(cprA[nmin] - cprB[nmin]) / cprA[nmin] * 100.0
+def build_wp5_digest(d5):
+    """README's compact WP5 'Key results' digest (WP15): 4 headline rows out
+    of the full WP5 campaign table -- the full table moved to
+    docs/safety.md's DOCS-WP5-FULL block (tools/docs/fill_docs_numbers.py's
+    build_wp5_full(), the direct descendant of this function's pre-WP15
+    form)."""
+    A, B = d5.catalogs[0], d5.catalogs[1]
+    succA, succB = d5.m(A, "success_rate"), d5.m(B, "success_rate")
+    koA, koB = (d5.m(A, "keep_out_violation_rate"),
+                d5.m(B, "keep_out_violation_rate"))
+    dvA, dvB = d5.m(A, "dv_used_m_per_s"), d5.m(B, "dv_used_m_per_s")
+    rmA, rmB = (d5.m(A, "removals_per_mission"),
+                d5.m(B, "removals_per_mission"))
+
+    L = []
+    L.append("| campaign (N = %d/catalog) | %s class | %s class |"
+              % (d5.n_runs, CATALOG_SHORT[A], CATALOG_SHORT[B]))
+    L.append("|---|---|---|")
+    L.append("| productive-end rate | %s | %s |"
+              % (rate_cell(succA), rate_cell(succB)))
+    L.append("| keep-out violations | %s | %s |" % (ko_cell(koA), ko_cell(koB)))
+    L.append("| %sv used p50 [m/s] | %s | %s |"
+              % (DELTA, f0(dvA["p50"]), f0(dvB["p50"])))
+    L.append("| removals/mission p50 | %s | %s |"
+              % (f0(rmA["p50"]), f0(rmB["p50"])))
+    L.append("")
+    L.append("Full tables + failure taxonomy: [docs/safety.md](docs/safety.md).")
+    return "\n".join(L)
+
+
+def build_wp6_digest(d5, d6):
+    """README's compact WP6 'Key results' digest (WP15): 4 headline rows out
+    of the full amortization/FoM/tornado table -- the full table moved to
+    docs/cost_model.md's DOCS-WP6-FULL block (tools/docs/fill_docs_numbers.py's
+    build_wp6_full(), the direct descendant of this function's pre-WP15
+    form). The cost/removal-at-anchor row is computed here from the
+    amortization curve's own p50 (not from the CSV's separately-rounded
+    cost_per_removal_musd rows) so this digest and the anchor derivation
+    agree to the same %.2f -- the two are mathematically identical but were
+    rounded through slightly different intermediate values upstream."""
+    A = d5.catalogs[0]
+    Ashort = CATALOG_SHORT[A]
+
+    nmin, cpr_min, ratio_min = amortization_min(d6, A)
 
     fomA_sp = d6.q(A, "fom", "fom", weighting="spatial_density")
     fomA_cr = d6.q(A, "fom", "fom", weighting="criticality")
-    fomB_sp = d6.q(B, "fom", "fom", weighting="spatial_density")
-    fomB_cr = d6.q(B, "fom", "fom", weighting="criticality")
-    wA_sp = d6.q(A, "fom", "band_weight", weighting="spatial_density")
-    wA_cr = d6.q(A, "fom", "band_weight", weighting="criticality")
-    wB_sp = d6.q(B, "fom", "band_weight", weighting="spatial_density")
-    wB_cr = d6.q(B, "fom", "band_weight", weighting="criticality")
 
-    tornado = [r for r in d6.rows if r["catalog"] == A
-               and r["record_type"] == "tornado"
-               and r["metric"] == "cost_per_removal_swing"]
-    if len(tornado) != 5:
-        raise RuntimeError(
-            "expected exactly 5 tornado cost_per_removal_swing rows for %r, "
-            "got %d -- the WP6-NUMBERS tornado prose template is hardcoded "
-            "for a 5-parameter, 2-line wrap and needs a human rewrite if the "
-            "parameter count changes" % (A, len(tornado)))
-    items = [(r["param"], float(r["p50"])) for r in tornado]
+    anchor_low = float(d6.anchor("low")["p50"])
+    anchor_mid = float(d6.anchor("mid")["p50"])
+    anchor_high = float(d6.anchor("high")["p50"])
+    cost_low = cpr_min * anchor_low
+    cost_mid = cpr_min * anchor_mid
+    cost_high = cpr_min * anchor_high
 
     L = []
-    L.append("The full sweep (%d runs %s 2 catalogs %s N = %d..%d kits) runs "
-              "in a few tens of" % (n_runs, TIMES, TIMES, ns[0], nmax))
-    L.append("seconds on a CI runner (see the Actions log of the current run "
-              "for the actual")
-    L.append("figure), and the baseline (N = %d) removals reproduce the "
-              "committed WP5 CSV" % baseline_n)
-    L.append("exactly (`MATCH (schema 1.0 consumed)`).")
+    L.append("| cost/FoM (relative CU; WP14 MUSD ranges) | value |")
+    L.append("|---|---|")
+    L.append("| amortization minimum (N = %d) | **%s CU/removal = %s%s the "
+              "N = 1 baseline** |" % (nmin, f2(cpr_min), f3(ratio_min), TIMES))
+    L.append("| FoM p50, %s (spatial / criticality) | %s / %s kg/CU |"
+              % (Ashort, f2(fomA_sp["p50"]), f2(fomA_cr["p50"])))
+    L.append("| derived anchor (low / mid / high) | %s / %s / %s MUSD/CU |"
+              % (f4(anchor_low), f4(anchor_mid), f4(anchor_high)))
+    L.append("| cost/removal p50 at the anchor | %s / %s / %s MUSD |"
+              % (f2(cost_low), f2(cost_mid), f2(cost_high)))
     L.append("")
-    L.append("**Amortization curve %s cost/removal vs kits carried N (%s "
-              "class):**" % (EM, Ashort))
-    L.append("")
-    L.append("| N | cost/removal p50 [CU] | ratio to N=1 | removals p50 |")
-    L.append("|---:|---:|---:|---:|")
-    for n in display_ns:
-        cpr = float(d6.q(A, "amortization", "cost_per_removal", n)["p50"])
-        ratio = float(d6.q(A, "amortization", "cost_per_removal_ratio_to_n1",
-                           n)["p50"])
-        rem = float(d6.q(A, "amortization", "removals", n)["p50"])
-        if n == nmin:
-            L.append("| **%d** | **%s** | **%s** | %s |"
-                      % (n, f2(cpr), f3(ratio), f0(rem)))
-        else:
-            L.append("| %d | %s | %s | %s |" % (n, f2(cpr), f3(ratio), f0(rem)))
-    L.append("")
-    L.append("Batch amortization drives cost/removal down to **%s %% of the "
-              "single-target" % f1(pct_min))
-    L.append("(N = %d) baseline** %s a **%s%s per-removal saving** %s "
-              "bottoming at N = %d where the"
-              % (ns[0], EM, f1(saving_x), TIMES, EM, nmin))
-    L.append("**%sv budget (not the kit count)** caps removals at %d; "
-              "carrying more kits then" % (DELTA, nmin))
-    L.append("adds cost without removals and the curve turns back up. That "
-              "shape *is* the")
-    L.append("quantitative installer/batch argument (%s class is within "
-              "~%s %%)." % (Bshort, f1(catalog_gap_pct)))
-    L.append("")
-    L.append("**FoM = %s m%s%sw(h%s)/C_campaign at N = %d (p50, kg/CU):**"
-              % (SIGMA, SUBI, DOT, SUBI, baseline_n))
-    L.append("")
-    L.append("| catalog | spatial-density | criticality |")
-    L.append("|---|---:|---:|")
-    L.append("| %s | %s (w = %s) | %s (w = %s) |"
-              % (CATALOG_FOM_LABEL[A], f2(fomA_sp["p50"]), f2(wA_sp["estimate"]),
-                 f2(fomA_cr["p50"]), f2(wA_cr["estimate"])))
-    L.append("| %s | %s (w = %s) | %s (w = %s) |"
-              % (CATALOG_FOM_LABEL[B], f2(fomB_sp["p50"]), f2(wB_sp["estimate"]),
-                 f2(fomB_cr["p50"]), f2(wB_cr["estimate"])))
-    L.append("")
-    L.append("The ~9 t class outranks the ~1.4 t class under **both** "
-              "weightings (FoM is")
-    L.append("mass-dominated), but the **band weight flips** %s spatial "
-              "density values the" % EM)
-    L.append("750 km band more, the criticality index values the 840 km "
-              "band more %s a genuine" % EM)
-    L.append("metric-choice disagreement tracked as **open trade T5**. "
-              "**Tornado** (%s," % Ashort)
-    L.append("%s30 %%, ranked by cost/removal swing): `%s` (%s CU) %s `%s` "
-              "(%s) >"
-              % (PM, items[0][0], f1(items[0][1]), GG, items[1][0],
-                 f1(items[1][1])))
-    L.append("`%s` (%s) > `%s` (%s) > `%s` (%s). All"
-              % (items[2][0], f1(items[2][1]), items[3][0], f1(items[3][1]),
-                 items[4][0], f1(items[4][1])))
-    L.append("values are relative CU; **no absolute-dollar figure is "
-              "claimed**.")
+    L.append("Full model + sources-or-PLACEHOLDER itemization:")
+    L.append("[docs/cost_model.md](docs/cost_model.md).")
     return "\n".join(L)
 
 
@@ -401,8 +254,8 @@ def replace_block(text, start_marker, end_marker, new_body):
 
 
 def rewrite(text, d5, d6):
-    text = replace_block(text, WP5_START, WP5_END, build_wp5_block(d5))
-    text = replace_block(text, WP6_START, WP6_END, build_wp6_block(d5, d6))
+    text = replace_block(text, WP5_START, WP5_END, build_wp5_digest(d5))
+    text = replace_block(text, WP6_START, WP6_END, build_wp6_digest(d5, d6))
     return text
 
 

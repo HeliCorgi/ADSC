@@ -448,8 +448,9 @@ GuidedApproachReport GuidedApproach::fly() {
 // ============================================================================
 // WP12 L4: estimate-driven translation guidance
 // ----------------------------------------------------------------------------
-// Closes the WP11/README "estimate-driven translation guidance remains open"
-// known limit. Truth propagates the SAME deterministic CW dynamics as fly()
+// Closes the WP11 "estimate-driven translation guidance remains open" known
+// limit (docs/limitations.md, WP15: this limit moved out of README). Truth
+// propagates the SAME deterministic CW dynamics as fly()
 // above and receives MATCHED velocity process noise at each ranging interval
 // (mirrors run_estimated_sync, estimator.hpp/WP4); range + LOS-unit-vector
 // measurements are drawn from truth with the existing WP4 sigmas, gated by a

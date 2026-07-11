@@ -196,6 +196,14 @@ if(PYTHON3_EXECUTABLE)
     add_test(NAME readme_numbers COMMAND ${PYTHON3_EXECUTABLE}
              ${CMAKE_CURRENT_SOURCE_DIR}/tools/readme/test_readme_numbers.py
              ${CMAKE_CURRENT_SOURCE_DIR})
+    # WP15 docs/ marker-block filler (R16 mechanism): regenerates every
+    # DOCS-*-START/END marker block across docs/*.md from the committed CSVs
+    # they cite (the docs/ sibling of readme_numbers above) and checks
+    # --check mode passes against the committed files, catches a corrupted
+    # number, and is deterministic/idempotent.
+    add_test(NAME docs_numbers COMMAND ${PYTHON3_EXECUTABLE}
+             ${CMAKE_CURRENT_SOURCE_DIR}/tools/docs/test_docs_numbers.py
+             ${CMAKE_CURRENT_SOURCE_DIR})
 else()
-    message(WARNING "python3 not found; WP7a viz, WP8 compliance, WP7 evidence, WP10c forensics and WP14 prioritization tests not registered")
+    message(WARNING "python3 not found; WP7a viz, WP8 compliance, WP7 evidence, WP10c forensics, WP14 prioritization and WP15 docs_numbers tests not registered")
 endif()

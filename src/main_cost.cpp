@@ -1,6 +1,6 @@
 // WP6 cost/FoM driver: regenerates generated/wp6_cost_* and prints the
 // amortization curves, FoM table and tornado ranking (evidence for the PR /
-// README, R6/R12).
+// docs/cost_model.md, R6/R12; WP15: this moved out of README).
 //
 //   adsc_cost [n_runs] [out_dir]
 //

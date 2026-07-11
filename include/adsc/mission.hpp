@@ -255,7 +255,8 @@ struct ActuatorError {
     Eigen::Vector3d misalign_rad = Eigen::Vector3d::Zero();  // small-angle body misalignment [rad]
 
     // WP12 L5 additive fields (retires the "continuous-torque DACS
-    // approximation" README known limit): a real DACS delivers torque in
+    // approximation" known limit -- docs/limitations.md, WP15: this limit
+    // moved out of README): a real DACS delivers torque in
     // discrete minimum-impulse-bit (MIB) quanta, may lag the command by a
     // fixed number of control steps, and may carry a partial single-axis
     // fault. Neutral defaults (0 MIB = no quantization, 0 delay, fault_axis
