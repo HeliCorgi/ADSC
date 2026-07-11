@@ -1,6 +1,6 @@
 # WP6 Parametric cost model + FoM — summary
 
-Primary output is in **relative cost units (CU)**; **no point-value dollar figure is claimed** (R6/D10) -- the CU->currency anchor is a PLACEHOLDER cited range, filled in WP7. All cost/FoM parameters are PLACEHOLDER (see `CostConfig`). Cost, cost/removal and FoM are propagated **per run** from the WP5 campaign (schema 1.0) and reported as p05/p50/p95. Regenerate with `adsc_cost`.
+Primary output is in **relative cost units (CU)**; **no point-value dollar figure is claimed** (R6/D10) -- the CU->currency anchor is now DERIVED AT RUNTIME from the WP14 cited itemized cost table (see the `currency_anchor_derived` rows in the CSV), per cost_scenario (low/mid/high); `CostConfig::cu_to_musd_low/high` are superseded sentinels left at 0.0. All cost/FoM parameters are PLACEHOLDER (see `CostConfig`). Cost, cost/removal and FoM are propagated **per run** from the WP5 campaign (schema 1.0) and reported as p05/p50/p95. Regenerate with `adsc_cost`.
 
 ## SL-16 / Zenit-2 second stage
 
