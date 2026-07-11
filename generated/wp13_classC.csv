@@ -1,0 +1,7 @@
+schema_version,candidate,mass_kg,altitude_km,inclination_deg,metric,value,units,notes
+1.0,Zenit-2 stage (catalog_A),9000.0,840.0,71.0,v_circular_initial,7431.1551,m/s,"circular-orbit speed at the catalog altitude, v_c = sqrt(mu/r_a)"
+1.0,Zenit-2 stage (catalog_A),9000.0,840.0,71.0,target_perigee_radius,6411.0,km,"controlled-deorbit target perigee, mean-Earth-radius convention 6371+40 km (distinct from the WGS-84 kEarthRadius used for r_a)"
+1.0,Zenit-2 stage (catalog_A),9000.0,840.0,71.0,controlled_deorbit_dv,223.3998,m/s,"impulsive perigee-lowering burn from circular (RE+alt) to perigee 6371+40 km: dv = v_c*(1-sqrt(2*r_p/(r_a+r_p)))"
+1.0,Envisat-class (catalog_C),8211.0,780.0,98.4,v_circular_initial,7462.2344,m/s,"circular-orbit speed at the catalog altitude, v_c = sqrt(mu/r_a)"
+1.0,Envisat-class (catalog_C),8211.0,780.0,98.4,target_perigee_radius,6411.0,km,"controlled-deorbit target perigee, mean-Earth-radius convention 6371+40 km (distinct from the WGS-84 kEarthRadius used for r_a)"
+1.0,Envisat-class (catalog_C),8211.0,780.0,98.4,controlled_deorbit_dv,208.3495,m/s,"impulsive perigee-lowering burn from circular (RE+alt) to perigee 6371+40 km: dv = v_c*(1-sqrt(2*r_p/(r_a+r_p)))"
