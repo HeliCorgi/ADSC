@@ -422,7 +422,7 @@ in `include/`, `src/` and `tools/` carrying the uppercase PLACEHOLDER mark
 only in order to collect and audit it). If a value is listed here, treat
 it as unvalidated until a cited source replaces it.
 
-Total marks: **113**
+Total marks: **130**
 
 | location | line |
 |---|---|
@@ -476,8 +476,11 @@ Total marks: **113**
 | `include/adsc/cost.hpp:86` | double cu_to_musd_high = 0.0;  // PLACEHOLDER (cited range, WP7) |
 | `include/adsc/cost.hpp:88` | // Normalized congestion-weight table (PLACEHOLDER; cite on fill). Peaks |
 | `include/adsc/cost.hpp:101` | // Launch band factor for a target band (PLACEHOLDER model). |
-| `include/adsc/decay.hpp:33` | DebrisCatalog catalog_C();  // CZ upper-stage class (PLACEHOLDER) |
 | `include/adsc/decay.hpp:34` | DebrisCatalog catalog_D();  // US Delta-class stage (PLACEHOLDER) |
+| `include/adsc/decay.hpp:111` | double kit_mass_kg = 20.0;          // PLACEHOLDER EDT kit mass (tether + deployer + electron... |
+| `include/adsc/decay.hpp:112` | double avg_current_a = 2.0;         // PLACEHOLDER average bare-tether collected current, BET... |
+| `include/adsc/decay.hpp:113` | double eta_libration = 0.75;        // PLACEHOLDER libration/duty-cycle efficiency penalty [-... |
+| `include/adsc/decay.hpp:114` | double deploy_failure_prob = 0.05;  // PLACEHOLDER deployment-failure probability [-] (report... |
 | `include/adsc/flux.hpp:21` | // them. All debris-population figures are PLACEHOLDER, marked below and to be |
 | `include/adsc/flux.hpp:26` | // PLACEHOLDER-marked flux parameters (R10); the physical constants (aluminium |
 | `include/adsc/flux.hpp:34` | // Spatial number density of >=1 cm debris [objects / km^3]. PLACEHOLDER -- |
@@ -521,12 +524,26 @@ Total marks: **113**
 | `src/cost.cpp:448` | "/ notes / provenance / PLACEHOLDER caveats /\n" |
 | `src/cost.cpp:460` | "  sum m_i*w(h_i)/C_campaign (spec ?4). The two weightings are PLACEHOLDER and\n" |
 | `src/cost.cpp:467` | "- **currency_anchor** (global): `cu_to_musd_range` -- a PLACEHOLDER cited\n" |
-| `src/decay.cpp:63` | return {"CZ upper stage (PLACEHOLDER)", 0.0, 0.0, 0.0, true}; |
-| `src/decay.cpp:66` | return {"US Delta-class stage (PLACEHOLDER)", 0.0, 0.0, 0.0, true}; |
+| `src/decay.cpp:83` | return {"US Delta-class stage (PLACEHOLDER)", 0.0, 0.0, 0.0, true}; |
 | `src/flux.cpp:81` | "figures are PLACEHOLDER (MASTER-8 / ESA spatial-density class; cite at " |
 | `src/flux.cpp:94` | std::fprintf(f, "PLACEHOLDER spatial densities: average %.1e /km^3, peak " |
 | `src/main.cpp:137` | std::printf("  target inertia diag: %.2f / %.2f / %.2f kg m^2 (PLACEHOLDER ratios)\n", |
 | `src/main_flux.cpp:33` | std::printf("\n[T6] collector exposure (>= 1 cm; PLACEHOLDER densities, cite MASTER-8)\n"); |
+| `src/main_kit_trade.cpp:38` | "/cos i/..cos^2 i; libration T7 OPEN - PLACEHOLDER duty factor]"; |
+| `src/main_kit_trade.cpp:117` | // kit_mass (edt): NEW EdtConfig::kit_mass_kg, PLACEHOLDER. |
+| `src/main_kit_trade.cpp:120` | "\"installed EDT kit mass, PLACEHOLDER (EdtConfig::kit_mass_kg)\"\n", |
+| `src/main_kit_trade.cpp:124` | // deploy_risk: EdtConfig::deploy_failure_prob, PLACEHOLDER. Reported |
+| `src/main_kit_trade.cpp:128` | "\"PLACEHOLDER EDT deployment-failure probability " |
+| `src/main_kit_trade.cpp:203` | "  `EdtConfig::kit_mass_kg` (PLACEHOLDER). value = value_lo = value_hi (a\n" |
+| `src/main_kit_trade.cpp:205` | "- `deploy_risk`: `EdtConfig::deploy_failure_prob`, PLACEHOLDER. Reported\n" |
+| `src/main_kit_trade.cpp:219` | "libration T7 OPEN - PLACEHOLDER duty factor]`. This states the model scope\n" |
+| `src/main_kit_trade.cpp:228` | "PLACEHOLDER duty-cycle knob (`EdtConfig::eta_libration`) -- never claimed\n" |
+| `src/main_kit_trade.cpp:229` | "solved. Plasma electron density is a cited PLACEHOLDER parameter, not an\n" |
+| `src/main_kit_trade.cpp:366` | "**[CITATION NEEDED - PLACEHOLDER: per-object Ec analysis]**. Both " |
+| `src/main_kit_trade.cpp:427` | std::fprintf(f, "/ Zenit-2 / SL-16 (catalog_A) / PLACEHOLDER until WP14 / WP14 cost-range ite... |
+| `src/main_kit_trade.cpp:428` | std::fprintf(f, "/ Envisat-class (catalog_C) / PLACEHOLDER until WP14 / WP14 cost-range itemi... |
+| `src/main_kit_trade.cpp:466` | //     open risks (T7 libration, plasma Ne PLACEHOLDER). ------------------- |
+| `src/main_kit_trade.cpp:479` | "(T7, Pelaez et al. 2000) and plasma Ne (PLACEHOLDER solar-min/" |
 | `src/main_ladder.cpp:75` | // PLACEHOLDER bare-stage drag cross-sections (WP12 L2). Kept local to this |
 | `src/main_ladder.cpp:78` | constexpr double kSL16AreaM2 = 33.0;  // PLACEHOLDER SL-16 / Zenit-2 bare-stage cross-section... |
 | `src/main_ladder.cpp:79` | constexpr double kSL8AreaM2  = 7.5;   // PLACEHOLDER SL-8 / Kosmos-3M bare-stage cross-sectio... |
