@@ -180,6 +180,22 @@ if(PYTHON3_EXECUTABLE)
     add_test(NAME forensics COMMAND ${PYTHON3_EXECUTABLE}
              ${CMAKE_CURRENT_SOURCE_DIR}/tools/forensics/test_forensics.py
              ${CMAKE_CURRENT_SOURCE_DIR})
+    # WP14 prioritization table: a pure derived/joined view over
+    # wp6_cost_summary.csv + wp13_kit_trade.csv + wp5_campaign_summary.csv
+    # (Python 3 stdlib only, R9). Checks regeneration, hygiene/claims
+    # discipline, D10/R6 currency-range discipline, content, and
+    # determinism/committed-bytes reproducibility.
+    add_test(NAME prioritization COMMAND ${PYTHON3_EXECUTABLE}
+             ${CMAKE_CURRENT_SOURCE_DIR}/tools/prioritization/test_prioritization.py
+             ${CMAKE_CURRENT_SOURCE_DIR})
+    # WP14 README marker-block filler (review C4): regenerates the
+    # WP5-NUMBERS/WP6-NUMBERS marker blocks in README.md from the committed
+    # wp5_campaign_summary.csv/wp6_cost_summary.csv and checks --check mode
+    # passes against the committed file, catches a corrupted number, and is
+    # deterministic/idempotent.
+    add_test(NAME readme_numbers COMMAND ${PYTHON3_EXECUTABLE}
+             ${CMAKE_CURRENT_SOURCE_DIR}/tools/readme/test_readme_numbers.py
+             ${CMAKE_CURRENT_SOURCE_DIR})
 else()
-    message(WARNING "python3 not found; WP7a viz, WP8 compliance, WP7 evidence and WP10c forensics tests not registered")
+    message(WARNING "python3 not found; WP7a viz, WP8 compliance, WP7 evidence, WP10c forensics and WP14 prioritization tests not registered")
 endif()

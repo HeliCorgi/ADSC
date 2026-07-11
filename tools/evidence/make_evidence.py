@@ -18,6 +18,7 @@ Usage: make_evidence.py [repo_root]   (default: repo root above this file)
 import csv
 import json
 import os
+import re
 import sys
 
 OUT_REL = os.path.join("evidence", "adsc_evidence_pack.md")
@@ -56,6 +57,8 @@ class Data:
         self.wp12 = load_csv(os.path.join(g, "wp12_ladder.csv"))
         self.wp13 = load_csv(os.path.join(g, "wp13_kit_trade.csv"))
         self.wp13c = load_csv(os.path.join(g, "wp13_classC.csv"))
+        with open(os.path.join(g, "wp6_cost_schema.md"), encoding="utf-8") as f:
+            self.wp6_schema_md = f.read()
         with open(os.path.join(g, "t6_flux_sweep.md"), encoding="utf-8") as f:
             self.t6 = {}
             for line in f:
@@ -92,14 +95,50 @@ class Data:
                 return float(r["value"])
         raise KeyError((section, level, catalog, metric, item))
 
-    def wp6q(self, catalog, record_type, metric, n_kits=None, weighting=None):
+    def wp6q(self, catalog, record_type, metric, n_kits=None, weighting=None,
+             cost_scenario=None):
         for r in self.wp6:
             if (r["catalog"] == catalog and r["record_type"] == record_type
                     and r["metric"] == metric
                     and (n_kits is None or r["n_kits"] == str(n_kits))
-                    and (weighting is None or r["weighting"] == weighting)):
+                    and (weighting is None or r["weighting"] == weighting)
+                    and (cost_scenario is None
+                         or r["cost_scenario"] == cost_scenario)):
                 return r
-        raise KeyError((catalog, record_type, metric, n_kits, weighting))
+        raise KeyError((catalog, record_type, metric, n_kits, weighting,
+                        cost_scenario))
+
+    def wp6_item(self, param, cost_scenario):
+        """One WP14 itemized cost_component_musd row (global; catalog blank),
+        keyed by its item id (`param` column) and cost_scenario."""
+        for r in self.wp6:
+            if (r["record_type"] == "cost_component_musd"
+                    and r["param"] == param
+                    and r["cost_scenario"] == cost_scenario):
+                return r
+        raise KeyError(("wp6_item", param, cost_scenario))
+
+    def md_section(self, md_text, heading):
+        """The body text of one '## heading' section of a committed markdown
+        doc, as a single collapsed paragraph (blank lines dropped, internal
+        newlines joined with spaces) -- used to quote a doc section verbatim
+        without hand-retyping it, so the generator and the source cannot
+        drift apart."""
+        lines = md_text.splitlines()
+        start = None
+        for i, ln in enumerate(lines):
+            if ln.strip() == heading:
+                start = i + 1
+                break
+        if start is None:
+            raise KeyError(("md_section: heading not found", heading))
+        body = []
+        for ln in lines[start:]:
+            if ln.startswith("## "):
+                break
+            if ln.strip():
+                body.append(ln.strip())
+        return " ".join(body)
 
     def wp3_area25(self, catalog):
         for r in self.wp3:
@@ -135,6 +174,29 @@ def rate_str(row):
 
 def f4(v):
     return "%.4f" % float(v)
+
+
+def f6(v):
+    return "%.6f" % float(v)
+
+
+def note_lead(notes):
+    """The first sentence of a CSV `notes` field (up to the first '. '),
+    extracted mechanically rather than hand-retyping the whole (sometimes
+    long, third-party-citation-bearing) note."""
+    return notes.split(". ", 1)[0].rstrip(".") + "."
+
+
+def note_tag(notes):
+    """The trailing bracketed provenance tag of a CSV `notes` field (e.g.
+    '[PLACEHOLDER]' / '[training-data extrapolation]'), extracted
+    mechanically via the same bracket convention D10 already requires every
+    itemized cost row's note to end with."""
+    m = re.search(r"\[[^\[\]]*\]\s*$", notes.strip())
+    if not m:
+        raise ValueError("note has no trailing bracketed provenance tag: %r"
+                         % notes)
+    return m.group(0)
 
 
 def ko_claim(row, n_runs, ds_id):
@@ -195,6 +257,66 @@ def collect_placeholders(root):
                                 txt = txt[:93] + "..."
                             hits.append((rel, i, txt))
     return hits
+
+
+# ---- PLACEHOLDER importance classification (spec:260-264) ------------------
+# A small, explicit path+keyword rule table, evaluated top-to-bottom (first
+# match wins). Intent, not line-level precision (a handful of borderline
+# comment lines land one bucket over from a stricter reading -- acceptable
+# for a "reviewer triage" classification, not a formal audit):
+#   decision-critical: the mark sits on, or documents, a value that DIRECTLY
+#     re-bases a headline CU/MUSD/FoM number or a campaign safety/outcome
+#     rate if filled -- cost.hpp's CU coefficients and FoM weight tables
+#     (the entire file: every mark there is part of that one system), the
+#     cu-anchor itemized-cost-table rows in cost.cpp, decay.hpp's EdtConfig
+#     physical parameters, campaign.hpp's Delta-v/time dispersions and the
+#     capture-contact closing-speed threshold, mission.hpp's catalog-like
+#     target physical parameters, and decay.cpp's catalog mass/altitude/
+#     inclination constructors.
+#   cosmetic: the mark appears only inside a print/log statement or a
+#     doc-generator string being written into a schema/report markdown file
+#     -- never on the value itself (detected by shape: a printf/fprintf call,
+#     a raw string-literal continuation line, or a literal PLACEHOLDER string
+#     used only as a test-assertion target).
+#   moderate: everything else (structural comments, lower-priority /
+#     secondary-fidelity-ladder parameters not named above) -- the default.
+IMPORTANCE_WHOLE_FILE_CRITICAL = (
+    "include/adsc/cost.hpp",   # CU coefficients + FoM weight tables + cu-anchor doc
+    "src/decay.cpp",           # catalog mass/altitude/inclination constructors
+)
+IMPORTANCE_KEYWORD_CRITICAL = {
+    "include/adsc/decay.hpp": ("kit_mass_kg", "avg_current_a", "eta_libration",
+                              "deploy_failure_prob"),
+    "include/adsc/campaign.hpp": ("dv_", "t_attach_s", "t_depart_s",
+                                  "t_phasing_s", "disp_", "nominal_closing_m_s",
+                                  "nominal_solar_factor"),
+    "include/adsc/mission.hpp": ("target_altitude_km", "target_inertia_diag",
+                                 "sync_target_rate_deg_s",
+                                 "servicer_drag_area_m2",
+                                 "solar_min_density_factor",
+                                 "solar_max_density_factor"),
+}
+# cost.cpp's itemized-cost-table rows are C++ aggregate-initializer entries
+# ending "...]"...},"  (e.g. the ssa_tracking row) -- distinct from that same
+# file's surrounding prose/print-string lines.
+COST_CPP_ITEM_ROW_RE = re.compile(r'\]"\s*\}')
+# A print/log statement or a raw string-literal continuation line: printf(
+# call sites, lines that are themselves just a quoted string fragment, or
+# fragments ending in an escaped newline-then-quote (a printed line of text).
+PRINT_STRING_RE = re.compile(r'printf\(|^\s*"|\\n"\s*[\),;]*\s*$')
+
+
+def classify_importance(rel, txt):
+    if rel in IMPORTANCE_WHOLE_FILE_CRITICAL:
+        return "decision-critical"
+    if rel == "src/cost.cpp" and COST_CPP_ITEM_ROW_RE.search(txt):
+        return "decision-critical"
+    kws = IMPORTANCE_KEYWORD_CRITICAL.get(rel)
+    if kws and any(k in txt for k in kws):
+        return "decision-critical"
+    if PRINT_STRING_RE.search(txt) or 'check("PLACEHOLDER"' in txt:
+        return "cosmetic"
+    return "moderate"
 
 
 def build(d):
@@ -678,9 +800,10 @@ def build(d):
     w("The amortization curve (section 1) bottoms at N=%d because the **Delta-v"
       % nmin)
     w("budget, not the kit count, caps removals** - the honest capacity story a")
-    w("mission designer needs. Cost is RELATIVE (CU) throughout: **no absolute")
-    w("cost is predicted anywhere in this package**; the CU-to-currency anchor is")
-    w("a deliberately unfilled cited-range PLACEHOLDER. Parameter sensitivity is")
+    w("mission designer needs. Cost is RELATIVE (CU) throughout and stays the")
+    w("PRIMARY metric; WP14 additionally derives a cited absolute-cost RANGE")
+    w("(never a point value) from an itemized cost table, detailed in the")
+    w("'Absolute cost ranges (WP14)' subsection below. Parameter sensitivity is")
     w("ranked by a one-at-a-time tornado (development cost dominates):")
     w("")
     w("![WP6 tornado](../generated/viz/wp6_tornado.svg)")
@@ -694,6 +817,84 @@ def build(d):
     w("real and is kept visible rather than resolved by fiat:")
     w("")
     w("![WP6 FoM weightings](../generated/viz/wp6_fom_weightings.svg)")
+    w("")
+    w("### Absolute cost ranges (WP14)")
+    w("")
+    w("Spec D10 rule, quoted verbatim: \"Every row carries a source or stays")
+    w("PLACEHOLDER - this is D10 applied, not relaxed. Relative CU results")
+    w("remain primary.\" (adsc-specification-v5.md section 6, WP14). Every")
+    w("number in this subsection is read from the new WP14 rows of the")
+    w("committed `generated/wp6_cost_summary.csv` (schema %s) - nothing"
+      % d.wp6[0]["schema_version"])
+    w("hand-written.")
+    w("")
+    anchor = {s: d.wp6q("", "currency_anchor_derived", "anchor_musd_per_cu",
+                        cost_scenario=s) for s in ("low", "mid", "high")}
+    base_total = {s: d.wp6q("", "campaign_cost_musd", "base_total",
+                            cost_scenario=s) for s in ("low", "mid", "high")}
+    with_res = {s: d.wp6q("", "campaign_cost_musd", "with_reserves",
+                          cost_scenario=s) for s in ("low", "mid", "high")}
+    cpr_musd = {s: d.wp6q(A, "cost_per_removal_musd", "cost_per_removal",
+                          cost_scenario=s) for s in ("low", "mid", "high")}
+    w("**CU->currency anchor**, derived at runtime from a 5-component core of")
+    w("the itemized cost table (development + manufacturing_bus_unit +")
+    w("kit_unit_scaled_9t x baseline-N-kits + launch + operations_3yr): low")
+    w("**%s** MUSD/CU .. high **%s** MUSD/CU (mid %s MUSD/CU); low+high anchor"
+      % (f6(anchor["low"]["estimate"]), f6(anchor["high"]["estimate"]),
+         f6(anchor["mid"]["estimate"])))
+    w("values themselves come only from cited itemized rows (D10) - never a")
+    w("point-value dollar figure.")
+    w("")
+    w("| cost_scenario | anchor [MUSD/CU] | campaign base_total [MUSD] |"
+      " campaign with_reserves [MUSD] |")
+    w("|---|---:|---:|---:|")
+    for s in ("low", "mid", "high"):
+        w("| %s | %s | %s | %s |" % (s, f6(anchor[s]["estimate"]),
+                                     f2(base_total[s]["estimate"]),
+                                     f2(with_res[s]["estimate"])))
+    w("")
+    w("`base_total` is the 5-component anchor core plus the additive")
+    w("ground-segment/licensing/SSA-tracking rows (all outside the CU model);")
+    w("`with_reserves` additionally applies the contingency-reserve percentage")
+    w("and an asset+launch-scaled insurance line (arithmetic provenance for")
+    w("both is printed in full in each row's own `notes` field, see the CSV).")
+    w("")
+    w("**Cost per removal (%s class, baseline N, MUSD, p50 per"
+      % Ashort)
+    w("cost_scenario):** low **%s** / mid **%s** / high **%s** MUSD/removal."
+      % (f3(cpr_musd["low"]["p50"]), f3(cpr_musd["mid"]["p50"]),
+         f3(cpr_musd["high"]["p50"])))
+    cost_per_risk_cu = d.wp6q(A, "fom", "cost_per_risk_equiv_mass",
+                              weighting="criticality")
+    cost_per_risk_musd = d.wp6q(A, "fom", "cost_per_risk_equiv_mass_musd",
+                                weighting="criticality", cost_scenario="mid")
+    w("**Cost per risk-equivalent mass (criticality weighting), p50:** %s"
+      % f6(cost_per_risk_cu["p50"]))
+    w("CU/kg (%s MUSD/kg, mid cost_scenario) - the exact inverse orientation"
+      % f6(cost_per_risk_musd["p50"]))
+    w("of the FoM above (1/FoM by construction, not an independent")
+    w("computation - see the CSV row's own notes for the reciprocal-order-")
+    w("statistics caveat).")
+    w("")
+    ssa_row = d.wp6_item("ssa_tracking", "mid")
+    kit_row = d.wp6_item("kit_unit_scaled_9t", "mid")
+    w("**PLACEHOLDER/extrapolation flags, extracted (never hand-retyped)")
+    w("from the committed CSV's own notes -- the leading clause plus the")
+    w("trailing bracketed provenance tag, D10:**")
+    w("")
+    w("- `ssa_tracking`: \"%s\" ... %s"
+      % (note_lead(ssa_row["notes"]), note_tag(ssa_row["notes"])))
+    w("- `kit_unit_scaled_9t`: \"%s\" ... %s"
+      % (note_lead(kit_row["notes"]), note_tag(kit_row["notes"])))
+    w("")
+    honesty = d.md_section(
+        d.wp6_schema_md,
+        "## Honesty framing (D10, carried into every WP14 currency row)")
+    w("Honesty framing, quoted verbatim from `generated/wp6_cost_schema.md`")
+    w("(never hand-retyped, so the generator and the schema doc cannot")
+    w("drift apart):")
+    w("")
+    w("> %s" % honesty)
     w("")
     w("## 6. Limitations - stated plainly, none hidden")
     w("")
@@ -806,9 +1007,10 @@ def build(d):
     w("```")
     w("")
     w("`tools/regenerate_all.sh` is the single source of truth for regeneration")
-    w("order (campaign -> cost -> decay -> flux -> reference metrics -> figures ->")
-    w("compliance -> this document); CI runs exactly this script and enforces the")
-    w("byte-identity gate on every push. Measured wall time is printed to the CI")
+    w("order (campaign -> cost -> decay -> kit trade -> prioritization -> flux ->")
+    w("reference metrics -> figures -> compliance -> this document); CI runs")
+    w("exactly this script and enforces the byte-identity gate on every push.")
+    w("Measured wall time is printed to the CI")
     w("log (see the latest `build-and-test` run); it is intentionally never")
     w("embedded in artifacts, and it is well under the one-hour reproduction")
     w("budget (D10). Requirements: C++17 compiler, Eigen 3.3+, CMake, Python 3")
@@ -821,15 +1023,33 @@ def build(d):
     w("(R10), collected automatically by the generator of this document")
     w("(`tools/evidence/` itself is excluded from the scan - it names the marker")
     w("only in order to collect and audit it). If a value is listed here, treat")
-    w("it as unvalidated until a cited source replaces it.")
+    w("it as unvalidated until a cited source replaces it. Each mark also")
+    w("carries a machine-assigned **importance** (spec:260-264): whether filling")
+    w("it in with a citation would directly re-base a headline CU/MUSD/FoM")
+    w("number or campaign safety/outcome rate (`decision-critical`), whether it")
+    w("is a lower-priority or secondary-fidelity parameter (`moderate`), or")
+    w("whether the mark appears only in a print/log statement or doc-generator")
+    w("string, never on the value itself (`cosmetic`). Classification rule")
+    w("table: `tools/evidence/make_evidence.py::classify_importance` (a small")
+    w("explicit path+keyword table, not a formal per-line audit -- a handful of")
+    w("comment lines may land one bucket over from a stricter reading).")
     w("")
     hits = collect_placeholders(d.root)
-    w("Total marks: **%d**" % len(hits))
-    w("")
-    w("| location | line |")
-    w("|---|---|")
+    counts = {"decision-critical": 0, "moderate": 0, "cosmetic": 0}
+    classified = []
     for rel, i, txt in hits:
-        w("| `%s:%d` | %s |" % (rel, i, txt))
+        imp = classify_importance(rel, txt)
+        counts[imp] += 1
+        classified.append((rel, i, txt, imp))
+    w("Total marks: **%d** (decision-critical: **%d**, moderate: **%d**, "
+      "cosmetic: **%d**)"
+      % (len(hits), counts["decision-critical"], counts["moderate"],
+         counts["cosmetic"]))
+    w("")
+    w("| location | importance | line |")
+    w("|---|---|---|")
+    for rel, i, txt, imp in classified:
+        w("| `%s:%d` | %s | %s |" % (rel, i, imp, txt))
     w("")
     w("## 11. Changelog - R15 pin supersessions")
     w("")
