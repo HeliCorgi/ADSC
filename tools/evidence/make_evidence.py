@@ -497,6 +497,9 @@ def build(d):
     w("  %s s under the continuous-torque idealization - the long-standing"
       % f2(ref["wp2_sync_time_s"]))
     w("  continuous-torque caveat is RETIRED by measurement, not assumption.")
+    w("  (The earlier first-crossing under the degraded actuator is an")
+    w("  artifact of the first-crossing-then-dwell sync metric, not a")
+    w("  physical speed-up; the claim is only that sync still completes.)")
     w("  Guidance contact velocity quantized at a 1e-3 m/s translation MIB")
     w("  still meets the gate (%s m/s). [L5: MIB/delay/fault on the L0 sync"
       % f2(ref["wp12_l5_guided_contact_speed_m_s"]))

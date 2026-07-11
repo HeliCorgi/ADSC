@@ -234,6 +234,9 @@ per-orbit table for both geometries is in `generated/wp12_ladder.md`.
   1-step command delay, one axis at 50% authority): sync at 16.28 s vs
   16.87 s under the continuous-torque idealization - the long-standing
   continuous-torque caveat is RETIRED by measurement, not assumption.
+  (The earlier first-crossing under the degraded actuator is an
+  artifact of the first-crossing-then-dwell sync metric, not a
+  physical speed-up; the claim is only that sync still completes.)
   Guidance contact velocity quantized at a 1e-3 m/s translation MIB
   still meets the gate (0.10 m/s). [L5: MIB/delay/fault on the L0 sync
   demo, deterministic]

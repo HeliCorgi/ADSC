@@ -39,13 +39,15 @@ than a statistic.**
 Language discipline (binding on README, docs, evidence pack):
 - The project anchor phrase "Kessler-precursor removal" appears in all summary
   texts.
-- Until the WP11 completion criterion is met, approach safety is described as
-  **"passively-safe approach design with clearance-verified aborts (keep-out
-  violations 0/500 per catalog [L0, ds-v1, Wilson ≤ 0.0076])"** — never "strict
-  approach safety" or "safe satellite", because the current campaign shows a
-  nonzero keep-out violation rate. Upgrading this wording is itself an
-  R15-documented change. The WP11 completion criterion is met; the WP12
-  fidelity ladder re-verifies this at L1/L2 (see `generated/wp12_ladder.md`).
+- Approach safety is described as **"passively-safe approach design with
+  clearance-verified aborts (keep-out violations 0/500 per catalog [L0, ds-v1,
+  Wilson ≤ 0.0076])"** — never "strict approach safety" or "safe satellite".
+  History: until WP11 landed, the campaign showed a nonzero keep-out violation
+  rate (legacy pre-WP11 baseline 0.014 [0.007, 0.029], archived at the
+  `v0.10-phase0-baseline` release), which made the hedged wording mandatory;
+  WP11 met its completion criterion (0/500) and the WP12 fidelity ladder
+  re-verifies it at L1/L2 (see `generated/wp12_ladder.md`). Any further
+  upgrade of this wording is itself an R15-documented change.
 - "Minimum cost" as an absolute claim is banned. The defensible claim is
   **cost-effectiveness: cost per removal and cost per unit risk reduction.**
 
@@ -83,11 +85,14 @@ State at v5 adoption (master after PR #14):
   amortization at N=4; decay trade rows (e.g., 135–2155 m² / 7–115 m²);
   campaign rates as committed. Machine-readable pin list:
   generated/reference_metrics.csv.
-- Honest open items: 95 PLACEHOLDER constants (auto-inventoried);
+- Honest open items (state at v5 adoption — superseded values are archived in
+  the evidence pack §11 changelog; current counts live in the evidence pack
+  §10): 95 PLACEHOLDER constants (auto-inventoried);
   5 [CITATION NEEDED] items in the evidence pack; keep-out violation rate
-  0.014 [0.007, 0.029] per catalog; campaign sensor dispersions drawn but
-  not re-propagated; EDT is a parametric knob; TRL 4 (GNC software element,
-  laboratory/simulation environment).
+  0.014 [0.007, 0.029] per catalog (legacy pre-WP11 baseline — closed by
+  WP11; current: 0/500, Wilson ≤ 0.0076 [L0, ds-v1]); campaign sensor
+  dispersions drawn but not re-propagated; EDT is a parametric knob; TRL 4
+  (GNC software element, laboratory/simulation environment).
 
 ---
 
@@ -137,7 +142,10 @@ New:
   docs/, or the evidence pack carries an explicit fidelity-level tag
   (L0…L6, defined in WP12). Example: "keep-out violations: 0 of 500
   [L0: linear CW, dispersion set ds-v1, Wilson 95% upper bound 0.0076]".
-  Claims without a level tag fail the claims-audit test.
+  Headline claims are enforced by the claims-audit test through an
+  enumerated pattern list (`tools/evidence/test_evidence.py`); adding a new
+  headline safety/performance claim without adding its audit pattern is an
+  R14 violation. Non-headline claims carry tags by convention.
 - **R15 — Pin re-baselining protocol.** Quoted numbers may change only when
   the PR body contains a BEFORE/AFTER table, the physical/algorithmic reason,
   and the evidence pack gains a changelog entry archiving the old value and
@@ -234,7 +242,8 @@ Target classes: A low-altitude/light (sail; required area, deployment
 reliability, 25-yr and FCC-5-yr feasibility) · B high-altitude/medium (EDT,
 sail-hybrid) · C massive/high-risk (controlled reentry as a separate mission
 class; casualty risk, footprint, Δv, consent, cost — comparison against tug
-architectures allowed here only, same-target-set rule per R-cost below).
+architectures allowed here only, same-target-set rule per the WP14 bullet
+below).
 EDT minimum physics model (replacing the parametric knob):
 - tether length/mass parameterization; current model; simplified geomagnetic
   interaction with **inclination-dependent v×B efficiency (mandatory — at

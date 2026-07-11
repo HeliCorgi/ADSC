@@ -1,4 +1,4 @@
-# ADSC v4 — Active Debris Self-Cleanup
+# ADSC — Active Debris Self-Cleanup
 
 > **The product:** [**evidence/adsc_evidence_pack.md**](evidence/adsc_evidence_pack.md)
 > — the generated English evidence pack (executive summary, installer argument,
@@ -22,7 +22,7 @@ target; nothing in this repo assumes or enables unconsented approach to another
 state's object. Governing value: **claims must match implementation** — every
 number in this README is regenerable by running committed code.
 
-**v4 status (work-package based):** WP1 (relative orbital motion + passive
+**Status (work-package based):** WP1 (relative orbital motion + passive
 safety), the F1/F2 honesty follow-ups, WP2 (tumble synchronization), WP3
 (attach event + kit decay trades, mission reflowed into
 approach→sync→attach→depart phases), WP4 (estimator + sensor models — the
@@ -116,8 +116,9 @@ implemented; v3 continues that discipline.
   forced off, L2 reproduces L1 **bit-for-bit**. Re-verifies every committed
   campaign abort event and the pinned forensic-14 states at L1/L2 with
   **zero** keep-out violations [L1: ds-v1; L2: ds-v2; Wilson 95% upper bound
-  0.0130 per catalog], and measures safety-ellipse margin decay over
-  repeated orbits (`generated/wp12_ladder.{csv,md}`). Adds **L4**
+  0.0130 over the 292 (catalog A) / 291 (catalog B) re-verified abort events], and
+  measures safety-ellipse margin decay over repeated orbits
+  (`generated/wp12_ladder.{csv,md}`). Adds **L4**
   estimate-driven guidance (translation EKF in the loop, under measurement
   dropout and an unestimated range-bias walk) and **L5** a delta-sigma
   minimum-impulse-bit actuator model (command delay + single-axis fault),
@@ -132,7 +133,10 @@ implemented; v3 continues that discipline.
   keep-out-clearing relative orbit. The attach reports the **contact-energy
   budget** ½·m·v² at `max_v_rel` (≈ 0.33 J for the 29.6 kg servicer at
   0.15 m/s) — the no-fragmentation-at-contact argument for a geometry-keyed
-  clamp with mechanical compliance. Unit-tested (`tests/test_mission.cpp`). The v2
+  clamp with mechanical compliance. (Mass basis: dry + kit, propellant-empty;
+  with maximum residual propellant the worst case is ≈ 0.41 J = ½·36.8 kg·
+  (0.15 m/s)² — the gate speed is the conservative term, the mass term is
+  not.) Unit-tested (`tests/test_mission.cpp`). The v2
   `post_capture_stabilization` is retained only as the detumble regression
   reference; the installer paradigm does not detumble the multi-tonne target.
 - **Kit deorbit-decay trades (WP3)** (`decay`): a quasi-circular drag-decay
@@ -296,7 +300,12 @@ verify rather than a claim in prose.
   vs **16.87 s** continuous (`wp12_l5_sync_time_s` = 16.280000,
   `wp2_sync_time_s` = 16.870000, `generated/reference_metrics.csv`). Honest
   remainder: the MIB magnitude is PLACEHOLDER and ideal duty-cycling (no
-  thruster hardware model, no minimum on-time) is still assumed.
+  thruster hardware model, no minimum on-time) is still assumed. The
+  16.28 s < 16.87 s ordering is a metric artifact — the first-crossing-then-
+  dwell criterion lets a bang-bang limit cycle graze the tolerance box
+  slightly earlier under quantization — not a physical speed-up from
+  degradation; the claim is only that sync still completes under MIB +
+  delay + fault.
 - **Thermal model is a single lumped PCM bucket** — no eclipse/sunlight
   radiative balance, no per-node conduction.
 - **Closed-loop rendezvous guidance: L0 truth-fed (WP11) plus L4
@@ -506,7 +515,8 @@ printed by `./build/test_sync`.
 Reproducible WP3 numbers (regenerate with `./build/adsc_sim`, scenario 6): the
 installer mission reaches all phases (approach corridor closest 424.3 m → sync
 at 16.87 s → attach → depart, bounded coast 400 m) for a catalog-A-mass target,
-with a **contact-energy budget of 0.333 J** (29.6 kg servicer at 0.15 m/s) — the
+with a **contact-energy budget of 0.333 J** (29.6 kg servicer at 0.15 m/s,
+dry+kit mass basis — worst case with residual propellant ≈ 0.41 J) — the
 no-fragmentation-at-contact argument. The sail-only decay trade to the 180 km
 handoff (range = solar max .. solar min) makes the honest structure concrete:
 

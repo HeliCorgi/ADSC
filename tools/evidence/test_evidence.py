@@ -99,6 +99,17 @@ def main():
                     r"dispersion set ds-v1, Wilson 95% upper bound 0\.\d+\]",
                     pack) is not None,
           "keep-out claim lacks the R14 level tag / Wilson upper bound")
+    # R14 pattern list: headline fidelity-scoped claims keep their level tags.
+    # This list must grow with new claim types (adding a headline claim
+    # without adding its audit pattern is an R14 violation - spec v5 R14).
+    for tag, why in ((r"\[L0: linear CW", "L0 keep-out/guidance claims"),
+                     (r"\[L1: two-body\+J2", "L1 ladder re-verification"),
+                     (r"ds-v2", "L2 ladder re-verification (ds-v2 stream)"),
+                     (r"\[L4: L0 dynamics \+ dropout",
+                      "L4 estimate-driven guidance"),
+                     (r"\[L5: MIB/delay/fault", "L5 actuator realization")):
+        check(re.search(tag, pack) is not None,
+              "pack lacks R14-tagged headline claim: %s" % why)
     check("element" in pack[pack.find("TRL 4"):pack.find("TRL 4") + 200],
           "TRL 4 statement is not element-scoped")
     # citation discipline: the pack either cites fully or marks the gap -
