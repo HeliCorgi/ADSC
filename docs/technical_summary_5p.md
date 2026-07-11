@@ -1,6 +1,9 @@
 # ADSC — Technical Summary
 
-*A 5-page-equivalent technical summary for reviewers who want the mechanism,
+*A 5-page-equivalent technical summary of ADSC — an open, reproducible
+evidence package for **Kessler-precursor removal**: a small servicer installs
+a passive deorbit kit on the massive derelicts that would otherwise become
+the next fragment clouds, and departs. For reviewers who want the mechanism,
 not just the headline. Every safety/performance claim below carries its
 fidelity tag (L0…L6, WP12); numbers are stated by reference to a committed
 artifact, never re-derived. Scope: TRL 4, GNC software element only; not
