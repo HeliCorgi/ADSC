@@ -294,8 +294,9 @@ int main(int argc, char** argv) {
     }
 
     // --- WP12 L4: estimate-driven closed-loop translation guidance (closes
-    //     the WP11/README "estimate-driven translation guidance remains
-    //     open" known limit). Same Config otherwise; only guid_estimate_driven
+    //     the WP11 "estimate-driven translation guidance remains open" known
+    //     limit -- docs/limitations.md, WP15: this limit moved out of
+    //     README). Same Config otherwise; only guid_estimate_driven
     //     flips true, so this is a SEPARATE demo run, not a mutation of the
     //     wp11_rep above. ---
     {
@@ -319,7 +320,8 @@ int main(int argc, char** argv) {
     }
 
     // --- WP12 L5: minimum-impulse-bit (MIB) actuator realization -- retires
-    //     the README "continuous-torque DACS approximation" known limit with
+    //     the "continuous-torque DACS approximation" known limit
+    //     (docs/limitations.md, WP15: this limit moved out of README) with
     //     a MEASURED statement (R14). Neutral-default byte-identity of
     //     run_tumble_sync/ActuatorError is guarded by tests/test_ladder.cpp
     //     and tests/test_campaign.cpp; this demo exercises the NON-neutral

@@ -239,7 +239,8 @@ EstimatedSyncReport run_estimated_sync(const Config& cfg,
     P0_rel.block<3, 3>(3, 3) = s_wt * s_wt * Eigen::Matrix3d::Identity();
     // The filter's "known" target inertia is the same (regularized) tensor the
     // truth target actually propagates with — the known-inertia assumption is
-    // exact in this simulation and documented as a limitation in the README.
+    // exact in this simulation and documented as a limitation in
+    // docs/limitations.md (WP15: this limitation moved out of README).
     // Initial-error draws are hoisted into named locals: function-argument
     // evaluation order is unspecified, and the RNG draw order must be fixed
     // for the run to be reproducible across compilers (R6).

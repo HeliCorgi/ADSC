@@ -27,7 +27,8 @@ namespace adsc {
 // misalignment). Sensor noise/bias dispersions are drawn and their realized
 // scale is recorded, but their closed-loop effect is characterized by the WP4
 // estimate-driven acceptance rather than re-simulated in every campaign run --
-// a documented WP5 simplification (see README known limits).
+// a documented WP5 simplification (see docs/limitations.md; WP15: this
+// known limit moved out of README).
 //
 // Keep-out abort screen (WP10c / WP11): the per-target gate-abort event calls
 // the abort law from the outer departure standoff, perturbed by the
@@ -161,7 +162,8 @@ struct CampaignConfig {
     double disp_actuator_misalign_rad = 0.01;  // PLACEHOLDER axis-misalignment 1-sigma [rad]
 
     // Sensor (drawn + recorded; NOT propagated through the truth-driven sync --
-    // see the header note and README known limits).
+    // see the header note and docs/limitations.md; WP15: this known limit
+    // moved out of README).
     double disp_sensor_noise_frac = 0.30;   // PLACEHOLDER fractional 1-sigma on sensor sigmas [-]
     double disp_sensor_bias_rad   = 5.0e-4; // PLACEHOLDER sensor bias 1-sigma [rad]
 

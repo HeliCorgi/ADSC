@@ -1,11 +1,13 @@
 // WP5 campaign driver: regenerates the committed generated/ artifacts and
-// prints a human-readable summary (evidence for the PR / README, R6/R12).
+// prints a human-readable summary (evidence for the PR / docs/safety.md,
+// R6/R12).
 //
 //   adsc_campaign [n_runs] [out_dir]
 //
 // Defaults: n_runs = CampaignConfig::n_runs (500, the full campaign target),
 // out_dir = "generated". Pass a smaller n_runs for a fast CI subset without
-// touching the committed full-campaign files (README documents the split).
+// touching the committed full-campaign files (docs/safety.md documents the
+// split; WP15: this moved out of README).
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>

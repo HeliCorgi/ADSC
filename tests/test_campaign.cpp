@@ -102,8 +102,9 @@ int main() {
         CHECK(a.sync_time_s == b.sync_time_s);
         CHECK(a.max_rate_err_deg_s == b.max_rate_err_deg_s);
         CHECK(a.max_att_err_deg == b.max_att_err_deg);
-        // The quoted WP2 number (README 16.87 s) must not drift through the
-        // ActuatorError refactor of run_tumble_sync.
+        // The quoted WP2 number (docs/gnc.md 16.87 s -- WP15: this moved out
+        // of README) must not drift through the ActuatorError refactor of
+        // run_tumble_sync.
         CHECK(a.synced && std::abs(a.sync_time_s - 16.87) < 0.02);
     }
 
