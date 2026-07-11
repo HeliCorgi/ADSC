@@ -13,25 +13,27 @@ set -euo pipefail
 cd "$(dirname "$0")/.."          # repo root
 BUILD="${1:-build}"
 
-echo "[1/10] WP5 campaign Monte Carlo (N=500 x 2 catalogs)"
+echo "[1/11] WP5 campaign Monte Carlo (N=500 x 2 catalogs)"
 "$BUILD/adsc_campaign" 500 generated
-echo "[2/10] WP12 fidelity ladder (L0/L1/L2 re-verification of the WP5 abort events)"
+echo "[2/11] WP12 fidelity ladder (L0/L1/L2 re-verification of the WP5 abort events)"
 "$BUILD/adsc_ladder" 500 generated
-echo "[3/10] WP6 cost model + FoM (kit sweep, consumes WP5)"
+echo "[3/11] WP6 cost model + FoM (kit sweep, consumes WP5)"
 "$BUILD/adsc_cost" 500 generated
-echo "[4/10] WP3 decay-trade CSV"
+echo "[4/11] WP3 decay-trade CSV"
 "$BUILD/decay_trade" generated
-echo "[5/10] T6 small-debris flux sweep"
+echo "[5/11] WP13 kit-class trade + class-C controlled-reentry comparison"
+"$BUILD/kit_trade" generated
+echo "[6/11] T6 small-debris flux sweep"
 "$BUILD/flux_sweep" generated
-echo "[6/10] WP7 reference metrics (WP1/F1/WP2/WP3/WP4 pinned numbers)"
+echo "[7/11] WP7 reference metrics (WP1/F1/WP2/WP3/WP4 pinned numbers)"
 "$BUILD/sim_metrics" generated
-echo "[7/10] WP10c keep-out violation forensics (read-only replay of WP5)"
+echo "[8/11] WP10c keep-out violation forensics (read-only replay of WP5)"
 python3 tools/forensics/make_forensics.py
-echo "[8/10] WP7a visualization pack"
+echo "[9/11] WP7a visualization pack"
 python3 tools/viz/make_viz.py . generated/viz
-echo "[9/10] WP8 compliance precheck + matrix (not legal advice)"
+echo "[10/11] WP8 compliance precheck + matrix (not legal advice)"
 python3 tools/compliance/check_compliance.py
 python3 tools/compliance/generate_matrix.py
-echo "[10/10] WP7 evidence pack"
+echo "[11/11] WP7 evidence pack"
 python3 tools/evidence/make_evidence.py
 echo "regenerate_all: complete"

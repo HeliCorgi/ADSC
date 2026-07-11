@@ -1,6 +1,7 @@
 #include "adsc/decay.hpp"
 
 #include <cmath>
+#include <limits>
 
 namespace adsc {
 
@@ -34,6 +35,16 @@ constexpr Band kBands[] = {
 constexpr int kNumBands = static_cast<int>(sizeof(kBands) / sizeof(kBands[0]));
 constexpr double kSecondsPerYear = 365.25 * 86400.0;
 
+// SPENVIS (ESA/BIRA-IASB Space Environment Information System), "Dipole
+// approximations of the geomagnetic field", centred-dipole IGRF epoch-2000
+// values: equatorial surface field B0 and the reference (mean) Earth radius
+// used in the dipole formula (https://www.spenvis.oma.be/help/background/
+// magfield/cd.html, web-verified 2026-07-11, wp13-literature.md Topic 4).
+// Deliberately NOT kEarthRadius (WGS-84 equatorial, relmotion.hpp): the cited
+// dipole formula is defined against this specific mean-radius reference.
+constexpr double kB0 = 3.01153e-5;               // T
+constexpr double kDipoleRefRadius_m = 6371200.0;  // m
+
 }  // namespace
 
 double atmospheric_density(double altitude_m, double solar_factor) {
@@ -60,7 +71,13 @@ DebrisCatalog catalog_B() {
     return {"SL-8 / Kosmos-3M second stage", 1400.0, 750.0, 78.0, false};
 }
 DebrisCatalog catalog_C() {
-    return {"CZ upper stage (PLACEHOLDER)", 0.0, 0.0, 0.0, true};
+    // Envisat (ESA): mass 8211 kg (Service Module 2673 + PEB 1021 + Payload
+    // Carrier 2078 + fuel 319 + instruments 2118 kg); sun-synchronous orbit
+    // ~765-800 km, inclination ~98.4-98.55 deg; defunct since April 2012 --
+    // the archetypal massive / controlled-reentry-class Class-C target.
+    // eoPortal (https://www.eoportal.org/satellite-missions/envisat),
+    // web-verified 2026-07-11 (wp13-literature.md Topic 6, item 1).
+    return {"Envisat-class massive SSO payload", 8211.0, 780.0, 98.4, false};
 }
 DebrisCatalog catalog_D() {
     return {"US Delta-class stage (PLACEHOLDER)", 0.0, 0.0, 0.0, true};
@@ -94,6 +111,69 @@ double area_for_target_years(const DebrisCatalog& target, double target_years,
 double edt_deorbit_days(double a0_m, double a_stop_m, double delta_a_per_day_m) {
     if (delta_a_per_day_m <= 0.0 || a0_m <= a_stop_m) return 0.0;
     return (a0_m - a_stop_m) / delta_a_per_day_m;
+}
+
+EdtResult edt_deorbit_years(const DebrisCatalog& target, const EdtConfig& cfg,
+                            double stop_altitude_km) {
+    EdtResult result{};
+
+    // Magnitude |cos i|: the passive tether's induced-current direction is set
+    // by the motional-EMF sign (Lenz), so the along-track Lorentz force is
+    // ALWAYS a drag. For a retrograde orbit (i > 90 deg, e.g. the class-C
+    // sun-synchronous candidate) the EMF polarity reverses but the deorbit
+    // force magnitude scales with |cos i|, not signed cos i.
+    const double cos_i = std::cos(target.inclination_deg * kPi / 180.0);
+    const double abs_cos_i = std::fabs(cos_i);
+    result.eta_hi = abs_cos_i;
+    result.eta_lo = cos_i * cos_i;
+
+    const double a0 = kEarthRadius + target.altitude_km * 1000.0;
+    const double Bn0 = kB0 * std::pow(kDipoleRefRadius_m / a0, 3.0) * abs_cos_i;
+    const double v0 = std::sqrt(kEarthMu / a0);
+    // EMF/power reported as magnitudes; polarity reverses for retrograde
+    // orbits (diagnostic only -- the drag sign is unaffected, see above).
+    result.emf_v = v0 * Bn0 * cfg.tether_length_m;
+    result.power_w = result.emf_v * cfg.avg_current_a;
+
+    if (abs_cos_i <= 1e-6) {
+        // Exactly-polar orbit: the aligned-dipole orbit-normal field is zero
+        // everywhere on the orbit (wp13-edt-derivation.md Section 6, limit
+        // L3), so the along-track EDT force -> 0 identically, not just on
+        // average. This is the correct physics for the aligned-dipole
+        // idealization, not a numerical artifact. (Retrograde orbits with
+        // |cos i| > 0, e.g. i = 98.4 deg, are handled normally above.)
+        result.years_optimistic = std::numeric_limits<double>::infinity();
+        result.years_conservative = std::numeric_limits<double>::infinity();
+        return result;
+    }
+
+    const double a_stop = kEarthRadius + stop_altitude_km * 1000.0;
+    const double m = target.mass_kg + cfg.kit_mass_kg;
+    if (a0 <= a_stop || m <= 0.0) {
+        result.years_optimistic = 0.0;
+        result.years_conservative = 0.0;
+        return result;
+    }
+
+    // Optimistic edge: F_hi(a) = I * L * B_n(a) * eta_lib
+    //                          = (I * L * kB0 * kDipoleRefRadius_m^3 * |cos i| * eta_lib) / a^3
+    //                          = C_hi / a^3.
+    // Conservative edge: F_lo(a) = F_hi(a) * |cos i| = C_lo / a^3
+    // (wp13-edt-derivation.md Section 5: the two current-limit regimes).
+    const double C_hi = cfg.avg_current_a * cfg.tether_length_m * kB0 *
+                        std::pow(kDipoleRefRadius_m, 3.0) * abs_cos_i * cfg.eta_libration;
+    const double C_lo = C_hi * abs_cos_i;
+
+    // Quasi-circular spiral under F(a) = C / a^3:
+    //   da/dt = -2*F(a)*a^1.5/(m*sqrt(mu)) = -(2*C/(m*sqrt(mu))) * a^-1.5
+    //   => a^1.5 da = -(2*C/(m*sqrt(mu))) dt
+    //   => (2/5)(a_stop^2.5 - a0^2.5) = -(2*C/(m*sqrt(mu))) * t
+    //   => t = m*sqrt(mu)*(a0^2.5 - a_stop^2.5) / (5*C)
+    const double sqrt_mu = std::sqrt(kEarthMu);
+    const double delta_a25 = std::pow(a0, 2.5) - std::pow(a_stop, 2.5);
+    result.years_optimistic = (m * sqrt_mu * delta_a25 / (5.0 * C_hi)) / kSecondsPerYear;
+    result.years_conservative = (m * sqrt_mu * delta_a25 / (5.0 * C_lo)) / kSecondsPerYear;
+    return result;
 }
 
 }  // namespace adsc

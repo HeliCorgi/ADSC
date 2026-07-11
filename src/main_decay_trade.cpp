@@ -25,9 +25,12 @@ namespace {
 const char* kSchema = "1.0";
 
 // Sail areas swept for the trade curve [m^2]. Spans B's ~7 m^2 and A's
-// ~135-2155 m^2 25-year crossings so both are visible.
+// ~135-2155 m^2 25-year crossings so both are visible. 1000.0 added (WP13
+// review minor) so it lines up with main.cpp scenario-6's areas[] and the
+// README's 1000 m^2 table column is byte-checkable against this CSV -- an
+// additive row, not a column, so no schema bump (R15 clause below).
 const double kAreas[] = {5.0, 10.0, 25.0, 50.0, 100.0, 200.0,
-                         400.0, 800.0, 1600.0, 3200.0};
+                         400.0, 800.0, 1000.0, 1600.0, 3200.0};
 
 // Writes generated/wp3_decay_trade_schema.md documenting the wp3_decay_trade.csv
 // columns. A single fputs of one string literal -- no printf format specifiers,

@@ -72,6 +72,14 @@ target_link_libraries(flux_sweep PRIVATE adsc_core adsc_flags)
 add_executable(decay_trade src/main_decay_trade.cpp)
 target_link_libraries(decay_trade PRIVATE adsc_core adsc_flags)
 
+# WP13 kit-class trade CSV emitter: regenerates generated/wp13_kit_trade.{csv,md}
+# (sail/EDT/hybrid per-class A/B/C trade) and generated/wp13_classC.{csv,md}
+# (controlled-reentry mission-class comparison). Reuses src/decay.cpp's
+# existing sail model plus the new EDT-v1 physics core; no other physics
+# change.
+add_executable(kit_trade src/main_kit_trade.cpp)
+target_link_libraries(kit_trade PRIVATE adsc_core adsc_flags)
+
 # WP7 reference-metrics emitter: re-computes the pinned WP1/F1/WP2/WP3/WP4
 # demo numbers as generated/reference_metrics.csv so the evidence pack quotes
 # committed data only (R6). Reuses existing code paths; no physics change.
