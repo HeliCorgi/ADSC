@@ -312,7 +312,9 @@ for k in 0..N-1:
 ```
 
 ### 8.3 Verified numeric table (GL-64 quadrature == closed form to 2.2e-16)
-Catalog inclinations: A ~71 deg, B ~74 deg (verify vs presets before coding).
+Catalog inclinations: A 71 deg, B 78 deg (the code presets; note the real
+SL-8 population clusters at 74/83 deg -- wp13-literature.md Topic 5b -- so
+78 is a PLACEHOLDER compromise between the clusters).
 
     i (deg) | eta_F = cos i | eta_SC = cos^2 i
     --------+---------------+-----------------

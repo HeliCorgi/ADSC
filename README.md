@@ -488,13 +488,20 @@ adsc-specification-v4.md   retired v4.2 spec (superseded by v5; kept because v5
   keep-out violations re-verified at L1/L2 [ds-v1/ds-v2]; the
   CW-safe-but-higher-level-unsafe case does NOT materialize for this
   dispersion set — measured, see `generated/wp12_ladder.md`).
-- **WP13–WP15 (v5)** — not started; `adsc-specification-v5.md` defines the
-  kit-class trade + EDT physics, cost ranges + FoM, and the proposal package.
-  WP9 remains the only path to TRL 5, unchanged by v5.
+- **WP13 — Kit-class trade + EDT physics** ✅ implemented (aligned-dipole
+  EDT-v1 band model with mandatory η(i) = |cos i|..cos²i — derivation:
+  `wp13-edt-derivation.md`, citations: `wp13-literature.md`; per-class
+  recommended-kit table `generated/wp13_kit_trade.csv`; class-C
+  controlled-reentry comparison `generated/wp13_classC.md`; libration T7
+  explicitly **unresolved**; SL-16 EDT is a *candidate with open risks*,
+  not a closed recommendation).
+- **WP14–WP15 (v5)** — not started; `adsc-specification-v5.md` defines the
+  cost ranges + FoM upgrade and the proposal package. WP9 remains the only
+  path to TRL 5, unchanged by v5.
 
 **Roadmap end state: WP1–WP8 complete; Phase 0 (WP10), WP11 safety
-hardening, and WP12 fidelity ladder complete.** The package is regenerable
-end-to-end with one command
+hardening, WP12 fidelity ladder, and WP13 kit-class trade + EDT physics
+complete.** The package is regenerable end-to-end with one command
 (`bash tools/regenerate_all.sh build`) and CI enforces byte-identity of every
 committed artifact on every push.
 
@@ -528,8 +535,13 @@ handoff (range = solar max .. solar min) makes the honest structure concrete:
 Sail-only closes for the lighter/lower class B (tens of m²) but **not** for the
 heavy, high stage A (hundreds-to-thousands of m² — impractical): the honest
 negative that brackets open trade T1 (drag sail vs electrodynamic tether). The
-EDT parametric study spans, e.g., 36.1 yr at 50 m/day down to 1.2 yr at
-1500 m/day of along-track decay. (The 25-year column is the IADC guideline;
+legacy EDT *parametric* study spans, e.g., 36.1 yr at 50 m/day down to 1.2 yr at
+1500 m/day of along-track decay; since WP13 the EDT branch also has a *physics*
+band (aligned-dipole, capped-current, mandatory η(i) = |cos i|..cos²i): the SL-16
+class works out at **2.98 .. 9.17 yr** with a 3 km / 2 A (PLACEHOLDER) tether —
+an **EDT candidate with open risks** (libration T7 unresolved, plasma Ne pair
+PLACEHOLDER), *not* a closed recommendation — see `generated/wp13_kit_trade.csv`
+and `wp13-edt-derivation.md`. (The 25-year column is the IADC guideline;
 under a US FCC license the current rule is **5 years** — FCC 22-74, 2022 — which
 makes the class-A sail-only negative strictly harder. See the WP8 rulepacks.)
 
