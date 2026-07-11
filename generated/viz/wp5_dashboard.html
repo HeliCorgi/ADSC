@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/>
+<title>ADSC - WP7a static report page</title>
+<style>
+  body { font-family: sans-serif; color: #222; margin: 24px; background:#fafafa; }
+  h1 { font-size: 20px; } p { color:#555; max-width:60em; }
+  .grid { display:flex; flex-wrap:wrap; gap:20px; }
+  figure { margin:0; width:min(680px,100%); background:#fff; border:1px solid #e2e2e2;
+            border-radius:8px; padding:10px; box-sizing:border-box; }
+  figcaption { font-size:13px; color:#444; margin-top:6px; }
+  .meta { font-size:12px; color:#777; }
+  .warn { color:#b23b3b; }
+</style></head><body>
+<h1>ADSC - Visualization Pack (WP7a) - static report page</h1>
+<p class="meta">Regenerated from committed CSVs by <code>tools/viz/make_viz.py</code>
+(Python 3 stdlib only). Source: wp5_campaign_summary.csv (schema 1.1),
+wp6_cost_summary.csv (schema 1.0), wp3_decay_trade.csv. Master seed 0x5AD5C0DECAFE2026,
+N=500. No timestamps; every number read from the CSVs.</p>
+<p class="warn">Keep-out figure: simplified research visualization, not a flight safety certificate.</p>
+<div class="grid">
+    <figure><img src="wp5_outcomes.svg" alt="WP5 mission outcomes" width="100%"/><figcaption>WP5 mission outcomes</figcaption></figure>
+    <figure><img src="wp5_dv_percentiles.svg" alt="WP5 Delta-v used (p05/p50/p95)" width="100%"/><figcaption>WP5 Delta-v used (p05/p50/p95)</figcaption></figure>
+    <figure><img src="wp5_removals_percentiles.svg" alt="WP5 removals per mission (p05/p50/p95)" width="100%"/><figcaption>WP5 removals per mission (p05/p50/p95)</figcaption></figure>
+    <figure><img src="wp5_sync_time_percentiles.svg" alt="WP5 sync arrival time (p05/p50/p95)" width="100%"/><figcaption>WP5 sync arrival time (p05/p50/p95)</figcaption></figure>
+    <figure><img src="wp5_keepout_rate.svg" alt="WP5 keep-out violation rate (+ Wilson 95% CI)" width="100%"/><figcaption>WP5 keep-out violation rate (+ Wilson 95% CI)</figcaption></figure>
+    <figure><img src="wp6_amortization.svg" alt="WP6 amortization curve" width="100%"/><figcaption>WP6 amortization curve</figcaption></figure>
+    <figure><img src="wp6_tornado.svg" alt="WP6 tornado sensitivity" width="100%"/><figcaption>WP6 tornado sensitivity</figcaption></figure>
+    <figure><img src="wp6_fom_weightings.svg" alt="WP6 FoM under two weightings (T5)" width="100%"/><figcaption>WP6 FoM under two weightings (T5)</figcaption></figure>
+    <figure><img src="wp3_decay_trade.svg" alt="WP3 sail-only decay trade" width="100%"/><figcaption>WP3 sail-only decay trade</figcaption></figure>
+</div>
+</body></html>

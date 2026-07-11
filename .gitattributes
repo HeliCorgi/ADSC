@@ -1,0 +1,11 @@
+# Byte-reproducible generated artifacts and generation tooling must be stored
+# and checked out as LF on every platform, so the CI "regeneration == committed"
+# git-diff reproducibility gate (R6) holds regardless of a contributor's
+# core.autocrlf setting.
+generated/**    text eol=lf
+evidence/**     text eol=lf
+tools/viz/*.py  text eol=lf
+tools/compliance/**  text eol=lf
+tools/evidence/**    text eol=lf
+tools/forensics/**   text eol=lf
+tools/*.sh      text eol=lf

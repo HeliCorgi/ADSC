@@ -1,0 +1,22 @@
+{
+  "rulepack": "us_noaa",
+  "rulepack_version": "1.0",
+  "description": "US NOAA private remote sensing precheck (placeholder). Research-grade snapshot; not legal advice.",
+  "rules": [
+    {
+      "rule_id": "NOAA-RS-01",
+      "title": "NOAA private remote-sensing system authorization evidence",
+      "jurisdiction": "US",
+      "authority": "National Oceanic and Atmospheric Administration, Commercial Remote Sensing Regulatory Affairs",
+      "source_reference": "51 U.S.C. chapter 601 (Land Remote Sensing Policy); 15 CFR Part 960 (Licensing of Private Remote Sensing Space Systems)",
+      "source_date_or_version": "15 CFR Part 960 (2020 revision)",
+      "binding_type": "placeholder",
+      "severity": "warn",
+      "applies_when": { "field": "payload_has_remote_sensing", "op": "eq", "value": true },
+      "pass_when": { "field": "evidence_documents", "op": "contains", "value": "noaa_remote_sensing_authorization_evidence" },
+      "finding_if_fail": "A remote-sensing payload is declared but no NOAA authorization evidence is listed.",
+      "required_evidence": ["noaa_remote_sensing_authorization_evidence"],
+      "limitations": "Placeholder rule: the US-nexus test (US person / platform control) and the 2020 tiering system are NOT modelled - the rule fires on any remote-sensing payload. Rendezvous inspection cameras may or may not fall under Part 960. Requires legal review."
+    }
+  ]
+}
