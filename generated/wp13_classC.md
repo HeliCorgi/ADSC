@@ -34,8 +34,8 @@ Steelmanned: a tug architecture also amortizes fixed costs (launch, ground segme
 
 | candidate | cost | source |
 |---|---|---|
-| Zenit-2 / SL-16 (catalog_A) | PLACEHOLDER until WP14 | WP14 cost-range itemization |
-| Envisat-class (catalog_C) | PLACEHOLDER until WP14 | WP14 cost-range itemization |
+| Zenit-2 / SL-16 (catalog_A) | itemized low/mid/high ranges | wp6_cost_summary.csv cost_component_musd + campaign_cost_musd rows (WP14) |
+| Envisat-class (catalog_C) | not separately itemized | WP14 ranges are servicer-campaign-scale; a controlled-reentry mission needs its own estimate (open) |
 
 ## `wp13_classC.csv` columns
 

@@ -22,23 +22,28 @@ namespace adsc {
 //   C_campaign = C_dev + C_bus(m_dry) + N*C_kit + C_launch(m_wet, band)
 //                + C_ops(T)
 // The PRIMARY output is in RELATIVE cost units (CU). Absolute currency is NEVER
-// emitted as a point value (R6/D10): only a cited RANGE via the PLACEHOLDER
-// CU->currency anchor, left unfilled here (filled with citations in WP7).
+// emitted as a point value (R6/D10): only cited low/mid/high RANGES. WP14
+// adds a cited itemized USD table (`wp14_cost_items()`) and derives the
+// CU->currency anchor from it AT RUNTIME (see write_cost_summary_csv in
+// cost.cpp) -- `CostConfig::cu_to_musd_low/high` stay unused sentinels.
 //
 // Figure of merit (spec §4): FoM = sum_i m_i*w(h_i) / C_campaign, a
 // debris-risk-reduction-per-cost (cascade-fuel) metric. Reported under >=2
 // normalized congestion weightings; the ranking disagreement is open trade T5.
+// WP14 also reports the inverse orientation, cost_per_risk_equiv_mass =
+// C_campaign / sum_i m_i*w(h_i), as CU/kg and (mid cost_scenario) MUSD/kg.
 //
 // Distribution propagation: cost, cost/removal and FoM are computed PER RUN
 // from the WP5 per-run removals/mission-time and reported as p05/p50/p95 --
 // never mean-only.
 //
-// All parameters live in CostConfig and are marked PLACEHOLDER (R10). WP6
-// implements the cost model / amortization / tornado / FoM only -- no WP7
-// evidence pack, no charts.
+// The relative CU coefficients and both FoM weight tables in CostConfig are
+// PLACEHOLDER (R10) and untouched by WP14. WP6/WP14 implement the cost model
+// / amortization / tornado / FoM / itemized-USD-anchor only -- no evidence
+// pack, no charts (those are separate tools that consume this CSV).
 // ============================================================================
 
-inline const char* wp6_schema_version() { return "1.0"; }
+inline const char* wp6_schema_version() { return "1.1"; }
 
 // A congestion-weight anchor: normalized (peak ~1) weight of a target band at
 // `altitude_km` under each weighting. PLACEHOLDER values -- fill with citations
@@ -55,6 +60,29 @@ struct WeightAnchor {
 
 enum class Weighting { SpatialDensity, Criticality };
 const char* weighting_label(Weighting w);
+
+// WP14 itemized absolute-cost row (low/mid/high, cited or PLACEHOLDER). Source:
+// `_tasks_local/wp14-cost-sources.md` (retrieval date 2026-07-11); every row's
+// `note` ends with one of "[web-verified 2026-07-11]" / "[web-verified
+// (analog) 2026-07-11]" / "[training-data extrapolation]" / "[PLACEHOLDER]"
+// (D10: sourced-or-PLACEHOLDER, never fabricated). This table is separate
+// from, and does not alter, the relative CU `CostConfig` coefficients above
+// -- it is consumed only to derive the currency-anchor rows written into
+// wp6_cost_summary.csv (schema 1.1, WP14).
+struct CostItemUsd {
+    const char* item;       // stable machine-readable row id (snake_case)
+    double      low_musd;   // low estimate, in `unit`
+    double      mid_musd;   // mid estimate, in `unit`
+    double      high_musd;  // high estimate, in `unit`
+    const char* unit;       // e.g. "MUSD", "MUSD/yr", "MUSD/unit", "% of cost"
+    const char* note;       // ASCII provenance note, ends with a bracketed flag
+};
+
+// The static WP14 itemized cost table (development, manufacturing, launch,
+// ground, ops, SSA, insurance/licensing, kit unit, contingency -- see
+// cost.cpp). `*count` is set to the row count; the returned pointer is valid
+// for the process lifetime (static storage).
+const CostItemUsd* wp14_cost_items(int* count);
 
 // All PLACEHOLDER; grouped so nothing is a bare literal in the cost logic (R10).
 struct CostConfig {
@@ -79,11 +107,17 @@ struct CostConfig {
     // Tornado sensitivity half-width (fractional one-at-a-time perturbation).
     double tornado_delta_frac = 0.30;   // PLACEHOLDER +/-30%
 
-    // CU -> currency anchor RANGE. Left 0 => NOT filled; no dollar value is
-    // emitted. Fill with a CITED range (public launch $/kg + smallsat bus cost
-    // ranges) in WP7; a point-value dollar claim is forbidden (R6/D10).
-    double cu_to_musd_low  = 0.0;  // PLACEHOLDER (cited range, WP7)
-    double cu_to_musd_high = 0.0;  // PLACEHOLDER (cited range, WP7)
+    // CU -> currency anchor RANGE. SUPERSEDED by WP14: the anchor is now
+    // DERIVED AT RUNTIME (see `wp14_cost_items()` + write_cost_summary_csv in
+    // cost.cpp) from the cited itemized USD table, per cost_scenario
+    // (low/mid/high), and written into the CSV as `currency_anchor_derived`
+    // rows -- it is no longer read from these two fields. These fields stay
+    // intentionally unused sentinels at 0.0 (not repurposed, not removed) so
+    // the pre-WP14 "unfilled anchor" config shape is preserved for any caller
+    // still reading `CostConfig` directly; a point-value dollar claim remains
+    // forbidden everywhere (R6/D10) -- only cited low/mid/high ranges appear.
+    double cu_to_musd_low  = 0.0;  // unused sentinel; anchor is WP14 runtime-derived
+    double cu_to_musd_high = 0.0;  // unused sentinel; anchor is WP14 runtime-derived
 
     // Normalized congestion-weight table (PLACEHOLDER; cite on fill). Peaks
     // differ by column so band ranking flips between weightings (T5).

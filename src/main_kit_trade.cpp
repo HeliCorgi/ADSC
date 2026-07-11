@@ -424,8 +424,8 @@ void write_classc_md(const std::string& out_dir, const DebrisCatalog& zenit,
     std::fprintf(f, "## Cost\n\n");
     std::fprintf(f, "| candidate | cost | source |\n");
     std::fprintf(f, "|---|---|---|\n");
-    std::fprintf(f, "| Zenit-2 / SL-16 (catalog_A) | PLACEHOLDER until WP14 | WP14 cost-range itemization |\n");
-    std::fprintf(f, "| Envisat-class (catalog_C) | PLACEHOLDER until WP14 | WP14 cost-range itemization |\n\n");
+    std::fprintf(f, "| Zenit-2 / SL-16 (catalog_A) | itemized low/mid/high ranges | wp6_cost_summary.csv cost_component_musd + campaign_cost_musd rows (WP14) |\n");
+    std::fprintf(f, "| Envisat-class (catalog_C) | not separately itemized | WP14 ranges are servicer-campaign-scale; a controlled-reentry mission needs its own estimate (open) |\n\n");
 
     std::fprintf(f, "## `wp13_classC.csv` columns\n\n");
     std::fprintf(f, "| column | meaning |\n");

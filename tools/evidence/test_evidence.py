@@ -203,14 +203,36 @@ def main():
     must_contain("PASS=%d, INFO=%d, WARN=%d, BLOCK=%d" %
                  (cs["PASS"], cs["INFO"], cs["WARN"], cs["BLOCK"]),
                  "compliance summary counts")
-    # PLACEHOLDER inventory is non-empty and counted
-    m = re.search(r"Total marks: \*\*(\d+)\*\*", pack)
-    check(m is not None, "PLACEHOLDER inventory lacks a total count")
+    # PLACEHOLDER inventory is non-empty, counted, and importance-classified
+    # (spec:260-264): "Total marks: **N** (decision-critical: **X**,
+    # moderate: **Y**, cosmetic: **Z**)".
+    m = re.search(
+        r"Total marks: \*\*(\d+)\*\* \(decision-critical: \*\*(\d+)\*\*, "
+        r"moderate: \*\*(\d+)\*\*, cosmetic: \*\*(\d+)\*\*\)", pack)
+    check(m is not None,
+          "PLACEHOLDER inventory lacks the importance-classified total-count line")
     if m:
+        n_total, n_crit, n_mod, n_cosmetic = (int(g) for g in m.groups())
         n_rows = len(re.findall(r"\n\| `[^`]+:\d+` \|", pack))
-        check(int(m.group(1)) == n_rows,
-              "inventory count %s != table rows %d" % (m.group(1), n_rows))
+        check(n_total == n_rows,
+              "inventory count %d != table rows %d" % (n_total, n_rows))
         check(n_rows > 20, "inventory suspiciously small (%d)" % n_rows)
+        check(n_crit + n_mod + n_cosmetic == n_total,
+              "decision-critical(%d) + moderate(%d) + cosmetic(%d) != total(%d)"
+              % (n_crit, n_mod, n_cosmetic, n_total))
+        # Sanity floor, not a pin: as of this writing the actual count is 56;
+        # 20 is chosen comfortably below that so incidental PLACEHOLDER-line
+        # rewording elsewhere doesn't flip this test, while still catching a
+        # real regression (e.g. the classifier silently stops matching).
+        check(n_crit >= 20,
+              "decision-critical count (%d) is below the 20-item sanity floor"
+              % n_crit)
+        # The importance column itself is present and every value recognized.
+        check("| location | importance | line |" in pack,
+              "inventory table lacks the importance column header")
+        for label in ("decision-critical", "moderate", "cosmetic"):
+            check(("| %s |" % label) in pack,
+                  "inventory table has no %s-classified row" % label)
 
     # 4. Determinism + committed == regenerated. The committed pack content was
     # captured into `pack` above; the generator then intentionally rewrites the

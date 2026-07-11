@@ -343,9 +343,10 @@ since WP11 none ends in a keep-out violation); they are
 distinct concepts and separate columns.
 The amortization curve (section 1) bottoms at N=4 because the **Delta-v
 budget, not the kit count, caps removals** - the honest capacity story a
-mission designer needs. Cost is RELATIVE (CU) throughout: **no absolute
-cost is predicted anywhere in this package**; the CU-to-currency anchor is
-a deliberately unfilled cited-range PLACEHOLDER. Parameter sensitivity is
+mission designer needs. Cost is RELATIVE (CU) throughout and stays the
+PRIMARY metric; WP14 additionally derives a cited absolute-cost RANGE
+(never a point value) from an itemized cost table, detailed in the
+'Absolute cost ranges (WP14)' subsection below. Parameter sensitivity is
 ranked by a one-at-a-time tornado (development cost dominates):
 
 ![WP6 tornado](../generated/viz/wp6_tornado.svg)
@@ -357,6 +358,55 @@ Absolute per-catalog FoM stays mass-dominated under both, but the flip is
 real and is kept visible rather than resolved by fiat:
 
 ![WP6 FoM weightings](../generated/viz/wp6_fom_weightings.svg)
+
+### Absolute cost ranges (WP14)
+
+Spec D10 rule, quoted verbatim: "Every row carries a source or stays
+PLACEHOLDER - this is D10 applied, not relaxed. Relative CU results
+remain primary." (adsc-specification-v5.md section 6, WP14). Every
+number in this subsection is read from the new WP14 rows of the
+committed `generated/wp6_cost_summary.csv` (schema 1.1) - nothing
+hand-written.
+
+**CU->currency anchor**, derived at runtime from a 5-component core of
+the itemized cost table (development + manufacturing_bus_unit +
+kit_unit_scaled_9t x baseline-N-kits + launch + operations_3yr): low
+**0.062781** MUSD/CU .. high **0.421328** MUSD/CU (mid 0.154580 MUSD/CU); low+high anchor
+values themselves come only from cited itemized rows (D10) - never a
+point-value dollar figure.
+
+| cost_scenario | anchor [MUSD/CU] | campaign base_total [MUSD] | campaign with_reserves [MUSD] |
+|---|---:|---:|---:|
+| low | 0.062781 | 11.38 | 13.76 |
+| mid | 0.154580 | 27.89 | 35.32 |
+| high | 0.421328 | 75.76 | 101.07 |
+
+`base_total` is the 5-component anchor core plus the additive
+ground-segment/licensing/SSA-tracking rows (all outside the CU model);
+`with_reserves` additionally applies the contingency-reserve percentage
+and an asset+launch-scaled insurance line (arithmetic provenance for
+both is printed in full in each row's own `notes` field, see the CSV).
+
+**Cost per removal (SL-16 class, baseline N, MUSD, p50 per
+cost_scenario):** low **2.812** / mid **6.925** / high **18.875** MUSD/removal.
+**Cost per risk-equivalent mass (criticality weighting), p50:** 0.004978
+CU/kg (0.000769 MUSD/kg, mid cost_scenario) - the exact inverse orientation
+of the FoM above (1/FoM by construction, not an independent
+computation - see the CSV row's own notes for the reciprocal-order-
+statistics caveat).
+
+**PLACEHOLDER/extrapolation flags, extracted (never hand-retyped)
+from the committed CSV's own notes -- the leading clause plus the
+trailing bracketed provenance tag, D10:**
+
+- `ssa_tracking`: "LeoLabs declines to publicly quote; subscription is customized by fleet size and monitoring cadence (SpaceNews; CNBC)." ... [PLACEHOLDER]
+- `kit_unit_scaled_9t`: "9-t-class installer deorbit kit; no citable product exists at this scale." ... [training-data extrapolation]
+
+Honesty framing, quoted verbatim from `generated/wp6_cost_schema.md`
+(never hand-retyped, so the generator and the schema doc cannot
+drift apart):
+
+> External absolute-cost estimation by an unaffiliated author is inherently low-standing; agencies re-run with their own parametric models; the relative CU results remain primary. No point-value currency figure is emitted: absolute costs appear ONLY as low/mid/high cited ranges.
 
 ## 6. Limitations - stated plainly, none hidden
 
@@ -459,9 +509,10 @@ git diff --exit-code -- generated/ evidence/      # byte-identical == reproduced
 ```
 
 `tools/regenerate_all.sh` is the single source of truth for regeneration
-order (campaign -> cost -> decay -> flux -> reference metrics -> figures ->
-compliance -> this document); CI runs exactly this script and enforces the
-byte-identity gate on every push. Measured wall time is printed to the CI
+order (campaign -> cost -> decay -> kit trade -> prioritization -> flux ->
+reference metrics -> figures -> compliance -> this document); CI runs
+exactly this script and enforces the byte-identity gate on every push.
+Measured wall time is printed to the CI
 log (see the latest `build-and-test` run); it is intentionally never
 embedded in artifacts, and it is well under the one-hour reproduction
 budget (D10). Requirements: C++17 compiler, Eigen 3.3+, CMake, Python 3
@@ -474,142 +525,161 @@ in `include/`, `src/` and `tools/` carrying the uppercase PLACEHOLDER mark
 (R10), collected automatically by the generator of this document
 (`tools/evidence/` itself is excluded from the scan - it names the marker
 only in order to collect and audit it). If a value is listed here, treat
-it as unvalidated until a cited source replaces it.
+it as unvalidated until a cited source replaces it. Each mark also
+carries a machine-assigned **importance** (spec:260-264): whether filling
+it in with a citation would directly re-base a headline CU/MUSD/FoM
+number or campaign safety/outcome rate (`decision-critical`), whether it
+is a lower-priority or secondary-fidelity parameter (`moderate`), or
+whether the mark appears only in a print/log statement or doc-generator
+string, never on the value itself (`cosmetic`). Classification rule
+table: `tools/evidence/make_evidence.py::classify_importance` (a small
+explicit path+keyword table, not a formal per-line audit -- a handful of
+comment lines may land one bucket over from a stricter reading).
 
-Total marks: **130**
+Total marks: **140** (decision-critical: **56**, moderate: **43**, cosmetic: **41**)
 
-| location | line |
-|---|---|
-| `include/adsc/campaign.hpp:17` | // as a parameterized Delta-v / time cost (PLACEHOLDER, no plane-change |
-| `include/adsc/campaign.hpp:22` | // Dispersions (all PLACEHOLDER where not physically validated, centralized in |
-| `include/adsc/campaign.hpp:115` | // All PLACEHOLDER values are marked; none is a physically validated figure. |
-| `include/adsc/campaign.hpp:128` | double dv_budget_m_s       = 140.0;  // PLACEHOLDER servicer Delta-v budget [m/s] |
-| `include/adsc/campaign.hpp:130` | // Per-leg Delta-v cost model (PLACEHOLDER; parameterized, no plane-change |
-| `include/adsc/campaign.hpp:132` | double dv_approach_m_s = 8.0;    // PLACEHOLDER rendezvous/approach [m/s] |
-| `include/adsc/campaign.hpp:133` | double dv_sync_m_s     = 3.0;    // PLACEHOLDER proximity + attitude sync [m/s] |
-| `include/adsc/campaign.hpp:134` | double dv_depart_m_s   = 5.0;    // PLACEHOLDER safe departure [m/s] |
-| `include/adsc/campaign.hpp:135` | double dv_abort_m_s    = 4.0;    // PLACEHOLDER safe-abort maneuver [m/s] |
-| `include/adsc/campaign.hpp:136` | double dv_phasing_m_s  = 15.0;   // PLACEHOLDER inter-target phasing hop [m/s] |
-| `include/adsc/campaign.hpp:138` | // Per-leg time model (PLACEHOLDER), for the mission elapsed-time metric. |
-| `include/adsc/campaign.hpp:139` | double t_attach_s   = 300.0;      // PLACEHOLDER clamp + install [s] |
-| `include/adsc/campaign.hpp:140` | double t_depart_s   = 600.0;      // PLACEHOLDER departure settle [s] |
-| `include/adsc/campaign.hpp:141` | double t_phasing_s  = 86400.0;    // PLACEHOLDER inter-target phasing [s] |
-| `include/adsc/campaign.hpp:143` | // --- dispersions (PLACEHOLDER 1-sigma unless noted) --- |
-| `include/adsc/campaign.hpp:147` | double nominal_closing_m_s    = 0.10;   // PLACEHOLDER nominal capture closing speed [m/s] |
-| `include/adsc/campaign.hpp:148` | double disp_closing_sigma_m_s = 0.045;  // PLACEHOLDER (P(>0.15) ~ 0.13) [m/s] |
-| `include/adsc/campaign.hpp:151` | double disp_rel_pos_m   = 40.0;   // PLACEHOLDER per-axis initial rel-position [m] |
-| `include/adsc/campaign.hpp:152` | double disp_rel_vel_m_s = 0.02;   // PLACEHOLDER per-axis initial rel-velocity [m/s] |
-| `include/adsc/campaign.hpp:155` | double disp_tumble_rate_frac = 0.40;  // PLACEHOLDER fractional 1-sigma on /w_t/ [-] |
-| `include/adsc/campaign.hpp:156` | double disp_tumble_axis_rad  = 0.30;  // PLACEHOLDER tumble-axis tilt 1-sigma [rad] |
-| `include/adsc/campaign.hpp:157` | double disp_init_att_rad     = 0.35;  // PLACEHOLDER servicer att-offset 1-sigma [rad] |
-| `include/adsc/campaign.hpp:160` | double disp_actuator_scale        = 0.10;  // PLACEHOLDER ~+/-10% torque-scale 1-sigma [-] |
-| `include/adsc/campaign.hpp:161` | double disp_actuator_misalign_rad = 0.01;  // PLACEHOLDER axis-misalignment 1-sigma [rad] |
-| `include/adsc/campaign.hpp:165` | double disp_sensor_noise_frac = 0.30;   // PLACEHOLDER fractional 1-sigma on sensor sigmas [-] |
-| `include/adsc/campaign.hpp:166` | double disp_sensor_bias_rad   = 5.0e-4; // PLACEHOLDER sensor bias 1-sigma [rad] |
-| `include/adsc/campaign.hpp:170` | double nominal_solar_factor   = 1.0;   // PLACEHOLDER mean atmospheric-density factor [-] |
-| `include/adsc/campaign.hpp:171` | double disp_solar_factor_frac = 0.50;  // PLACEHOLDER fractional 1-sigma [-] |
-| `include/adsc/cost.hpp:25` | // emitted as a point value (R6/D10): only a cited RANGE via the PLACEHOLDER |
-| `include/adsc/cost.hpp:36` | // All parameters live in CostConfig and are marked PLACEHOLDER (R10). WP6 |
-| `include/adsc/cost.hpp:44` | // `altitude_km` under each weighting. PLACEHOLDER values -- fill with citations |
-| `include/adsc/cost.hpp:52` | double spatial;      // PLACEHOLDER normalized spatial-density weight |
-| `include/adsc/cost.hpp:53` | double criticality;  // PLACEHOLDER normalized criticality-style weight |
-| `include/adsc/cost.hpp:59` | // All PLACEHOLDER; grouped so nothing is a bare literal in the cost logic (R10). |
-| `include/adsc/cost.hpp:62` | double c_dev_cu           = 100.0;  // PLACEHOLDER program development (per-campaign allocati... |
-| `include/adsc/cost.hpp:63` | double c_bus_cu           = 3.0;    // PLACEHOLDER bus mass-CER coefficient [CU] |
-| `include/adsc/cost.hpp:64` | double c_bus_exponent     = 0.7;    // PLACEHOLDER bus mass-CER exponent [-] |
-| `include/adsc/cost.hpp:65` | double c_kit_cu           = 4.0;    // PLACEHOLDER per-kit cost [CU] |
-| `include/adsc/cost.hpp:66` | double c_launch_cu_per_kg = 0.5;    // PLACEHOLDER launch cost coefficient [CU/kg] |
-| `include/adsc/cost.hpp:67` | double c_ops_cu_per_day   = 2.0;    // PLACEHOLDER operations cost [CU/day] |
-| `include/adsc/cost.hpp:69` | // Launch band factor (higher / more-inclined orbits cost more). PLACEHOLDER. |
-| `include/adsc/cost.hpp:70` | double launch_band_ref_km        = 700.0;  // PLACEHOLDER reference altitude [km] |
-| `include/adsc/cost.hpp:71` | double launch_band_per_100km     = 0.06;   // PLACEHOLDER cost slope [-/100 km] |
-| `include/adsc/cost.hpp:72` | double launch_band_ref_incl_deg  = 60.0;   // PLACEHOLDER reference inclination [deg] |
-| `include/adsc/cost.hpp:73` | double launch_band_per_deg       = 0.004;  // PLACEHOLDER cost slope [-/deg] |
-| `include/adsc/cost.hpp:80` | double tornado_delta_frac = 0.30;   // PLACEHOLDER +/-30% |
-| `include/adsc/cost.hpp:85` | double cu_to_musd_low  = 0.0;  // PLACEHOLDER (cited range, WP7) |
-| `include/adsc/cost.hpp:86` | double cu_to_musd_high = 0.0;  // PLACEHOLDER (cited range, WP7) |
-| `include/adsc/cost.hpp:88` | // Normalized congestion-weight table (PLACEHOLDER; cite on fill). Peaks |
-| `include/adsc/cost.hpp:101` | // Launch band factor for a target band (PLACEHOLDER model). |
-| `include/adsc/decay.hpp:34` | DebrisCatalog catalog_D();  // US Delta-class stage (PLACEHOLDER) |
-| `include/adsc/decay.hpp:111` | double kit_mass_kg = 20.0;          // PLACEHOLDER EDT kit mass (tether + deployer + electron... |
-| `include/adsc/decay.hpp:112` | double avg_current_a = 2.0;         // PLACEHOLDER average bare-tether collected current, BET... |
-| `include/adsc/decay.hpp:113` | double eta_libration = 0.75;        // PLACEHOLDER libration/duty-cycle efficiency penalty [-... |
-| `include/adsc/decay.hpp:114` | double deploy_failure_prob = 0.05;  // PLACEHOLDER deployment-failure probability [-] (report... |
-| `include/adsc/flux.hpp:21` | // them. All debris-population figures are PLACEHOLDER, marked below and to be |
-| `include/adsc/flux.hpp:26` | // PLACEHOLDER-marked flux parameters (R10); the physical constants (aluminium |
-| `include/adsc/flux.hpp:34` | // Spatial number density of >=1 cm debris [objects / km^3]. PLACEHOLDER -- |
-| `include/adsc/flux.hpp:36` | double density_avg_per_km3  = 1.2e-6;  // PLACEHOLDER LEO-average |
-| `include/adsc/flux.hpp:37` | double density_peak_per_km3 = 1.0e-5;  // PLACEHOLDER peak congested band |
-| `include/adsc/flux.hpp:39` | // >=1 cm population and the removal-fraction target. PLACEHOLDER (MASTER-8 |
-| `include/adsc/flux.hpp:41` | double population_ge_1cm       = 1.2e6;  // PLACEHOLDER object count |
-| `include/adsc/mission.hpp:29` | double target_altitude_km   = 825.0;   // PLACEHOLDER: SL-16-class band (D2) [km] |
-| `include/adsc/mission.hpp:46` | double sync_target_rate_deg_s = 2.0;    // PLACEHOLDER: tumble rate, spec range 0.5-5 [deg/s] |
-| `include/adsc/mission.hpp:47` | Eigen::Vector3d target_inertia_diag{1.0, 0.6, 0.3};  // PLACEHOLDER principal moments [kg m^2] |
-| `include/adsc/mission.hpp:57` | // acceleration, so the deadband bounds the hold error). PLACEHOLDER values. |
-| `include/adsc/mission.hpp:60` | // WP3: kit + deorbit-decay trades. PLACEHOLDER physical values (R10). |
-| `include/adsc/mission.hpp:66` | // catalog (bare-stage) areas are kept as PLACEHOLDER constants local to |
-| `include/adsc/mission.hpp:68` | double servicer_drag_area_m2 = 0.35;  // PLACEHOLDER servicer bus drag cross-section [m^2] |
-| `include/adsc/mission.hpp:74` | // min..max range, never a point value. PLACEHOLDER values: a single |
-| `include/adsc/mission.hpp:80` | double solar_min_density_factor = 0.5;  // PLACEHOLDER solar-min scaling |
-| `include/adsc/mission.hpp:81` | double solar_max_density_factor = 8.0;  // PLACEHOLDER solar-max scaling |
-| `include/adsc/mission.hpp:89` | // WP4: sensor + estimator abstractions. All PLACEHOLDER values (R10); |
-| `include/adsc/mission.hpp:134` | double sensor_dropout_prob          = 0.05;    // PLACEHOLDER per-sample Bernoulli missed-det... |
-| `include/adsc/mission.hpp:135` | double range_bias_walk_m_per_sqrt_s = 1.0e-3;  // PLACEHOLDER unestimated range-bias random-w... |
-| `include/adsc/mission.hpp:265` | double min_impulse_bit_nms = 0.0;  // PLACEHOLDER MIB angular-impulse quantum [N m s], per ax... |
-| `include/adsc/propagation.hpp:84` | // ---- Physical constants (cited, not PLACEHOLDER) ---- |
-| `src/campaign.cpp:286` | // Inter-target phasing to the next target (PLACEHOLDER flat cost). |
-| `src/campaign.cpp:400` | // Under the current flat PLACEHOLDER Delta-v cost these coincide numerically |
-| `src/campaign.cpp:426` | "includes PLACEHOLDER phasing/attach/depart time"); |
-| `src/campaign.cpp:571` | "PLACEHOLDER Delta-v cost these two coincide numerically -- every " |
-| `src/campaign.cpp:587` | "PLACEHOLDER, so those quantities take a small set of quantized values " |
-| `src/campaign.cpp:626` | "/ dv_budget_m_per_s / m/s / WP5-native, PLACEHOLDER / mission Delta-v budget /\n" |
-| `src/campaign.cpp:627` | "/ dv_used_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / sum of leg costs /\n" |
-| `src/campaign.cpp:628` | "/ dv_remaining_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / budget minus used /\n" |
-| `src/campaign.cpp:633` | "/ mission_time_s / s / WP5-native, PLACEHOLDER-derived / elapsed incl. placeholder phasing /\n" |
-| `src/campaign.cpp:640` | "/ first_closing_speed_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / target-0 capture clo... |
-| `src/campaign.cpp:641` | "/ tumble_rate_deg_per_s / deg/s / WP5-native, PLACEHOLDER-derived / realized /w_t/ of first ... |
-| `src/campaign.cpp:642` | "/ solar_factor / - / WP5-native, PLACEHOLDER-derived / realized atmospheric-density factor (... |
-| `src/cost.cpp:321` | "debris-risk-reduction per cost; weighting is PLACEHOLDER (T5)"); |
-| `src/cost.cpp:324` | fr.band_weight, "normalized", "w(h) PLACEHOLDER; cite on fill"); |
-| `src/cost.cpp:350` | "PLACEHOLDER: fill a CITED range in WP7; no point-value dollar figure is claimed"); |
-| `src/cost.cpp:365` | "PLACEHOLDER cited range, filled in WP7. All cost/FoM parameters are " |
-| `src/cost.cpp:366` | "PLACEHOLDER (see `CostConfig`). Cost, cost/removal and FoM are " |
-| `src/cost.cpp:414` | "tables are PLACEHOLDER and must be filled with citations.\n\n" |
-| `src/cost.cpp:448` | "/ notes / provenance / PLACEHOLDER caveats /\n" |
-| `src/cost.cpp:460` | "  sum m_i*w(h_i)/C_campaign (spec ?4). The two weightings are PLACEHOLDER and\n" |
-| `src/cost.cpp:467` | "- **currency_anchor** (global): `cu_to_musd_range` -- a PLACEHOLDER cited\n" |
-| `src/decay.cpp:83` | return {"US Delta-class stage (PLACEHOLDER)", 0.0, 0.0, 0.0, true}; |
-| `src/flux.cpp:81` | "figures are PLACEHOLDER (MASTER-8 / ESA spatial-density class; cite at " |
-| `src/flux.cpp:94` | std::fprintf(f, "PLACEHOLDER spatial densities: average %.1e /km^3, peak " |
-| `src/main.cpp:137` | std::printf("  target inertia diag: %.2f / %.2f / %.2f kg m^2 (PLACEHOLDER ratios)\n", |
-| `src/main_flux.cpp:33` | std::printf("\n[T6] collector exposure (>= 1 cm; PLACEHOLDER densities, cite MASTER-8)\n"); |
-| `src/main_kit_trade.cpp:38` | "/cos i/..cos^2 i; libration T7 OPEN - PLACEHOLDER duty factor]"; |
-| `src/main_kit_trade.cpp:117` | // kit_mass (edt): NEW EdtConfig::kit_mass_kg, PLACEHOLDER. |
-| `src/main_kit_trade.cpp:120` | "\"installed EDT kit mass, PLACEHOLDER (EdtConfig::kit_mass_kg)\"\n", |
-| `src/main_kit_trade.cpp:124` | // deploy_risk: EdtConfig::deploy_failure_prob, PLACEHOLDER. Reported |
-| `src/main_kit_trade.cpp:128` | "\"PLACEHOLDER EDT deployment-failure probability " |
-| `src/main_kit_trade.cpp:203` | "  `EdtConfig::kit_mass_kg` (PLACEHOLDER). value = value_lo = value_hi (a\n" |
-| `src/main_kit_trade.cpp:205` | "- `deploy_risk`: `EdtConfig::deploy_failure_prob`, PLACEHOLDER. Reported\n" |
-| `src/main_kit_trade.cpp:219` | "libration T7 OPEN - PLACEHOLDER duty factor]`. This states the model scope\n" |
-| `src/main_kit_trade.cpp:228` | "PLACEHOLDER duty-cycle knob (`EdtConfig::eta_libration`) -- never claimed\n" |
-| `src/main_kit_trade.cpp:229` | "solved. Plasma electron density is a cited PLACEHOLDER parameter, not an\n" |
-| `src/main_kit_trade.cpp:366` | "**[CITATION NEEDED - PLACEHOLDER: per-object Ec analysis]**. Both " |
-| `src/main_kit_trade.cpp:427` | std::fprintf(f, "/ Zenit-2 / SL-16 (catalog_A) / PLACEHOLDER until WP14 / WP14 cost-range ite... |
-| `src/main_kit_trade.cpp:428` | std::fprintf(f, "/ Envisat-class (catalog_C) / PLACEHOLDER until WP14 / WP14 cost-range itemi... |
-| `src/main_kit_trade.cpp:466` | //     open risks (T7 libration, plasma Ne PLACEHOLDER). ------------------- |
-| `src/main_kit_trade.cpp:479` | "(T7, Pelaez et al. 2000) and plasma Ne (PLACEHOLDER solar-min/" |
-| `src/main_ladder.cpp:75` | // PLACEHOLDER bare-stage drag cross-sections (WP12 L2). Kept local to this |
-| `src/main_ladder.cpp:78` | constexpr double kSL16AreaM2 = 33.0;  // PLACEHOLDER SL-16 / Zenit-2 bare-stage cross-section... |
-| `src/main_ladder.cpp:79` | constexpr double kSL8AreaM2  = 7.5;   // PLACEHOLDER SL-8 / Kosmos-3M bare-stage cross-sectio... |
-| `src/main_ladder.cpp:82` | // PLACEHOLDER statistical/numerical-safety constants are named here. |
-| `src/main_ladder.cpp:83` | constexpr double kBcDispersionFrac = 0.30;  // PLACEHOLDER +/-30% 1-sigma per-craft ballistic... |
-| `src/main_metrics.cpp:329` | l5_act.min_impulse_bit_nms = 2.0e-4;  // PLACEHOLDER MIB angular impulse [N m s] |
-| `src/main_metrics.cpp:330` | l5_act.delay_steps         = 1;       // PLACEHOLDER one-control-step actuator lag |
-| `src/main_metrics.cpp:331` | l5_act.fault_axis          = 0;       // PLACEHOLDER: body x-axis |
-| `src/main_metrics.cpp:332` | l5_act.fault_axis_scale    = 0.5;     // PLACEHOLDER: 50% torque authority on that axis |
-| `src/main_metrics.cpp:346` | // at a 1e-3 m/s PLACEHOLDER translation MIB and re-checking the |
-| `src/main_metrics.cpp:351` | const double mib_m_s = 1.0e-3;  // PLACEHOLDER translation MIB [m/s] |
-| `src/main_metrics.cpp:355` | "contact velocity quantized at a 1e-3 m/s PLACEHOLDER translation " |
+| location | importance | line |
+|---|---|---|
+| `include/adsc/campaign.hpp:17` | moderate | // as a parameterized Delta-v / time cost (PLACEHOLDER, no plane-change |
+| `include/adsc/campaign.hpp:22` | moderate | // Dispersions (all PLACEHOLDER where not physically validated, centralized in |
+| `include/adsc/campaign.hpp:115` | moderate | // All PLACEHOLDER values are marked; none is a physically validated figure. |
+| `include/adsc/campaign.hpp:128` | decision-critical | double dv_budget_m_s       = 140.0;  // PLACEHOLDER servicer Delta-v budget [m/s] |
+| `include/adsc/campaign.hpp:130` | moderate | // Per-leg Delta-v cost model (PLACEHOLDER; parameterized, no plane-change |
+| `include/adsc/campaign.hpp:132` | decision-critical | double dv_approach_m_s = 8.0;    // PLACEHOLDER rendezvous/approach [m/s] |
+| `include/adsc/campaign.hpp:133` | decision-critical | double dv_sync_m_s     = 3.0;    // PLACEHOLDER proximity + attitude sync [m/s] |
+| `include/adsc/campaign.hpp:134` | decision-critical | double dv_depart_m_s   = 5.0;    // PLACEHOLDER safe departure [m/s] |
+| `include/adsc/campaign.hpp:135` | decision-critical | double dv_abort_m_s    = 4.0;    // PLACEHOLDER safe-abort maneuver [m/s] |
+| `include/adsc/campaign.hpp:136` | decision-critical | double dv_phasing_m_s  = 15.0;   // PLACEHOLDER inter-target phasing hop [m/s] |
+| `include/adsc/campaign.hpp:138` | moderate | // Per-leg time model (PLACEHOLDER), for the mission elapsed-time metric. |
+| `include/adsc/campaign.hpp:139` | decision-critical | double t_attach_s   = 300.0;      // PLACEHOLDER clamp + install [s] |
+| `include/adsc/campaign.hpp:140` | decision-critical | double t_depart_s   = 600.0;      // PLACEHOLDER departure settle [s] |
+| `include/adsc/campaign.hpp:141` | decision-critical | double t_phasing_s  = 86400.0;    // PLACEHOLDER inter-target phasing [s] |
+| `include/adsc/campaign.hpp:143` | moderate | // --- dispersions (PLACEHOLDER 1-sigma unless noted) --- |
+| `include/adsc/campaign.hpp:147` | decision-critical | double nominal_closing_m_s    = 0.10;   // PLACEHOLDER nominal capture closing speed [m/s] |
+| `include/adsc/campaign.hpp:148` | decision-critical | double disp_closing_sigma_m_s = 0.045;  // PLACEHOLDER (P(>0.15) ~ 0.13) [m/s] |
+| `include/adsc/campaign.hpp:151` | decision-critical | double disp_rel_pos_m   = 40.0;   // PLACEHOLDER per-axis initial rel-position [m] |
+| `include/adsc/campaign.hpp:152` | decision-critical | double disp_rel_vel_m_s = 0.02;   // PLACEHOLDER per-axis initial rel-velocity [m/s] |
+| `include/adsc/campaign.hpp:155` | decision-critical | double disp_tumble_rate_frac = 0.40;  // PLACEHOLDER fractional 1-sigma on /w_t/ [-] |
+| `include/adsc/campaign.hpp:156` | decision-critical | double disp_tumble_axis_rad  = 0.30;  // PLACEHOLDER tumble-axis tilt 1-sigma [rad] |
+| `include/adsc/campaign.hpp:157` | decision-critical | double disp_init_att_rad     = 0.35;  // PLACEHOLDER servicer att-offset 1-sigma [rad] |
+| `include/adsc/campaign.hpp:160` | decision-critical | double disp_actuator_scale        = 0.10;  // PLACEHOLDER ~+/-10% torque-scale 1-sigma [-] |
+| `include/adsc/campaign.hpp:161` | decision-critical | double disp_actuator_misalign_rad = 0.01;  // PLACEHOLDER axis-misalignment 1-sigma [rad] |
+| `include/adsc/campaign.hpp:165` | decision-critical | double disp_sensor_noise_frac = 0.30;   // PLACEHOLDER fractional 1-sigma on sensor sigmas [-] |
+| `include/adsc/campaign.hpp:166` | decision-critical | double disp_sensor_bias_rad   = 5.0e-4; // PLACEHOLDER sensor bias 1-sigma [rad] |
+| `include/adsc/campaign.hpp:170` | decision-critical | double nominal_solar_factor   = 1.0;   // PLACEHOLDER mean atmospheric-density factor [-] |
+| `include/adsc/campaign.hpp:171` | decision-critical | double disp_solar_factor_frac = 0.50;  // PLACEHOLDER fractional 1-sigma [-] |
+| `include/adsc/cost.hpp:41` | decision-critical | // PLACEHOLDER (R10) and untouched by WP14. WP6/WP14 implement the cost model |
+| `include/adsc/cost.hpp:49` | decision-critical | // `altitude_km` under each weighting. PLACEHOLDER values -- fill with citations |
+| `include/adsc/cost.hpp:57` | decision-critical | double spatial;      // PLACEHOLDER normalized spatial-density weight |
+| `include/adsc/cost.hpp:58` | decision-critical | double criticality;  // PLACEHOLDER normalized criticality-style weight |
+| `include/adsc/cost.hpp:64` | decision-critical | // WP14 itemized absolute-cost row (low/mid/high, cited or PLACEHOLDER). Source: |
+| `include/adsc/cost.hpp:67` | decision-critical | // (analog) 2026-07-11]" / "[training-data extrapolation]" / "[PLACEHOLDER]" |
+| `include/adsc/cost.hpp:68` | decision-critical | // (D10: sourced-or-PLACEHOLDER, never fabricated). This table is separate |
+| `include/adsc/cost.hpp:87` | decision-critical | // All PLACEHOLDER; grouped so nothing is a bare literal in the cost logic (R10). |
+| `include/adsc/cost.hpp:90` | decision-critical | double c_dev_cu           = 100.0;  // PLACEHOLDER program development (per-campaign allocati... |
+| `include/adsc/cost.hpp:91` | decision-critical | double c_bus_cu           = 3.0;    // PLACEHOLDER bus mass-CER coefficient [CU] |
+| `include/adsc/cost.hpp:92` | decision-critical | double c_bus_exponent     = 0.7;    // PLACEHOLDER bus mass-CER exponent [-] |
+| `include/adsc/cost.hpp:93` | decision-critical | double c_kit_cu           = 4.0;    // PLACEHOLDER per-kit cost [CU] |
+| `include/adsc/cost.hpp:94` | decision-critical | double c_launch_cu_per_kg = 0.5;    // PLACEHOLDER launch cost coefficient [CU/kg] |
+| `include/adsc/cost.hpp:95` | decision-critical | double c_ops_cu_per_day   = 2.0;    // PLACEHOLDER operations cost [CU/day] |
+| `include/adsc/cost.hpp:97` | decision-critical | // Launch band factor (higher / more-inclined orbits cost more). PLACEHOLDER. |
+| `include/adsc/cost.hpp:98` | decision-critical | double launch_band_ref_km        = 700.0;  // PLACEHOLDER reference altitude [km] |
+| `include/adsc/cost.hpp:99` | decision-critical | double launch_band_per_100km     = 0.06;   // PLACEHOLDER cost slope [-/100 km] |
+| `include/adsc/cost.hpp:100` | decision-critical | double launch_band_ref_incl_deg  = 60.0;   // PLACEHOLDER reference inclination [deg] |
+| `include/adsc/cost.hpp:101` | decision-critical | double launch_band_per_deg       = 0.004;  // PLACEHOLDER cost slope [-/deg] |
+| `include/adsc/cost.hpp:108` | decision-critical | double tornado_delta_frac = 0.30;   // PLACEHOLDER +/-30% |
+| `include/adsc/cost.hpp:122` | decision-critical | // Normalized congestion-weight table (PLACEHOLDER; cite on fill). Peaks |
+| `include/adsc/cost.hpp:135` | decision-critical | // Launch band factor for a target band (PLACEHOLDER model). |
+| `include/adsc/decay.hpp:34` | moderate | DebrisCatalog catalog_D();  // US Delta-class stage (PLACEHOLDER) |
+| `include/adsc/decay.hpp:111` | decision-critical | double kit_mass_kg = 20.0;          // PLACEHOLDER EDT kit mass (tether + deployer + electron... |
+| `include/adsc/decay.hpp:112` | decision-critical | double avg_current_a = 2.0;         // PLACEHOLDER average bare-tether collected current, BET... |
+| `include/adsc/decay.hpp:113` | decision-critical | double eta_libration = 0.75;        // PLACEHOLDER libration/duty-cycle efficiency penalty [-... |
+| `include/adsc/decay.hpp:114` | decision-critical | double deploy_failure_prob = 0.05;  // PLACEHOLDER deployment-failure probability [-] (report... |
+| `include/adsc/flux.hpp:21` | moderate | // them. All debris-population figures are PLACEHOLDER, marked below and to be |
+| `include/adsc/flux.hpp:26` | moderate | // PLACEHOLDER-marked flux parameters (R10); the physical constants (aluminium |
+| `include/adsc/flux.hpp:34` | moderate | // Spatial number density of >=1 cm debris [objects / km^3]. PLACEHOLDER -- |
+| `include/adsc/flux.hpp:36` | moderate | double density_avg_per_km3  = 1.2e-6;  // PLACEHOLDER LEO-average |
+| `include/adsc/flux.hpp:37` | moderate | double density_peak_per_km3 = 1.0e-5;  // PLACEHOLDER peak congested band |
+| `include/adsc/flux.hpp:39` | moderate | // >=1 cm population and the removal-fraction target. PLACEHOLDER (MASTER-8 |
+| `include/adsc/flux.hpp:41` | moderate | double population_ge_1cm       = 1.2e6;  // PLACEHOLDER object count |
+| `include/adsc/mission.hpp:29` | decision-critical | double target_altitude_km   = 825.0;   // PLACEHOLDER: SL-16-class band (D2) [km] |
+| `include/adsc/mission.hpp:46` | decision-critical | double sync_target_rate_deg_s = 2.0;    // PLACEHOLDER: tumble rate, spec range 0.5-5 [deg/s] |
+| `include/adsc/mission.hpp:47` | decision-critical | Eigen::Vector3d target_inertia_diag{1.0, 0.6, 0.3};  // PLACEHOLDER principal moments [kg m^2] |
+| `include/adsc/mission.hpp:57` | moderate | // acceleration, so the deadband bounds the hold error). PLACEHOLDER values. |
+| `include/adsc/mission.hpp:60` | moderate | // WP3: kit + deorbit-decay trades. PLACEHOLDER physical values (R10). |
+| `include/adsc/mission.hpp:66` | moderate | // catalog (bare-stage) areas are kept as PLACEHOLDER constants local to |
+| `include/adsc/mission.hpp:68` | decision-critical | double servicer_drag_area_m2 = 0.35;  // PLACEHOLDER servicer bus drag cross-section [m^2] |
+| `include/adsc/mission.hpp:74` | moderate | // min..max range, never a point value. PLACEHOLDER values: a single |
+| `include/adsc/mission.hpp:80` | decision-critical | double solar_min_density_factor = 0.5;  // PLACEHOLDER solar-min scaling |
+| `include/adsc/mission.hpp:81` | decision-critical | double solar_max_density_factor = 8.0;  // PLACEHOLDER solar-max scaling |
+| `include/adsc/mission.hpp:89` | moderate | // WP4: sensor + estimator abstractions. All PLACEHOLDER values (R10); |
+| `include/adsc/mission.hpp:134` | moderate | double sensor_dropout_prob          = 0.05;    // PLACEHOLDER per-sample Bernoulli missed-det... |
+| `include/adsc/mission.hpp:135` | moderate | double range_bias_walk_m_per_sqrt_s = 1.0e-3;  // PLACEHOLDER unestimated range-bias random-w... |
+| `include/adsc/mission.hpp:265` | moderate | double min_impulse_bit_nms = 0.0;  // PLACEHOLDER MIB angular-impulse quantum [N m s], per ax... |
+| `include/adsc/propagation.hpp:84` | moderate | // ---- Physical constants (cited, not PLACEHOLDER) ---- |
+| `src/campaign.cpp:286` | moderate | // Inter-target phasing to the next target (PLACEHOLDER flat cost). |
+| `src/campaign.cpp:400` | moderate | // Under the current flat PLACEHOLDER Delta-v cost these coincide numerically |
+| `src/campaign.cpp:426` | cosmetic | "includes PLACEHOLDER phasing/attach/depart time"); |
+| `src/campaign.cpp:571` | cosmetic | "PLACEHOLDER Delta-v cost these two coincide numerically -- every " |
+| `src/campaign.cpp:587` | cosmetic | "PLACEHOLDER, so those quantities take a small set of quantized values " |
+| `src/campaign.cpp:626` | cosmetic | "/ dv_budget_m_per_s / m/s / WP5-native, PLACEHOLDER / mission Delta-v budget /\n" |
+| `src/campaign.cpp:627` | cosmetic | "/ dv_used_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / sum of leg costs /\n" |
+| `src/campaign.cpp:628` | cosmetic | "/ dv_remaining_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / budget minus used /\n" |
+| `src/campaign.cpp:633` | cosmetic | "/ mission_time_s / s / WP5-native, PLACEHOLDER-derived / elapsed incl. placeholder phasing /\n" |
+| `src/campaign.cpp:640` | cosmetic | "/ first_closing_speed_m_per_s / m/s / WP5-native, PLACEHOLDER-derived / target-0 capture clo... |
+| `src/campaign.cpp:641` | cosmetic | "/ tumble_rate_deg_per_s / deg/s / WP5-native, PLACEHOLDER-derived / realized /w_t/ of first ... |
+| `src/campaign.cpp:642` | cosmetic | "/ solar_factor / - / WP5-native, PLACEHOLDER-derived / realized atmospheric-density factor (... |
+| `src/cost.cpp:18` | moderate | // ends with its verified-status flag; D10 (sourced-or-PLACEHOLDER, never |
+| `src/cost.cpp:74` | decision-critical | "do not invent a subscription figure. [PLACEHOLDER]"}, |
+| `src/cost.cpp:470` | moderate | // licensing_fcc_annual x3 yr, and the PLACEHOLDER ssa_tracking row |
+| `src/cost.cpp:524` | cosmetic | "debris-risk-reduction per cost; weighting is PLACEHOLDER (T5)"); |
+| `src/cost.cpp:527` | moderate | fr.band_weight, "normalized", "w(h) PLACEHOLDER; cite on fill"); |
+| `src/cost.cpp:590` | cosmetic | "licensing_fcc_annual*3yr and ssa_tracking (PLACEHOLDER) are " |
+| `src/cost.cpp:628` | cosmetic | "ssa_tracking (PLACEHOLDER, 0); outside the CU model and outside " |
+| `src/cost.cpp:720` | cosmetic | "sentinels left at 0.0. All cost/FoM parameters are PLACEHOLDER (see " |
+| `src/cost.cpp:769` | cosmetic | "tables are PLACEHOLDER and must be filled with citations.\n\n" |
+| `src/cost.cpp:819` | cosmetic | "/ notes / provenance / PLACEHOLDER caveats / WP14 arithmetic strings /\n" |
+| `src/cost.cpp:834` | cosmetic | "  sum m_i*w(h_i)/C_campaign (spec ?4). The two weightings are PLACEHOLDER and\n" |
+| `src/cost.cpp:859` | cosmetic | "  note (D10: every row is sourced-or-PLACEHOLDER; a PLACEHOLDER row's note\n" |
+| `src/cost.cpp:860` | cosmetic | "  ends `[PLACEHOLDER]` and its value is 0, never fabricated).\n" |
+| `src/cost.cpp:868` | cosmetic | "  licensing_fcc_application, licensing_fcc_annual, and the PLACEHOLDER\n" |
+| `src/cost.cpp:877` | cosmetic | "  licensing_fcc_annual x3 yr + ssa_tracking (PLACEHOLDER, 0), outside the CU\n" |
+| `src/decay.cpp:83` | decision-critical | return {"US Delta-class stage (PLACEHOLDER)", 0.0, 0.0, 0.0, true}; |
+| `src/flux.cpp:81` | cosmetic | "figures are PLACEHOLDER (MASTER-8 / ESA spatial-density class; cite at " |
+| `src/flux.cpp:94` | cosmetic | std::fprintf(f, "PLACEHOLDER spatial densities: average %.1e /km^3, peak " |
+| `src/main.cpp:137` | cosmetic | std::printf("  target inertia diag: %.2f / %.2f / %.2f kg m^2 (PLACEHOLDER ratios)\n", |
+| `src/main_flux.cpp:33` | cosmetic | std::printf("\n[T6] collector exposure (>= 1 cm; PLACEHOLDER densities, cite MASTER-8)\n"); |
+| `src/main_kit_trade.cpp:38` | cosmetic | "/cos i/..cos^2 i; libration T7 OPEN - PLACEHOLDER duty factor]"; |
+| `src/main_kit_trade.cpp:117` | moderate | // kit_mass (edt): NEW EdtConfig::kit_mass_kg, PLACEHOLDER. |
+| `src/main_kit_trade.cpp:120` | cosmetic | "\"installed EDT kit mass, PLACEHOLDER (EdtConfig::kit_mass_kg)\"\n", |
+| `src/main_kit_trade.cpp:124` | moderate | // deploy_risk: EdtConfig::deploy_failure_prob, PLACEHOLDER. Reported |
+| `src/main_kit_trade.cpp:128` | cosmetic | "\"PLACEHOLDER EDT deployment-failure probability " |
+| `src/main_kit_trade.cpp:203` | cosmetic | "  `EdtConfig::kit_mass_kg` (PLACEHOLDER). value = value_lo = value_hi (a\n" |
+| `src/main_kit_trade.cpp:205` | cosmetic | "- `deploy_risk`: `EdtConfig::deploy_failure_prob`, PLACEHOLDER. Reported\n" |
+| `src/main_kit_trade.cpp:219` | cosmetic | "libration T7 OPEN - PLACEHOLDER duty factor]`. This states the model scope\n" |
+| `src/main_kit_trade.cpp:228` | cosmetic | "PLACEHOLDER duty-cycle knob (`EdtConfig::eta_libration`) -- never claimed\n" |
+| `src/main_kit_trade.cpp:229` | cosmetic | "solved. Plasma electron density is a cited PLACEHOLDER parameter, not an\n" |
+| `src/main_kit_trade.cpp:366` | cosmetic | "**[CITATION NEEDED - PLACEHOLDER: per-object Ec analysis]**. Both " |
+| `src/main_kit_trade.cpp:466` | moderate | //     open risks (T7 libration, plasma Ne PLACEHOLDER). ------------------- |
+| `src/main_kit_trade.cpp:479` | cosmetic | "(T7, Pelaez et al. 2000) and plasma Ne (PLACEHOLDER solar-min/" |
+| `src/main_ladder.cpp:75` | moderate | // PLACEHOLDER bare-stage drag cross-sections (WP12 L2). Kept local to this |
+| `src/main_ladder.cpp:78` | moderate | constexpr double kSL16AreaM2 = 33.0;  // PLACEHOLDER SL-16 / Zenit-2 bare-stage cross-section... |
+| `src/main_ladder.cpp:79` | moderate | constexpr double kSL8AreaM2  = 7.5;   // PLACEHOLDER SL-8 / Kosmos-3M bare-stage cross-sectio... |
+| `src/main_ladder.cpp:82` | moderate | // PLACEHOLDER statistical/numerical-safety constants are named here. |
+| `src/main_ladder.cpp:83` | moderate | constexpr double kBcDispersionFrac = 0.30;  // PLACEHOLDER +/-30% 1-sigma per-craft ballistic... |
+| `src/main_metrics.cpp:329` | moderate | l5_act.min_impulse_bit_nms = 2.0e-4;  // PLACEHOLDER MIB angular impulse [N m s] |
+| `src/main_metrics.cpp:330` | moderate | l5_act.delay_steps         = 1;       // PLACEHOLDER one-control-step actuator lag |
+| `src/main_metrics.cpp:331` | moderate | l5_act.fault_axis          = 0;       // PLACEHOLDER: body x-axis |
+| `src/main_metrics.cpp:332` | moderate | l5_act.fault_axis_scale    = 0.5;     // PLACEHOLDER: 50% torque authority on that axis |
+| `src/main_metrics.cpp:346` | moderate | // at a 1e-3 m/s PLACEHOLDER translation MIB and re-checking the |
+| `src/main_metrics.cpp:351` | moderate | const double mib_m_s = 1.0e-3;  // PLACEHOLDER translation MIB [m/s] |
+| `src/main_metrics.cpp:355` | cosmetic | "contact velocity quantized at a 1e-3 m/s PLACEHOLDER translation " |
+| `tools/prioritization/make_prioritization.py:150` | cosmetic | "from 840-850 km) remains PLACEHOLDER: the McKnight ranking gives a " |
+| `tools/prioritization/make_prioritization.py:503` | cosmetic | "years band above folds libration in only as a flat PLACEHOLDER " |
+| `tools/prioritization/test_prioritization.py:146` | cosmetic | check("PLACEHOLDER" in md_txt, |
+| `tools/prioritization/test_prioritization.py:148` | cosmetic | "still PLACEHOLDER") |
+| `tools/readme/fill_readme_numbers.py:244` | moderate | L.append("PLACEHOLDER* %sv cost the two coincide numerically %s every " |
+| `tools/readme/fill_readme_numbers.py:270` | cosmetic | "flat PLACEHOLDER cost") |
 
 ## 11. Changelog - R15 pin supersessions
 
