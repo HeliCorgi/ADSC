@@ -8,6 +8,28 @@ name: build-and-test
 # Tests are framework-free and fail via a non-zero exit in every build type
 # (R4), so a single Release run is authoritative -- no Debug workaround needed.
 # The warnings-as-errors policy (R3) is enforced with -DADSC_WERROR=ON.
+#
+# CI-hardening mini-WP (adsc-specification-v5.md:296-300,
+# _tasks_local/01-pre-wp13-fixpack.md): four jobs total.
+#   1. build-test        -- Ubuntu/GCC. THE single authority: build, ctest,
+#                            regenerate_all.sh, README/docs fillers, then the
+#                            reproducibility gate (R6). Unchanged by this
+#                            mini-WP.
+#   2. build-matrix       -- Ubuntu/GCC+Clang, Release, -Werror: build+ctest
+#                            only, no regeneration/gate/artifacts.
+#   3. sanitizers         -- Debug + ASan/UBSan: ctest only (C++ unit tests),
+#                            no regeneration/gate/artifacts.
+#   4. python-cross-platform -- Windows + macOS: runs the Python-only
+#                            evidence/compliance/viz/forensics/prioritization/
+#                            readme_numbers/docs_numbers suites plus both
+#                            fillers in --check mode directly against the
+#                            committed artifacts (no C++ build). Turns the
+#                            "byte-identical across platforms" claim into
+#                            CI-enforced evidence.
+# Jobs 2-4 hardening layers are non-gating by design: only job 1's
+# reproducibility gate is authoritative (spec:287-291,
+# adsc-specification-v5.md "CI-hardening mini-WP" section). None of jobs 2-4
+# upload artifacts or run the `git diff --exit-code` gate.
 
 on:
   push:
@@ -15,7 +37,7 @@ on:
 
 jobs:
   build-test:
-    name: cmake build + ctest (Ubuntu / GCC / Eigen3)
+    name: cmake build + ctest (Ubuntu / GCC / Eigen3) -- reproducibility gate (single authority)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -80,3 +102,156 @@ jobs:
           path: |
             generated/
             evidence/
+
+  build-matrix:
+    name: cmake build + ctest (Ubuntu / ${{ matrix.compiler }}, Release, -Werror)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: gcc
+            cc: gcc
+            cxx: g++
+          - compiler: clang
+            cc: clang
+            cxx: clang++
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Eigen3 + compilers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libeigen3-dev g++ clang
+
+      - name: Configure (Release, warnings-as-errors, ${{ matrix.compiler }})
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DADSC_WERROR=ON \
+            -DCMAKE_C_COMPILER=${{ matrix.cc }} -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test (CTest)
+        run: ctest --test-dir build --output-on-failure
+
+      # This job intentionally stops at ctest. It does not run
+      # tools/regenerate_all.sh, the README/docs fillers, or the
+      # reproducibility gate, and it uploads no artifacts -- the Ubuntu/GCC
+      # `build-test` job above remains the SINGLE authority for
+      # reproducibility (spec:287-291, "keep the reproducibility gate the
+      # single authority"). This job exists only to catch compiler-specific
+      # warnings/UB that a single-compiler CI would miss.
+
+  sanitizers:
+    name: ASan+UBSan (Debug, ctest only)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Eigen3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libeigen3-dev
+
+      # Zero-CMakeLists-change route: rather than adding a bespoke
+      # ADSC_SANITIZE option/toggle to CMakeLists.txt, the sanitizer flags are
+      # injected straight into this job's own CMAKE_CXX_FLAGS /
+      # CMAKE_EXE_LINKER_FLAGS cache variables at configure time. No
+      # CMakeLists.txt change is required for this job to exist (checked:
+      # CMakeLists.txt has no ADSC_SANITIZE option today).
+      - name: Configure (Debug, -fsanitize=address,undefined)
+        run: |
+          cmake -S . -B build-san -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+
+      - name: Build
+        run: cmake --build build-san --parallel
+
+      # Per adsc-specification-v5.md:287-291/297-300 -- quoted verbatim:
+      # "sanitizers on TEST builds only (artifact generation stays plain
+      # Release -- sanitizer-built binaries must never write generated/ or
+      # the SHA gate dies)". Accordingly this job:
+      #   - runs ctest ONLY -- no ./build-san/adsc_sim, no
+      #     tools/regenerate_all.sh, no README/docs fillers, no
+      #     reproducibility gate, no artifact upload;
+      #   - excludes the Python-driven ctest tests (viz, compliance,
+      #     evidence, forensics, prioritization, readme_numbers,
+      #     docs_numbers). Those tests regenerate-in-place and diff against
+      #     the committed generated/evidence/README/docs files as their own
+      #     pass condition (by design -- see each test's own docstring); they
+      #     do not exercise any sanitizer-instrumented binary (they shell out
+      #     to plain `python3`), so running them here would touch
+      #     generated/evidence/README.md/docs/ for zero sanitizer coverage,
+      #     which is exactly what the spec rule above forbids. The C++ unit
+      #     tests below give full ASan/UBSan coverage without touching
+      #     generated/ at all.
+      - name: Test (CTest, ASan+UBSan, C++ unit tests only)
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: |
+          ctest --test-dir build-san --output-on-failure \
+            -E '^(viz|compliance|evidence|forensics|prioritization|readme_numbers|docs_numbers)$'
+
+  python-cross-platform:
+    name: Python suites (${{ matrix.os }}) -- byte-identical-across-platforms evidence
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      # These are Python 3 stdlib-only (spec v4.2 R9) and read the CSV/MD
+      # artifacts already committed under generated/ and evidence/ (produced
+      # by the Ubuntu/GCC build-test job's C++ regeneration) -- they need no
+      # C++ compiler or Eigen on this runner. Running them here on Windows and
+      # macOS turns "the regenerated bytes are identical across platforms"
+      # from an author assertion into CI-enforced evidence. C++ regeneration
+      # itself (tools/regenerate_all.sh, which invokes compiled binaries)
+      # stays Ubuntu-only in build-test: standing up Eigen3 + a C++ toolchain
+      # on Windows/macOS runners is disproportionate cost for a claim this
+      # job already covers via the Python path, and no committed artifact
+      # depends on a non-Linux C++ build existing.
+      - name: evidence
+        run: python tools/evidence/test_evidence.py .
+
+      - name: compliance
+        run: python tools/compliance/test_compliance.py .
+
+      - name: viz
+        run: python tools/viz/test_viz.py .
+
+      - name: forensics
+        run: python tools/forensics/test_forensics.py .
+
+      - name: prioritization
+        run: python tools/prioritization/test_prioritization.py .
+
+      - name: readme_numbers
+        run: python tools/readme/test_readme_numbers.py .
+
+      - name: docs_numbers
+        run: python tools/docs/test_docs_numbers.py .
+
+      # --check mode only: verifies the committed README.md/docs/*.md marker
+      # blocks already match what the fillers would regenerate. It does NOT
+      # rewrite files, so this job makes no working-tree changes and stays
+      # non-gating for reproducibility (build-test's gate remains the single
+      # authority).
+      - name: README marker blocks (--check)
+        run: python tools/readme/fill_readme_numbers.py . --check
+
+      - name: docs/ marker blocks (--check)
+        run: python tools/docs/fill_docs_numbers.py . --check
