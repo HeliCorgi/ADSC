@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use ADSC or its evidence pack, please cite it as below."
+title: "ADSC - Active Debris Self-Cleanup: an open, reproducible evidence package for installer-type Kessler-precursor removal"
+type: software
+authors:
+  - name: "HeliCorgi"
+version: 0.15.1
+date-released: 2026-07-12
+url: "https://github.com/HeliCorgi/ADSC"
+repository-code: "https://github.com/HeliCorgi/ADSC"
+license: MIT
+keywords:
+  - space debris
+  - active debris removal
+  - Kessler syndrome
+  - orbital mechanics
+  - GNC
+  - electrodynamic tether
+  - drag sail
+abstract: >-
+  A C++17 GNC simulator and generated, claim-audited evidence package for
+  installer-type active debris removal (Kessler-precursor removal): a small
+  servicer installs a passive deorbit kit on high-risk massive derelicts and
+  departs. Every quoted number regenerates byte-for-byte from a clean clone;
+  CI enforces reproducibility. TRL 4 (GNC software element, simulation only);
+  not flight software and not a mission proposal.
