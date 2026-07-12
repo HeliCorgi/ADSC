@@ -1,0 +1,32 @@
+# validation/ pinned third-party dependencies (Python 3.11.9, Windows).
+# This is the ONE place in the repository third-party pip packages are
+# used -- see README.md for why this directory is deliberately OUTSIDE the
+# R9 (Python-3-stdlib-only tooling) rule and outside the byte-identical
+# reproducibility gate.
+#
+# Exact versions actually used to produce validation/RESULTS.md (pip freeze
+# on 2026-07-12). Re-running with different (newer) versions of hapsira /
+# astropy / pymsis may shift the numbers slightly (a different NRLMSISE-00
+# wrapper release, a different Cowell-propagator default tolerance, etc.);
+# pin to these if you need to reproduce RESULTS.md exactly.
+
+numpy==1.26.4
+scipy==1.17.1
+
+# CW / two-body cross-validation (check_cw.py): used only as an
+# independent spot-check of the from-scratch scipy two-body propagator
+# (see check_cw.py's own docstring). hapsira 0.18.0 requires astropy<7
+# (it imports astropy.coordinates.matrix_utilities.matrix_product, which
+# newer astropy removed) -- astropy is pinned down from whatever a bare
+# `pip install hapsira` would otherwise resolve.
+hapsira==0.18.0
+astropy==6.1.7
+
+# Decay / atmosphere cross-validation (check_decay.py): NRLMSISE-00 / MSIS2
+# via the actively-maintained University of Colorado LASP / SWxTREC
+# wrapper (github.com/SWxTREC/pymsis). Note: `pyatmos` (the other package
+# named in the task brief as a first choice) was tried first and rejected
+# -- see README.md "what was tried and did not work".
+pymsis==0.12.0
+
+# check_edt_eta.py uses only numpy (no additional package).

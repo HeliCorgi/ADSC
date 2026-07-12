@@ -7,3 +7,7 @@ __pycache__/
 # local agent/editor tooling (not part of the evidence repository)
 .claude/
 .vscode/
+
+# validation/ is a one-time study with pinned third-party deps (see
+# validation/README.md); the venv used to run it locally is not committed
+validation/.venv/
