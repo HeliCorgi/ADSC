@@ -23,26 +23,31 @@ v0.<phase-number>-<short-descriptor>
 - `<short-descriptor>` is a short human-readable label for what that phase
   delivered (`phase0-baseline`, `fidelity`), not a restatement of the WP
   number.
-- Tags are lightweight/annotated git tags on the merge commit; `CMakeLists.txt`'s
-  own `project(ADSC VERSION 4.0 ...)` field is a separate, legacy
-  CMake-internal version number and is not currently kept in lockstep with
-  the git tag scheme (noted here as a known inconsistency, not fixed by
-  this PR — flag to the owner if it should be reconciled).
+- Tags are lightweight/annotated git tags on the merge commit. **Resolved
+  2026-07-12:** `CMakeLists.txt`'s `project(ADSC VERSION ...)` field used to
+  be a separate, legacy CMake-internal number (`4.0`) that drifted from the
+  git tag scheme; this is no longer the case. CMake `VERSION` now tracks the
+  tag scheme directly (currently `0.15.1`, tied to the upcoming
+  `v0.15-proposal-package` tag) and is expected to bump alongside future
+  phase tags rather than carry its own independent number.
 
-## Precedents (both already in the repository)
+## Precedents (all already in the repository)
 
 | tag | commit | what it marks |
 |---|---|---|
 | `v0.10-phase0-baseline` | `1f8c0aa` | End of Phase 0 (WP10: spec adoption, citation-fill, keep-out-violation forensics — no behavior-changing code). Cut **before** WP11 landed specifically so the pre-WP11 keep-out-violation rate (0.014 [0.007, 0.029]) had an archived, citable reference commit for the R15 BEFORE/AFTER table once WP11 closed it to 0/500 (spec §1). |
 | `v0.12-fidelity` | `a0deb9d` (merge of PR #26, `fixpack-pre-wp13`) | End of the WP12 fidelity-ladder phase plus the pre-WP13 fix-pack, cut immediately before WP13 (kit-class trade + EDT physics) began — a clean boundary between "safety/fidelity" work and "kit/cost" work. |
+| `v0.13-kit-trade-edt` | `4b02ac0` | WP13 (kit-class trade + EDT-v1 physics core) merge commit — backfilled 2026-07-12, see below. |
+| `v0.14-cost-fom` | `f41cb85` | WP14 (parametric cost/FoM + prioritization table) merge commit — backfilled 2026-07-12, see below. |
 
-**Known gap, stated plainly:** WP13 (`4b02ac0`) and WP14 (`f41cb85`) merged
-without their own phase tags — the tag-at-phase-boundary practice was not
-applied mechanically to every WP in this chain. This is not fixed
-retroactively by this PR (no git tags are created here); it is flagged so
-the owner can decide whether to backfill `v0.13-kit-trade` /
-`v0.14-cost-fom` tags on their existing merge commits, or accept the gap
-and simply resume the practice from WP15 forward.
+**Known gap — resolved 2026-07-12:** WP13 (`4b02ac0`) and WP14 (`f41cb85`)
+originally merged without their own phase tags — the tag-at-phase-boundary
+practice was not applied mechanically to every WP in this chain. The two
+tags have since been backfilled directly on those existing merge commits as
+`v0.13-kit-trade-edt` and `v0.14-cost-fom` respectively, so the chain from
+`v0.12-fidelity` through the upcoming `v0.15-proposal-package` now has a
+continuous set of phase-boundary anchors. The practice resumes normally
+from WP15 forward.
 
 ## Practice going forward
 

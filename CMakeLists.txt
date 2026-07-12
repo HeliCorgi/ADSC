@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
-project(ADSC VERSION 4.0 LANGUAGES CXX)
+# VERSION tracks the git-tag scheme in docs/release_engineering.md
+# (v0.<phase-number>-<short-descriptor>, e.g. v0.15-proposal-package): the
+# CMake-internal version now bumps in lockstep with the phase tags instead of
+# carrying its own separate number. Reconciled 2026-07-12 (was a stale 4.0
+# flagged as a known inconsistency in release_engineering.md).
+project(ADSC VERSION 0.15.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
