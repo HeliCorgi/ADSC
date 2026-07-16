@@ -116,8 +116,10 @@ adsc-specification-v5.md   the binding spec (rules R1-R16, decisions D1-D13)
 
 WP1–WP8 ✅ · WP10 forensics ✅ · WP11 safety hardening ✅ · WP12 fidelity
 ladder ✅ · WP13 kit trade + EDT ✅ · WP14 cost ranges + FoM ✅ · **WP15
-proposal package ✅ (this release)** · WP9 processor-in-the-loop — **reserved,
-not started, the only path above TRL 4**. Detail:
+proposal package ✅ (this release)** · WP9a flight-software groundwork
+(software-only, TRL unchanged) ✅ · WP9 processor-in-the-loop — **reserved,
+not started, the only path above TRL 4** (WP9's pre-registered plan:
+[docs/wp9_pil_plan.md](docs/wp9_pil_plan.md)). Detail:
 [docs/roadmap.md](docs/roadmap.md).
 
 ## Limitations
