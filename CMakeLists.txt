@@ -159,6 +159,16 @@ add_executable(test_flux tests/test_flux.cpp)
 target_link_libraries(test_flux PRIVATE adsc_core adsc_flags)
 add_test(NAME flux COMMAND test_flux)
 
+# WP9a flight-software groundwork probe (software-only; TRL stays 4
+# everywhere, WP9 PIL itself stays reserved -- docs/wp9_pil_plan.md):
+# allocation-count determinism + a generous ceiling, bit-identical final
+# state across two runs, and a CI-hardware-baseline wall-time sanity bound
+# for the combined control+estimation step. Everything prints to stdout only
+# (regenerate: ctest -R wp9_flightlike); no generated/ artifact is committed.
+add_executable(test_wp9_flightlike tests/test_wp9_flightlike.cpp)
+target_link_libraries(test_wp9_flightlike PRIVATE adsc_core adsc_flags)
+add_test(NAME wp9_flightlike COMMAND test_wp9_flightlike)
+
 # WP7a Visualization Pack test: Python 3 stdlib-only generator (spec v4.2 R9
 # tooling exception). Regenerates the SVGs from the committed CSVs and checks
 # well-formedness, caption provenance, no timestamps/stub markers, and byte

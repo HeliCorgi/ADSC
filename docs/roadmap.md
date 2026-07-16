@@ -58,6 +58,15 @@ deliverables).
 - **WP9 — Processor-in-the-loop / flight-software track** — **reserved, not
   started.** The only path above element TRL 4; see spec §9 and the
   discussion below.
+- **WP9a — Flight-software groundwork (software-only)** — done. Workstation-
+  only groundwork for the reserved WP9 track: a pre-registered plan freezing
+  WP9's future pass/fail criteria before any hardware exists, plus a
+  workstation probe (`tests/test_wp9_flightlike.cpp`, `ctest -R
+  wp9_flightlike`) checking allocation-count determinism against a generous
+  ceiling, bit-identical final state across two runs, and a CI-hardware
+  wall-time baseline print. Like WP10–WP15, this widens what preparing for
+  WP9 requires; it does not raise the TRL, and WP9 PIL itself is unaffected —
+  still reserved, not started. Detail: [wp9_pil_plan.md](wp9_pil_plan.md).
 - **WP10 — Phase 0: adoption, citations, forensics** — done. Spec v5 adopted;
   citation-fill; keep-out-violation forensics
   (`generated/wp10_violation_forensics.md`, the legacy-law archive superseded
@@ -121,6 +130,9 @@ Work package by work package, why the TRL does not move:
   economic argument — neither is a GNC maturity change.
 - **WP15** (this package) is a packaging/communication exercise — it changes
   how the evidence is presented, not what TRL the evidence supports.
+- **WP9a** (flight-software groundwork) is software-only preparation for the
+  reserved WP9 track — like WP10-WP15, it widens what a future PIL campaign
+  would need; it does not raise the TRL, and it is not WP9 itself.
 
 Reaching TRL 5 for the element requires real-time processor-in-the-loop
 execution on representative hardware — the WP9 track, reserved, not started,
