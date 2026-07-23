@@ -153,7 +153,7 @@ int main() {
         // --- weakly-observable c_hat: FINITE, BOUNDED, and NOT spuriously certain ---
         CHECK(std::isfinite(rep.final_c_hat));
         CHECK(std::isfinite(rep.final_c_hat_rel_err));
-        CHECK(std::fabs(rep.final_c_hat) < 0.5);  // within ~10x the prior guess magnitude; never runs away (replica |c_hat| <= 0.13)
+        CHECK(std::fabs(rep.final_c_hat) < 10.0 * c_hat_guess0);  // within 10x the prior guess (0.5); never runs away (replica |c_hat| <= 0.13)
         CHECK(rep.min_c_hat_variance > 1e-4);      // variance never collapses -> the filter reports it does NOT know c_hat (replica min ~9e-4)
         CHECK(std::isfinite(rep.min_c_hat_variance));
     }
