@@ -47,6 +47,8 @@ add_library(adsc_core
     src/flux.cpp
     src/guidance.cpp
     src/propagation.cpp
+    src/tether.cpp
+    src/twin.cpp
 )
 target_include_directories(adsc_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(adsc_core PUBLIC Eigen3::Eigen)
@@ -98,6 +100,15 @@ target_link_libraries(sim_metrics PRIVATE adsc_core adsc_flags)
 # does not touch a single wp5_campaign_* byte.
 add_executable(adsc_ladder src/main_ladder.cpp)
 target_link_libraries(adsc_ladder PRIVATE adsc_core adsc_flags)
+
+# WP16 Digital Twin Phase 1 driver: regenerates generated/wp16_twin.{csv,md}
+# and wp16_twin_schema.md -- a lumped-mass EDT tether model (tether.hpp/cpp)
+# plus a twin-to-twin sync + 4-state EKF demo (twin.hpp/cpp). NO real asset;
+# [DT-v1: lumped-mass tether, aligned dipole, twin-to-twin]. T7 (EDT
+# libration dynamic-stability trade) stays OPEN; this does not touch any
+# existing pinned artifact (wp5 campaign, decay, ladder).
+add_executable(adsc_twin src/main_twin.cpp)
+target_link_libraries(adsc_twin PRIVATE adsc_core adsc_flags)
 
 # Tests.
 enable_testing()
@@ -158,6 +169,18 @@ add_test(NAME cost COMMAND test_cost)
 add_executable(test_flux tests/test_flux.cpp)
 target_link_libraries(test_flux PRIVATE adsc_core adsc_flags)
 add_test(NAME flux COMMAND test_flux)
+
+# WP16 Digital Twin Phase 1: lumped-mass tether model (energy audit, slack
+# invariant, dumbbell-limit validation, divergence guards, controllers,
+# determinism) and the twin-to-twin EKF sync (covariance symmetric/PD,
+# parameter convergence, determinism). No real asset; T7 stays OPEN.
+add_executable(test_tether tests/test_tether.cpp)
+target_link_libraries(test_tether PRIVATE adsc_core adsc_flags)
+add_test(NAME tether COMMAND test_tether)
+
+add_executable(test_twin tests/test_twin.cpp)
+target_link_libraries(test_twin PRIVATE adsc_core adsc_flags)
+add_test(NAME twin COMMAND test_twin)
 
 # WP9a flight-software groundwork probe (software-only; TRL stays 4
 # everywhere, WP9 PIL itself stays reserved -- docs/wp9_pil_plan.md):
