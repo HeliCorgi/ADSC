@@ -57,6 +57,16 @@ point of a single honest list), but the pinned figure is not duplicated.
   discussion). The EDT branch is a physics-based band model (WP13), not a
   tether-hardware performance guarantee, and libration/dynamic stability
   remains **open trade T7** ([docs/target_selection.md](target_selection.md)).
+- **Digital Twin Phase 1 (WP16) is twin-to-twin, not twin-to-real, and
+  planar-only.** No real asset exists anywhere in WP16 (an owner-directed
+  extension, not a spec-mandated work package): the "truth" twin the EKF
+  assimilates is itself a perturbed-parameter instance of the same
+  simulated lumped-mass bead-tether model, and the bead dynamics are planar
+  (aligned-dipole in-plane forcing only) -- the out-of-plane (roll) channel
+  that drives the real Pelaez libration-pumping instability is not
+  integrated (a stated Phase-2 item). WP16 does not change the T7 open-
+  trade status above; neither in-model controller is a resolved stability
+  mechanism. Detail: [docs/digital_twin.md](digital_twin.md).
 - **Passive-safety claims are model-scoped (F2).** The keep-out and
   safety-ellipse guarantees are exact only in the linear Clohessy-Wiltshire
   model: circular target orbit, no J2, no differential drag, small

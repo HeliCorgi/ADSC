@@ -318,7 +318,8 @@ def main():
                       "L4 estimate-driven guidance"),
                      (r"\[L5: MIB/delay/fault", "L5 actuator realization"),
                      (r"\[model: EDT-v1 aligned-dipole",
-                      "EDT-v1 model-scope tag")):
+                      "EDT-v1 model-scope tag"),
+                     (r"\[DT-v1", "DT-v1 model-scope tag")):
         check(re.search(tag, pack) is not None,
               "pack lacks R14-tagged headline claim: %s" % why)
     check("element" in pack[pack.find("TRL 4"):pack.find("TRL 4") + 200],
