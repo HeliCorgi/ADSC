@@ -111,7 +111,7 @@ int main() {
         const double i_err0 = std::fabs(i_eff_guess0 - i_eff_true) / i_eff_true;
         const double c_err0 = std::fabs(c_hat_guess0 - c_true) / c_true;
 
-        const SyncReport rep = run_twin_sync(tc, vcfg, ControllerMode::PhaseGated, 15.0, 42ULL);
+        const TwinSyncReport rep = run_twin_sync(tc, vcfg, ControllerMode::PhaseGated, 15.0, 42ULL);
 
         CHECK(std::isfinite(rep.final_I_eff_rel_err));
         CHECK(std::isfinite(rep.final_c_hat_rel_err));
@@ -125,8 +125,8 @@ int main() {
     {
         const TruthTwinConfig tc = make_truth(9000.0, 0.04, 0.65);
         const VirtualTwinConfig vcfg = make_virtual();
-        const SyncReport r1 = run_twin_sync(tc, vcfg, ControllerMode::FixedDuty, 5.0, 777ULL);
-        const SyncReport r2 = run_twin_sync(tc, vcfg, ControllerMode::FixedDuty, 5.0, 777ULL);
+        const TwinSyncReport r1 = run_twin_sync(tc, vcfg, ControllerMode::FixedDuty, 5.0, 777ULL);
+        const TwinSyncReport r2 = run_twin_sync(tc, vcfg, ControllerMode::FixedDuty, 5.0, 777ULL);
         CHECK(r1.converged == r2.converged);
         CHECK(r1.converged_at_orbit == r2.converged_at_orbit);
         CHECK(r1.final_I_eff_rel_err == r2.final_I_eff_rel_err);

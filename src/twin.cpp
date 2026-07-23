@@ -118,8 +118,8 @@ double VirtualTwinEkf::update(double z_theta_rad, double z_tension_n,
 // Twin-to-twin sync loop
 // ---------------------------------------------------------------------------
 
-SyncReport run_twin_sync(const TruthTwinConfig& truth_cfg, const VirtualTwinConfig& virt_cfg,
-                         ControllerMode controller, double sim_orbits, uint64_t seed) {
+TwinSyncReport run_twin_sync(const TruthTwinConfig& truth_cfg, const VirtualTwinConfig& virt_cfg,
+                              ControllerMode controller, double sim_orbits, uint64_t seed) {
     TetherConfig truth_tcfg = truth_cfg.truth_tether;
     // The truth twin's OWN internal controller decision is never consulted
     // (see file header, "virtual-to-real pushback"): every step below
@@ -160,7 +160,7 @@ SyncReport run_twin_sync(const TruthTwinConfig& truth_cfg, const VirtualTwinConf
     double theta_err_sq_sum = 0.0;
     long n_theta_samples = 0;
 
-    SyncReport rep;
+    TwinSyncReport rep;
     rep.n_orbits = static_cast<int>(sim_orbits);
     int consecutive_ok_orbits = 0;
     int last_orbit_marked = -1;

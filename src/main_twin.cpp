@@ -403,7 +403,7 @@ void run_twin_sync_mc(int n_runs, uint64_t master_seed, std::vector<Wp16Row>& ro
         const uint64_t sensor_seed = splitmix64_seed(
             master_seed ^ fnv1a64("wp16-twin-sensor"), static_cast<uint64_t>(i));
 
-        const SyncReport rep = run_twin_sync(tc, vcfg, controller, sim_orbits, sensor_seed);
+        const TwinSyncReport rep = run_twin_sync(tc, vcfg, controller, sim_orbits, sensor_seed);
 
         if (rep.converged) {
             ++n_converged;
@@ -451,7 +451,17 @@ void write_csv(const std::string& path, const std::vector<Wp16Row>& rows) {
     std::fclose(f);
 }
 
-void write_schema_md(const std::string& path) {
+// Named write_twin_schema_md (not write_schema_md): this TU also pulls in
+// campaign.hpp's adsc::write_schema_md(const std::string&) (for
+// splitmix64_seed/wilson_interval/etc.) under `using namespace adsc;` above,
+// so a same-named, same-signature file-local helper here is an unqualified-
+// lookup ambiguity (GCC: "call of overloaded write_schema_md(std::string) is
+// ambiguous" between this anonymous-namespace definition and
+// adsc::write_schema_md) -- not a genuine overload set, just a name
+// collision between two independent single-purpose writers. Renamed rather
+// than reusing/exporting campaign.cpp's version, which emits WP5-specific
+// content.
+void write_twin_schema_md(const std::string& path) {
     std::FILE* f = std::fopen(path.c_str(), "w");
     if (!f) return;
     // A single fputs of one string literal -- zero format-specifier risk
@@ -612,7 +622,7 @@ int main(int argc, char** argv) {
     run_twin_sync_mc(n_runs, master_seed, rows);
 
     write_csv(out_dir + "/wp16_twin.csv", rows);
-    write_schema_md(out_dir + "/wp16_twin_schema.md");
+    write_twin_schema_md(out_dir + "/wp16_twin_schema.md");
     write_summary_md(out_dir + "/wp16_twin.md", rows, n_runs);
 
     std::printf("[WP16] %s wrote %s/wp16_twin.csv, wp16_twin_schema.md, wp16_twin.md "

@@ -114,7 +114,14 @@ private:
 };
 
 // One twin-to-twin sync convergence report (Deliverables 6/7).
-struct SyncReport {
+//
+// Named TwinSyncReport (not SyncReport) deliberately: mission.hpp already
+// declares an unrelated adsc::SyncReport for the WP2 tumble-sync outcome
+// (synced/sync_time_s/max_rate_err_deg_s/...). The two report different
+// physical quantities for different subsystems; they only ever collided on
+// the name, not the concept, so this file gets its own type rather than
+// merging two unrelated field sets into one struct.
+struct TwinSyncReport {
     int    n_orbits               = 0;
     double final_I_eff_rel_err    = 0.0;
     double final_c_hat_rel_err    = 0.0;
@@ -134,7 +141,7 @@ struct SyncReport {
 // Constant, the truth twin's own const_current_a is applied directly (no
 // feedback loop to evaluate; this is the passive baseline). Deterministic
 // given seed (sensor noise only; the dynamics themselves have no RNG).
-SyncReport run_twin_sync(const TruthTwinConfig& truth_cfg, const VirtualTwinConfig& virt_cfg,
-                         ControllerMode controller, double sim_orbits, uint64_t seed);
+TwinSyncReport run_twin_sync(const TruthTwinConfig& truth_cfg, const VirtualTwinConfig& virt_cfg,
+                              ControllerMode controller, double sim_orbits, uint64_t seed);
 
 }  // namespace adsc
