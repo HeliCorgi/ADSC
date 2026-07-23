@@ -121,10 +121,35 @@ private:
 // physical quantities for different subsystems; they only ever collided on
 // the name, not the concept, so this file gets its own type rather than
 // merging two unrelated field sets into one struct.
+//
+// WEAK-OBSERVABILITY FINDING [DT-v1] (a genuine digital-twin result, stated
+// plainly, not a bug): I_eff is STRONGLY observable from this measurement set
+// -- it enters the pitch dynamics as the Lorentz torque a_L*I_eff and so moves
+// the angle innovation directly (an independent finite-difference cross-check,
+// _tasks_local/wp16_xcheck.py, finds the angle measurement ~2.7e6x more
+// sensitive to i_eff_true than to c_true, noise-normalized). c_hat is NOT: it
+// is the EKF's TUNABLE effective pitch-damping parameter (gamma=c_hat/(2*mu)),
+// which is a DIFFERENT physical quantity from the truth twin's AXIAL dashpot
+// c_true. As the VirtualTwinConfig::q_c_hat comment and twin.cpp predict()
+// document, an axial dashpot produces ~zero direct pitch damping in near-rigid
+// rotation (the truth twin's free-decay rate is ~10 orders below gamma;
+// wp16_xcheck.py part (d)), so the (angle, tension) data carry almost no
+// information about c_true and the tension channel that does respond to c_true
+// is not connected to c_hat by the measurement model (H(1,3)=0). There is thus
+// NO data-driven reason for c_hat to converge to c_true; the estimator instead
+// pins c_hat to the effective pitch-damping the data supports (near zero, or a
+// small noise-driven value) with HONEST residual uncertainty. The fields below
+// therefore report c_hat as bounded-with-uncertainty, not as a c_true match;
+// see tests/test_twin.cpp block 2 for the restructured (observable-quantity)
+// acceptance criteria.
 struct TwinSyncReport {
     int    n_orbits               = 0;
     double final_I_eff_rel_err    = 0.0;
-    double final_c_hat_rel_err    = 0.0;
+    double final_c_hat_rel_err    = 0.0;  // |c_hat - c_true|/c_true; reported for the record, NOT asserted small -- c_hat is weakly observable (see finding above)
+    double final_c_hat            = 0.0;  // raw final c_hat [N.s/m]: the EKF's effective pitch-damping estimate (bounded-with-uncertainty, not a c_true match)
+    double final_I_eff            = 0.0;  // raw final I_eff [A]: strongly observable via the Lorentz-torque magnitude
+    double min_c_hat_variance     = 0.0;  // min P(3,3) over the run: the filter's honest uncertainty on c_hat must NOT collapse to spurious certainty (weak observability)
+    bool   cov_spd_all_steps      = true; // P stayed symmetric AND positive-definite (Cholesky) at every step of the sync run
     double theta_rmse_deg         = 0.0;  // RMSE of (EKF theta - truth chord angle) over the whole run
     double median_nis             = 0.0;  // 2-dof NIS; 95% chi-square(2) band is [0.05, 7.38]
     bool   converged              = false;

@@ -93,13 +93,38 @@ int main() {
         }
     }
 
-    // 2. Estimates move toward (not away from) the truth on a fixed seed.
-    //    The acceptance criterion is deliberately ROBUST rather than a tight
-    //    numeric pin (this filter's tuning could not be empirically
-    //    verified against a local build before committing this file, see
-    //    the WP16 implementation report): either the final relative error
-    //    improved on the initial (generic-prior) relative error, or it is
-    //    already comfortably converged (< 30%).
+    // 2. The estimator recovers the OBSERVABLE quantities and reports the
+    //    WEAKLY-observable one honestly, on a fixed seed.
+    //
+    //    WEAK-OBSERVABILITY FINDING [DT-v1] (this block was restructured after
+    //    an earlier version wrongly asserted that c_hat converges to c_true):
+    //    I_eff and c_hat are NOT equally observable from the (angle, tension)
+    //    measurements here, and c_hat is NOT the same physical quantity as the
+    //    truth twin's axial dashpot c_true. See the finding note on
+    //    TwinSyncReport (include/adsc/twin.hpp) and VirtualTwinConfig::q_c_hat:
+    //    c_hat is the EKF's TUNABLE effective pitch-damping (gamma=c_hat/(2*mu)),
+    //    while c_true is a per-segment AXIAL dashpot that produces ~zero direct
+    //    pitch damping in near-rigid rotation. An independent finite-difference
+    //    cross-check (_tasks_local/wp16_xcheck.py, part (d) + the innovation-
+    //    sensitivity extension) confirms it two ways: (i) the truth twin's
+    //    free-decay rate is ~10 orders of magnitude below gamma, and (ii) the
+    //    angle measurement is ~2.7e6x more sensitive (noise-normalized) to
+    //    i_eff_true than to c_true, while the tension channel that DOES respond
+    //    to c_true is not connected to c_hat by the measurement model (H(1,3)=0).
+    //    So the (angle,tension) data carry essentially no information about
+    //    c_true, and there is NO data-driven reason for c_hat to converge to it
+    //    -- doing so would be luck, not correctness. The asserts below therefore:
+    //      - PIN the strongly-observable I_eff (it must improve on the generic
+    //        prior AND land in a tight band),
+    //      - require good angle tracking, covariance symmetric+PD throughout,
+    //        and a filter-consistent NIS,
+    //      - and require c_hat to stay FINITE and BOUNDED with its variance NOT
+    //        collapsing to spurious certainty (the filter must KNOW it doesn't
+    //        know), instead of the old (deleted) c_hat==c_true equivalence.
+    //    Numeric bounds are honest, replica-derived slack bounds (a from-scratch
+    //    Python replica of this exact config gives I_eff_rel_err ~0.16-0.21 --
+    //    hence NOT a <0.15 pin -- theta_rmse ~0.05-0.07 deg, min P(3,3) ~9e-4,
+    //    |c_hat| <= 0.13; wp16_xcheck.py), not tuned-to-green pins.
     {
         const double ea_true = 12000.0, c_true = 0.06, eta_i_true = 0.8;
         const TruthTwinConfig tc = make_truth(ea_true, c_true, eta_i_true);
@@ -107,18 +132,30 @@ int main() {
 
         const double i_eff_true = eta_i_true * tc.truth_tether.I_cap_A;
         const double i_eff_guess0 = 1.0;  // matches run_twin_sync's own PLACEHOLDER prior
-        const double c_hat_guess0 = 0.05;
+        const double c_hat_guess0 = 0.05;  // matches run_twin_sync's own PLACEHOLDER prior
         const double i_err0 = std::fabs(i_eff_guess0 - i_eff_true) / i_eff_true;
-        const double c_err0 = std::fabs(c_hat_guess0 - c_true) / c_true;
 
         const TwinSyncReport rep = run_twin_sync(tc, vcfg, ControllerMode::PhaseGated, 15.0, 42ULL);
 
+        // --- strongly-observable I_eff: it must genuinely converge ---
         CHECK(std::isfinite(rep.final_I_eff_rel_err));
-        CHECK(std::isfinite(rep.final_c_hat_rel_err));
-        CHECK(rep.final_I_eff_rel_err < i_err0 || rep.final_I_eff_rel_err < 0.30);
-        CHECK(rep.final_c_hat_rel_err < c_err0 || rep.final_c_hat_rel_err < 0.30);
+        CHECK(rep.final_I_eff_rel_err < i_err0);   // improved on the generic prior (real observability signal)
+        CHECK(rep.final_I_eff_rel_err < 0.30);     // and landed in a tight band (replica ~0.16-0.21)
+
+        // --- angle tracking + filter consistency ---
         CHECK(std::isfinite(rep.theta_rmse_deg) && rep.theta_rmse_deg >= 0.0);
+        CHECK(rep.theta_rmse_deg < 2.0);           // filter tracks the strongly-observed angle (replica ~0.05-0.07 deg)
         CHECK(std::isfinite(rep.median_nis) && rep.median_nis >= 0.0);
+
+        // --- covariance stays symmetric AND positive-definite for the whole run ---
+        CHECK(rep.cov_spd_all_steps);
+
+        // --- weakly-observable c_hat: FINITE, BOUNDED, and NOT spuriously certain ---
+        CHECK(std::isfinite(rep.final_c_hat));
+        CHECK(std::isfinite(rep.final_c_hat_rel_err));
+        CHECK(std::fabs(rep.final_c_hat) < 0.5);  // within ~10x the prior guess magnitude; never runs away (replica |c_hat| <= 0.13)
+        CHECK(rep.min_c_hat_variance > 1e-4);      // variance never collapses -> the filter reports it does NOT know c_hat (replica min ~9e-4)
+        CHECK(std::isfinite(rep.min_c_hat_variance));
     }
 
     // 3. Determinism: two runs of the identical case are bit-identical (R6).

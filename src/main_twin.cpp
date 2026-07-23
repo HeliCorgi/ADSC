@@ -420,7 +420,10 @@ void run_twin_sync_mc(int n_runs, uint64_t master_seed, std::vector<Wp16Row>& ro
     push_dist(rows, "twin_sync", "c1_phase_gated", "i_eff_rel_err", i_err, "fraction",
              "final |I_eff_hat - I_eff_true| / I_eff_true");
     push_dist(rows, "twin_sync", "c1_phase_gated", "c_hat_rel_err", c_err, "fraction",
-             "final |c_hat - c_true| / c_true");
+             "final |c_hat - c_true| / c_true; c_hat is WEAKLY OBSERVABLE [DT-v1] "
+             "(effective pitch damping, NOT the axial c_true) so this is reported for the "
+             "record, NOT expected small -- I_eff is the robustly-identified parameter; see "
+             "twin.hpp TwinSyncReport finding note + _tasks_local/wp16_xcheck.py");
     push_dist(rows, "twin_sync", "c1_phase_gated", "theta_rmse_deg", theta_rmse, "deg",
              "RMSE of (EKF theta estimate - truth chord angle) over the whole run");
     push_dist(rows, "twin_sync", "c1_phase_gated", "median_nis", nis_med, "-",
@@ -552,6 +555,23 @@ void write_twin_schema_md(const std::string& path) {
 "`median_nis` (p05/50/95, filter-consistency sanity), and\n"
 "`orbits_to_converge` (p05/50/95 over CONVERGED runs only; a -1.0 point row\n"
 "replaces it if zero runs converged).\n"
+"\n"
+"OBSERVABILITY NOTE [DT-v1]: c_hat is WEAKLY OBSERVABLE from the angle and\n"
+"tension measurements in this configuration -- this twin-to-twin demo\n"
+"estimates I_eff ROBUSTLY (it enters the pitch dynamics as the Lorentz\n"
+"torque and moves the angle innovation directly), while the effective pitch\n"
+"damping c_hat is identifiable only as BOUNDED-WITH-HONEST-UNCERTAINTY. c_hat\n"
+"is the EKF's tunable effective pitch-damping (gamma=c_hat/(2*mu)), a\n"
+"DIFFERENT physical quantity from the truth twin's per-segment AXIAL dashpot\n"
+"c_true, which produces ~zero direct pitch damping in near-rigid rotation\n"
+"(the free-decay rate is ~10 orders below gamma; the tension channel that\n"
+"does respond to c_true is not connected to c_hat by the measurement model).\n"
+"So `c_hat_rel_err` (distance from c_true) is reported FOR THE RECORD but is\n"
+"NOT expected to be small, and the `converged_rate`'s c_hat<10% clause is\n"
+"correspondingly a stringent, mostly-informational gate -- see\n"
+"_tasks_local/wp16_xcheck.py and the TwinSyncReport finding note\n"
+"(include/adsc/twin.hpp). This is a genuine weak-observability result, not a\n"
+"filter defect.\n"
 "\n"
 "## Honesty footer (every table in `wp16_twin.md`)\n"
 "\n"

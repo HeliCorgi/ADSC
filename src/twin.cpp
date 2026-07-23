@@ -160,6 +160,15 @@ TwinSyncReport run_twin_sync(const TruthTwinConfig& truth_cfg, const VirtualTwin
     double theta_err_sq_sum = 0.0;
     long n_theta_samples = 0;
 
+    // Weak-observability / filter-honesty diagnostics (Deliverable 6, see the
+    // TwinSyncReport finding note in twin.hpp): track the MINIMUM c_hat
+    // variance (P(3,3)) reached over the run -- it must not collapse to
+    // spurious certainty -- and confirm the covariance stays symmetric AND
+    // positive-definite at EVERY assimilation step (Joseph form should
+    // guarantee this; we verify rather than assume).
+    double min_c_hat_variance = x0.P(3, 3);
+    bool cov_spd_all_steps = true;
+
     TwinSyncReport rep;
     rep.n_orbits = static_cast<int>(sim_orbits);
     int consecutive_ok_orbits = 0;
@@ -194,6 +203,13 @@ TwinSyncReport run_twin_sync(const TruthTwinConfig& truth_cfg, const VirtualTwin
             ekf.update(z_theta, z_tension, sigma_theta_rad, truth_cfg.sigma_tension_n);
         nis_hist.push_back(nis);
 
+        // Post-update covariance diagnostics (weak-observability finding).
+        const Eigen::Matrix4d& P_now = ekf.state().P;
+        min_c_hat_variance = std::min(min_c_hat_variance, P_now(3, 3));
+        const double sym_err = (P_now - P_now.transpose()).cwiseAbs().maxCoeff();
+        const Eigen::LLT<Eigen::Matrix4d> llt(P_now);
+        if (sym_err >= 1e-8 || llt.info() != Eigen::Success) cov_spd_all_steps = false;
+
         const double theta_err = ekf.state().x(0) - truth.chord_angle_rad();
         theta_err_sq_sum += theta_err * theta_err;
         ++n_theta_samples;
@@ -219,6 +235,10 @@ TwinSyncReport run_twin_sync(const TruthTwinConfig& truth_cfg, const VirtualTwin
         if (truth.status() != DivergeStatus::Ok) break;  // truth diverged: sync report is meaningless past this point
     }
 
+    rep.final_I_eff = ekf.state().x(2);
+    rep.final_c_hat = ekf.state().x(3);
+    rep.min_c_hat_variance = min_c_hat_variance;
+    rep.cov_spd_all_steps = cov_spd_all_steps;
     rep.final_I_eff_rel_err = std::fabs(ekf.state().x(2) - i_true) / std::max(1e-9, std::fabs(i_true));
     rep.final_c_hat_rel_err = std::fabs(ekf.state().x(3) - c_true) / std::max(1e-9, std::fabs(c_true));
     rep.theta_rmse_deg =
