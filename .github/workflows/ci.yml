@@ -18,7 +18,12 @@ name: build-and-test
 #   2. build-matrix       -- Ubuntu/GCC+Clang, Release, -Werror: build+ctest
 #                            only, no regeneration/gate/artifacts.
 #   3. sanitizers         -- Debug + ASan/UBSan: ctest only (C++ unit tests),
-#                            no regeneration/gate/artifacts.
+#                            no regeneration/gate/artifacts; --timeout 900 per
+#                            test and wp9_flightlike additionally excluded
+#                            (wall-clock timing baseline is meaningless under
+#                            ASan/UBSan instrumentation and has hung this job
+#                            30+ min on the parent commits -- see the job's
+#                            own comment for detail).
 #   4. python-cross-platform -- Windows + macOS: runs the Python-only
 #                            evidence/compliance/viz/forensics/prioritization/
 #                            readme_numbers/docs_numbers suites plus both
@@ -189,13 +194,30 @@ jobs:
       #     which is exactly what the spec rule above forbids. The C++ unit
       #     tests below give full ASan/UBSan coverage without touching
       #     generated/ at all.
+      #   - also excludes wp9_flightlike (WP9a): that probe's pass condition
+      #     includes a wall-clock CI-hardware timing baseline print, which is
+      #     meaningless once ASan/UBSan instrumentation dilates every wall-
+      #     clock measurement -- there is no "sanitizer-instrumented timing
+      #     baseline" to compare against, only noise. Worse, on the parent
+      #     commits this job (uninstrumented timing assumptions colliding
+      #     with ASan's overhead) has been observed to hang for 30+ minutes
+      #     under the sanitizer build instead of failing cleanly, burning CI
+      #     minutes for a non-gating job; excluding it here removes that
+      #     hang. wp9_flightlike keeps running to completion in build-test
+      #     (plain Release, job 1) and build-matrix (job 2) -- this exclusion
+      #     is sanitizer-job-only.
+      #   - --timeout 900 (15 min) is a per-test ceiling so any OTHER test
+      #     that regresses into a similar sanitizer-vs-wall-clock hang fails
+      #     loudly instead of running out the whole job; 900s is comfortably
+      #     above every C++ unit test's normal ASan/UBSan-instrumented
+      #     runtime today.
       - name: Test (CTest, ASan+UBSan, C++ unit tests only)
         env:
           ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
         run: |
-          ctest --test-dir build-san --output-on-failure \
-            -E '^(viz|compliance|evidence|forensics|prioritization|readme_numbers|docs_numbers)$'
+          ctest --test-dir build-san --output-on-failure --timeout 900 \
+            -E '^(viz|compliance|evidence|forensics|prioritization|readme_numbers|docs_numbers|wp9_flightlike)$'
 
   python-cross-platform:
     name: Python suites (${{ matrix.os }}) -- byte-identical-across-platforms evidence

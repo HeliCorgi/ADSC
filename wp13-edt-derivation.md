@@ -343,3 +343,22 @@ orbit-averaged inclination efficiency is eta = cos i (fixed/power-capped current
 to cos^2 i (EMF/collection-limited current), = 0.33..0.11 at 71 deg -- ship the
 [cos^2 i, cos i] band, never a point value. eta(90 deg)=0 in the aligned dipole
 (tilt makes the true value small-but-nonzero). Libration (T7) remains open.
+
+--------------------------------------------------------------------------
+## 10. WP16 follow-up (2026-07)
+A lumped-mass multi-bead reimplementation of the same aligned-dipole B_n
+geometry now exists (owner-directed extension, not a spec work package),
+together with in-model controller results (constant current, phase-gated,
+fixed-duty) and a twin-to-twin state/parameter-estimation demo: see
+docs/digital_twin.md and generated/wp16_twin.md (data: generated/wp16_twin.csv,
+schema: generated/wp16_twin_schema.md). Dumbbell-limit validation there
+reproduces this study's own eps-based bounded/tumble classification (Section 5
+above via _tasks_local/t7-libration-study.md Sec 5.1), with a stated
+model-family/integrator offset at the bounded case, never a claimed exact
+match. eta_libration remains exactly what Section 0/9 above already say it
+is: a bookkeeping duty-cycle knob folded flat into the edt_years band, NOT
+validated by WP16 as a stability mechanism -- if anything, WP16's own
+Monte Carlo finds naive fixed-duty cycling can excite libration in-model,
+which sharpens rather than resolves the caution already on record here. T7
+(libration / dynamic tether stability) is UNCHANGED by WP16: it remains
+open, and no controller in either study is a resolved stability mechanism.

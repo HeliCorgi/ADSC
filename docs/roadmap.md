@@ -67,6 +67,21 @@ deliverables).
   wall-time baseline print. Like WP10–WP15, this widens what preparing for
   WP9 requires; it does not raise the TRL, and WP9 PIL itself is unaffected —
   still reserved, not started. Detail: [wp9_pil_plan.md](wp9_pil_plan.md).
+- **WP16 — Digital Twin Phase 1 (owner-directed extension, not spec-
+  mandated)** — done (Phase 1). A lumped-mass multi-bead EDT tether model
+  (planar, aligned-dipole) with an RK4 integrator, an energy audit, and
+  recalibrated divergence guards; two in-model controller PROPOSALS
+  (phase-gated, fixed-duty) Monte Carlo'd against dispersions; and a
+  twin-to-twin parameter/state-estimation demo — NO real asset exists: a
+  perturbed-parameter simulated "truth" twin is assimilated by a
+  reduced-model EKF that never sees the truth parameters. Findings: naive
+  fixed-duty cycling can excite libration in this model where phase-gating
+  and the uncontrolled baseline do not; the EKF's c_hat state is weakly
+  observable (I_eff is not); dumbbell-limit validation agrees with the T7
+  study modulo a stated model-family/integrator offset. **T7 (libration /
+  dynamic tether stability) is unchanged and stays OPEN** — neither
+  controller is a resolved stability mechanism. Detail:
+  [digital_twin.md](digital_twin.md).
 - **WP10 — Phase 0: adoption, citations, forensics** — done. Spec v5 adopted;
   citation-fill; keep-out-violation forensics
   (`generated/wp10_violation_forensics.md`, the legacy-law archive superseded
