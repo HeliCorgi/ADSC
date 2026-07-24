@@ -113,6 +113,115 @@ private:
     double a_L_ = 0.0;  // -Delta*B_n/(2*mu) [rad/s^2 per A]
 };
 
+// ============================================================================
+// [DT-v2: 3D] WP16 Phase 2 -- 6-state roll-augmented EKF (Deliverable D8)
+// ----------------------------------------------------------------------------
+// A wholly NEW, ADDITIVE class (the existing 4-state EkfState/VirtualTwinEkf
+// above is byte-untouched, still the Phase-1 planar twin-sync engine).
+// State x = [theta, thetadot, phi, phidot, I_eff, c_hat]^T -- the existing
+// 4-state x = [theta, thetadot, I_eff, c_hat]^T with the two roll states
+// (phi, phidot) inserted in the middle, matching the WP16 Phase-2 design
+// record's own state ordering. Continuous dynamics near the operating
+// point, physical-time form of t7-libration-study.md Eqs 2.2-2.3 (x n^2,
+// same convention as the existing 4-state predict()):
+//   thetaddot = [n^2*Q_theta(theta,phi,u,I_eff) + 2*phidot*(thetadot+n)*
+//                sin(phi)*cos(phi) - 3*n^2*sin(theta)*cos(theta)*cos^2(phi)]
+//               / cos^2(phi)  - 2*gamma*thetadot
+//   phiddot   = n^2*Q_phi(theta,phi,u,I_eff) - (thetadot+n)^2*sin(phi)*
+//               cos(phi) - 3*n^2*cos^2(theta)*sin(phi)*cos(phi)
+// where (Q_theta, Q_phi) are T7's own nondimensional electrodynamic torques
+// (Sec 3.3-3.4), evaluated with the FULL 3D field (B_r(u), B_t(u), B_n) --
+// KEY DIFFERENCE from the 4-state model: the Lorentz coefficients are
+// u-DEPENDENT here (through B_r(u), B_t(u)), not the 4-state model's
+// constant a_L. gamma = c_hat/(2*mu), a TUNABLE assumed pitch-damping rate
+// (same meaning/caveats as the 4-state model's gamma -- see VirtualTwinConfig
+// ::q_c_hat and the weak-observability finding on TwinSyncReport, which
+// applies here unchanged).
+//
+// The continuous Jacobian F below is evaluated at the operating point with
+// the cos^2(phi) divisor in the pitch equation held at its pre-step value
+// (a linearization convenience, not a claim of exactness away from small
+// phi -- acceptable because F only propagates the COVARIANCE, not the mean,
+// which still uses the full nonlinear f via RK4).
+//
+// OBSERVABILITY FINDING [DT-v2: 3D] (pre-registered, honest): a single
+// SCALAR angle-only sensor (e.g. the cone angle ang=arccos(cos th cos ph))
+// leaves ROLL UNOBSERVABLE near the origin (its Jacobian w.r.t. (th,ph) is
+// singular there and symmetric in the two states, so it cannot partition
+// pitch from roll). A TWO-AXIS chord-direction measurement
+// (y=sin(th)cos(ph), z=sin(ph)) makes roll directly observable (the z
+// measurement's Jacobian row is [0,0,cos(ph),0,0,0], nonsingular at ph=0).
+// update_scalar_angle() and update_chord2axis() below expose BOTH
+// measurement models so this finding can be demonstrated directly (see
+// tests/test_twin.cpp), not just asserted in a comment.
+// ============================================================================
+
+// EKF state x = [theta, thetadot, phi, phidot, I_eff, c_hat]^T (rad, rad/s,
+// rad, rad/s, A, N.s/m).
+struct EkfState3D {
+    Eigen::Matrix<double, 6, 1> x = Eigen::Matrix<double, 6, 1>::Zero();
+    Eigen::Matrix<double, 6, 6> P = Eigen::Matrix<double, 6, 6>::Identity();
+};
+
+// Process-noise / geometry configuration for the 6-state filter -- mirrors
+// VirtualTwinConfig with an added roll process-noise pair (q_phi, q_phidot),
+// same "small, absorbs unmodeled mismatch" convention as q_theta/q_thetadot.
+struct VirtualTwinConfig3D {
+    double altitude_km     = 840.0;
+    double inclination_deg = 71.0;
+    double m_parent_kg     = 9000.0;
+    double m_tip_kg        = 20.0;
+    double tether_length_m = 3000.0;
+
+    double q_theta    = 1e-12;
+    double q_thetadot = 1e-10;
+    double q_phi      = 1e-12;   // [DT-v2: 3D] roll-angle process noise, same order as q_theta
+    double q_phidot   = 1e-10;   // [DT-v2: 3D] roll-rate process noise, same order as q_thetadot
+    double q_I_eff    = 1e-5;
+    double q_c_hat    = 1e-7;
+};
+
+// Standalone 6-state EKF for the roll-augmented reduced pitch+roll model
+// (Deliverable D8). Joseph-form update + explicit symmetrization every
+// step, same house convention as the 4-state VirtualTwinEkf.
+class VirtualTwinEkf3D {
+public:
+    VirtualTwinEkf3D(const VirtualTwinConfig3D& cfg, const EkfState3D& x0);
+
+    // Nonlinear RK4 mean propagation + 2nd-order-Taylor STM covariance
+    // propagation, evaluated at argument of latitude u = n*t_now (the
+    // caller tracks t_now; a fresh u is required every predict() call since
+    // the roll-forcing field components vary with it).
+    void predict(double dt_s, double u_rad);
+
+    // [DT-v2: 3D] scalar cone-angle-only measurement: z = arccos(cos(theta)
+    // cos(phi)) (T7's own divergence-angle definition). Demonstrates the
+    // roll-UNOBSERVABLE finding: this update alone cannot shrink phi's
+    // variance below what its own process noise re-inflates each predict().
+    double update_scalar_angle(double z_ang_rad, double sigma_ang_rad);
+
+    // [DT-v2: 3D] 2-axis chord-direction + tension measurement: z =
+    // (sin(theta)cos(phi), sin(phi), tension) -- the RECOMMENDED sensor for
+    // this 3D twin (D8): the z-component of the chord makes roll directly
+    // observable, unlike the scalar-angle-only update above. Returns NIS
+    // (3 dof) for filter-consistency gating.
+    double update_chord2axis(double z_y, double z_z, double z_tension_n,
+                             double sigma_y, double sigma_z, double sigma_tension_n);
+
+    const EkfState3D& state() const { return st_; }
+    double mean_motion_rad_s() const { return n_; }
+    double reduced_mass_kg() const { return mu_; }
+
+private:
+    VirtualTwinConfig3D cfg_;
+    EkfState3D st_;
+    double n_ = 0.0;
+    double mu_ = 0.0;
+    double delta_ = 0.0;  // (m_parent - m_tip)/(m_parent + m_tip), signed asymmetry (T7 Sec 1)
+    double beta_ = 0.0;   // aligned-dipole field magnitude at this altitude [T]
+    double inc_rad_ = 0.0;
+};
+
 // One twin-to-twin sync convergence report (Deliverables 6/7).
 //
 // Named TwinSyncReport (not SyncReport) deliberately: mission.hpp already

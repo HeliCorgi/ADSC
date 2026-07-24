@@ -9,31 +9,62 @@
 namespace adsc {
 
 // ============================================================================
-// WP16 Digital Twin Phase 1 -- lumped-mass EDT tether dynamics
+// WP16 Digital Twin Phase 1/2 -- lumped-mass EDT tether dynamics
 // ----------------------------------------------------------------------------
 // [DT-v1: lumped-mass tether, aligned dipole, twin-to-twin]. NO real asset
 // exists anywhere in this file or in twin.hpp/twin.cpp: the "truth" state
 // used by the twin-to-twin sync (twin.hpp) is itself a perturbed-parameter
 // instance of the SAME simulated model implemented here. T7 (EDT libration
 // dynamic-stability trade, _tasks_local/t7-libration-study.md) stays OPEN;
-// nothing in this file resolves it. The two controllers below (Deliverable
-// 5) are in-model PROPOSALS, evaluated only against this simulated physics
-// -- never a claim about a resolved or operational system.
+// nothing in this file resolves it, in EITHER mode below. The two
+// controllers below (Deliverable 5) are in-model PROPOSALS, evaluated only
+// against this simulated physics -- never a claim about a resolved or
+// operational system.
 //
-// Scope (Phase 1, PLANAR only): N point-mass beads on a tension-only
+// Scope (Phase 1, PLANAR, default): N point-mass beads on a tension-only
 // spring-dashpot tether, in the linearized Hill/LVLH rotating frame (radial
 // x, along-track y -- the SAME sign convention as relmotion.hpp's CwModel),
 // under gravity-gradient + Coriolis + a per-segment Lorentz force driven
 // ONLY by the orbit-normal field component B_n. B_n is CONSTANT around an
 // aligned-dipole orbit (wp13-edt-derivation.md Sec 2.3) -- the DC / in-plane
-// channel. The cross-track field components (B_r, B_t), which drive the
-// out-of-plane roll libration and the real Pelaez energy-pumping
-// instability (t7-libration-study.md Sec 3.5), are a Phase-2 extension and
-// are NOT integrated here: this planar Phase-1 model reproduces only the
-// BOUNDED-libration / DC-tumble behaviour of T7 Table 5.1 (Deliverable 4,
-// target T4a), never the faster out-of-plane pumping onset (T4b, an
-// explicit Phase-2 gate) -- a stated, pre-registered model boundary, not an
-// oversight.
+// channel. This planar Phase-1 model reproduces only the BOUNDED-libration
+// / DC-tumble behaviour of T7 Table 5.1 (Deliverable 4, target T4a).
+//
+// [DT-v2: 3D] Scope (Phase 2, out-of-plane, TetherConfig::out_of_plane =
+// true, a RUNTIME-SELECTABLE MODE on this SAME code path -- not a second
+// integrator, house fidelity-ladder pattern, R1 no-fork): the cross-track
+// field components (B_r, B_t), which are constant-around-the-orbit-normal
+// in Phase 1 but vary at the orbital frequency, now drive a per-segment
+// out-of-plane (z / cross-track / roll) Lorentz force -- the channel T7's
+// own Sec 3.5 identifies as the real Pelaez energy-pumping mechanism, and
+// which the planar model is blind to BY CONSTRUCTION. In this mode:
+//   - BeadState carries a full Hill-frame z (cross-track) component always;
+//     bead z accelerations get an ADDED gravity-gradient/free-particle term
+//     -n^2*z (t7-libration-study.md Sec 2, roll+pitch derivation cross-
+//     checked against relmotion.hpp's CwModel z_ddot + n^2 z = a_z
+//     convention) and an ADDED z-component of the (now fully 3D) per-segment
+//     Lorentz force I*l*(e x B), e and B both 3D.
+//   - The DivergedAngle guard and o45 crossing generalize from the planar
+//     signed chord angle to the 3D solid-angle "cone angle from local
+//     vertical" (arccos(d_x/|d|)), which reduces to |chord_angle_deg|
+//     exactly when z==0 (see tether.cpp compute_forces/step comments).
+//   - Guard (BINDING for planar bit-identity): when out_of_plane == false,
+//     B_x = B_y are forced to 0 and no z-forcing term (GG, Lorentz) is ever
+//     ADDED to a bead's z acceleration -- every new Phase-2 code path only
+//     ADDS terms under an out_of_plane branch, it never replaces or
+//     reorders the existing planar x/y computation. Combined with z==0 (and
+//     vz==0) at every Phase-1 IC, this makes the planar mode's committed
+//     wp16_twin.csv rows VALUE-IDENTICAL (in fact bit-identical) to Phase 1.
+//   - T4b (the out-of-plane pumping-onset target, deferred explicitly in
+//     Phase 1) is attempted via this mode's dumbbell-limit acceptance test;
+//     see tether.cpp / main_twin.cpp / tests/test_tether.cpp for the T7
+//     ADVERSARIAL CORRECTION cross-check (o45 ~ 0.53 orbit, 80-deg
+//     divergence by ~4.35 orbits at the nominal I=2A/71deg dumbbell
+//     config). This DOES NOT resolve T7; whether the phase-gated C1
+//     controller suppresses this roll-driven divergence is the real,
+//     first-class open question this phase answers (see twin.hpp/twin.cpp
+//     and main_twin.cpp's 3D Monte Carlo section) -- a NO is reported
+//     plainly, never tuned away.
 //
 // Orbit-radius convention: altitude is added to kDipoleRefRadius_m (the
 // SPENVIS mean-Earth reference radius the dipole formula is defined
@@ -71,10 +102,15 @@ double tether_dipole_beta_tesla(double altitude_km);
 // argument of latitude u for an aligned dipole (the Phase-1 DC channel).
 double field_Bn_tesla(double altitude_km, double inclination_deg);
 
-// In-plane (cross-track-forcing) field components, exposed only for
-// Phase-2 / twin.cpp diagnostic notes -- NOT consumed by the Phase-1
-// planar EOM below (wp13-edt-derivation.md Sec 2.3):
-//   B_r = -2*beta*sin(i)*sin(u), B_t = beta*sin(i)*cos(u).
+// In-plane-field / cross-track-forcing components (wp13-edt-derivation.md
+// Sec 2.3): B_r = -2*beta*sin(i)*sin(u), B_t = beta*sin(i)*cos(u). NOT
+// consumed by the Phase-1 planar EOM (out_of_plane == false): that mode
+// forces B_x = B_y = 0 in compute_forces (tether.cpp), so these stay
+// diagnostics-only there. [DT-v2: 3D] Phase-2 out-of-plane mode
+// (TetherConfig::out_of_plane == true) DOES consume both, evaluated at the
+// current argument of latitude u = n*t on each RK4 sub-stage, as the
+// orbital-frequency (B_r, B_t) that drives the out-of-plane roll Lorentz
+// force -- the Pelaez energy-pumping channel the planar model cannot see.
 double field_Br_tesla(double altitude_km, double inclination_deg, double u_rad);
 double field_Bt_tesla(double altitude_km, double inclination_deg, double u_rad);
 
@@ -153,6 +189,24 @@ struct TetherConfig {
     // --- initial condition (Deliverable 4) ---
     double theta0_deg = 3.0;  // initial tilt from local vertical, matches the T7 seed; rates = 0 (Hill-frame velocities start at zero)
 
+    // --- [DT-v2: 3D] out-of-plane mode (Phase 2) ---
+    // Runtime-selectable mode on this SAME code path (house fidelity-ladder
+    // pattern, R1 no-fork), NOT a second integrator. false (default) is the
+    // Phase-1 planar mode, VALUE-IDENTICAL (in fact bit-identical) to every
+    // committed Phase-1 result: B_x = B_y are forced to 0 and no z-forcing
+    // term is ever added to a bead's acceleration (see tether.cpp). true
+    // additionally integrates the cross-track field components (B_r, B_t)
+    // and a full 3D per-segment tension/Lorentz force, reproducing the T7
+    // out-of-plane roll-libration / Pelaez energy-pumping channel (Sec 3.5)
+    // the planar mode cannot see by construction. T7 stays OPEN in EITHER
+    // mode; this flag only selects which forcing terms are integrated.
+    bool out_of_plane = false;
+    // Initial out-of-plane (roll) tilt [deg], the phi0 companion to theta0
+    // above (T7's own theta0=phi0=3deg dumbbell seed, Sec 5.4). IGNORED
+    // (forced to an effective 0) whenever out_of_plane == false, so a
+    // stray nonzero value can never perturb a planar-mode run.
+    double phi0_deg = 0.0;
+
     // --- integration (Deliverable 3) ---
     // PLACEHOLDER RK4 step [s] (Deliverable-3 recommended MC pair for
     // EA_design=250 N). Two segment-eigenfrequency estimates exist for this
@@ -175,7 +229,7 @@ struct TetherConfig {
 // Per-step diagnostics (Deliverable 3 energy audit + divergence guards).
 struct StepDiagnostics {
     double t_s               = 0.0;
-    double chord_angle_deg   = 0.0;  // signed, atan2(bead[N-1]-bead[0]) from local vertical (+x/radial)
+    double chord_angle_deg   = 0.0;  // signed, atan2(bead[N-1]-bead[0]) from local vertical (+x/radial); PLANAR-plane (theta-only) angle, computed identically regardless of mode
     double energy_jacobi     = 0.0;  // E_J = KE_rel + U_gg + U_spring (rotating-frame Jacobi integral)
     double p_lorentz_w       = 0.0;  // sum_i FL_i . v_i (trapezoidal start/end-of-step average)
     double p_damp_w          = 0.0;  // -sum_j c*ldot_j^2 over segments IN TENSION (<=0)
@@ -185,6 +239,16 @@ struct StepDiagnostics {
     double max_speed_m_s     = 0.0;
     double current_applied_a = 0.0;  // signed current actually applied this step
     double root_tension_n    = 0.0;  // tension in the segment touching bead 0
+    // [DT-v2: 3D] solid-angle generalization of chord_angle_deg: angle
+    // between the chord (bead[N-1]-bead[0]) and local vertical (+x/radial),
+    // unsigned, in [0,180] deg -- arccos(d_x/|d|). Computed every step in
+    // EITHER mode (cheap); reduces EXACTLY to |chord_angle_deg| when z==0
+    // (planar mode / T7's own cone-angle divergence definition, Sec 5.4).
+    double cone_angle_deg    = 0.0;
+    // [DT-v2: 3D] roll angle: arcsin(d_z/|d|), the out-of-plane companion
+    // to chord_angle_deg's in-plane pitch -- 0 identically in planar mode
+    // (z==0 by construction).
+    double roll_angle_deg    = 0.0;
 };
 
 // Aggregate outcome of one run_tether_sim() call (Deliverables 3-5, 7).
@@ -200,15 +264,31 @@ struct SimResult {
     double eta_lib_effective     = 0.0;  // time-average |I_applied| / I_cap_A (Deliverable 5 headline)
     double retained_drag_frac    = 0.0;  // == eta_lib_effective (deorbit-thrust bookkeeping alias, Deliverable 5)
     int    n_steps               = 0;
+
+    // [DT-v2: 3D] additive fields (ignored/near-zero in planar mode; do NOT
+    // alter max_chord_angle_deg/o45_orbit/divergence_orbit's own existing
+    // computation, which stays exactly the fabs(chord_angle_deg)-based
+    // Phase-1 definition in EVERY mode -- see tether.cpp). These track the
+    // solid-angle/roll generalization in parallel, unconditionally (cheap):
+    double max_cone_angle_deg   = 0.0;  // max_j cone_angle_deg over the run
+    double max_roll_deg         = 0.0;  // max_j |roll_angle_deg| over the run
+    double o45_cone_orbit       = 0.0;  // orbit of first cone_angle_deg >= 45 deg; +inf if never (this is T7's OWN o45 definition, Sec 5.4, and the one the D9 dumbbell-limit acceptance test checks in out_of_plane mode)
 };
 
 // ------------------------------------------------------------------- engine
 
 // Bead-model state: positions/velocities in the Hill/LVLH rotating frame
-// [m], [m/s]. z is not carried (Phase-1 is planar, z==0 by construction).
+// [m], [m/s]. [DT-v2: 3D] z (cross-track) is now carried ALWAYS (promoted
+// Vector2d -> Vector3d, house pattern: single code path, runtime-selectable
+// mode, R1 no-fork) -- but z == 0 and vz == 0 IDENTICALLY (bit-for-bit) in
+// planar mode (TetherConfig::out_of_plane == false), because every z-force
+// term in compute_forces (tether.cpp) is only ever ADDED under an
+// out_of_plane branch, never computed or replaced unconditionally. Phase-1
+// planar behavior is therefore preserved exactly, not merely "z stays
+// small".
 struct BeadState {
-    std::vector<Eigen::Vector2d> pos;
-    std::vector<Eigen::Vector2d> vel;
+    std::vector<Eigen::Vector3d> pos;
+    std::vector<Eigen::Vector3d> vel;
 };
 
 // Stateful fixed-step RK4 stepper for one TetherConfig (Deliverables 1-3).
@@ -227,7 +307,15 @@ public:
     // model gate on its own (full-fidelity) internal Lorentz-power reading.
     StepDiagnostics step(const double* current_override_a = nullptr);
 
-    double chord_angle_rad() const;  // atan2(pos.back()-pos.front()) from local vertical (+x)
+    double chord_angle_rad() const;  // atan2(pos.back()-pos.front()) from local vertical (+x); PLANAR (theta-only) angle, computed identically in every mode
+    // [DT-v2: 3D] solid-angle generalization: arccos(clamp(d_x/|d|,-1,1)),
+    // d = pos.back()-pos.front() (3D). Reduces exactly to |chord_angle_rad()|
+    // when z == 0 (planar mode). This is T7's OWN divergence-event/o45
+    // definition (Sec 5.4: arccos(cos theta cos phi)).
+    double cone_angle_rad() const;
+    // [DT-v2: 3D] roll angle: arcsin(clamp(d_z/|d|,-1,1)) -- 0 identically
+    // in planar mode (z == 0 by construction).
+    double roll_angle_rad() const;
     double root_tension_n() const;   // tension in the segment touching bead 0 (last computed)
     double time_s() const { return t_s_; }
     double u_rad() const;            // argument of latitude, n*t (u0 = 0)

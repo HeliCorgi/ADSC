@@ -110,7 +110,7 @@ struct EdtConfig {
     double tether_length_m = 3000.0;    // BETs FP7 tape-tether reference length [m] (2 km bare + 1 km inert; thebetsproject.com / oa.upm.es/39287, cited wp13-literature.md Topic 1b)
     double kit_mass_kg = 20.0;          // PLACEHOLDER EDT kit mass (tether + deployer + electronics) [kg]
     double avg_current_a = 2.0;         // PLACEHOLDER average bare-tether collected current, BETs-scale [A]
-    double eta_libration = 0.75;        // PLACEHOLDER libration/duty-cycle efficiency penalty [-] (T7 open; Pelaez et al. 2000 dynamic-instability finding, never claimed solved)
+    double eta_libration = 0.75;        // PLACEHOLDER average-thrust bookkeeping factor ONLY, NOT a stability mechanism (WP16 in-model finding; T7 open; Pelaez et al. 2000 dynamic-instability finding, never claimed solved) [-]
     double deploy_failure_prob = 0.05;  // PLACEHOLDER deployment-failure probability [-] (reported only, not applied to years_* below)
 };
 
@@ -172,9 +172,10 @@ double integrate_edt_seconds(double a0_m, double a_stop_m, double m,
 // years_optimistic/years_conservative are +infinity, a physically correct
 // null result for this idealization (not a numerical artifact); emitters
 // should print "n/a (polar: aligned-dipole avg force -> 0)" for it.
-// Libration (T7) is folded in only as the flat eta_libration duty-cycle knob
-// above -- dynamic stability itself is explicitly unresolved (never claimed
-// solved).
+// Libration (T7) is folded in only as the flat eta_libration knob above --
+// an average-thrust bookkeeping factor ONLY, not a stability mechanism
+// (WP16 in-model finding); dynamic stability itself is explicitly
+// unresolved (never claimed solved).
 EdtResult edt_deorbit_years(const DebrisCatalog& target, const EdtConfig& cfg,
                             double stop_altitude_km);
 

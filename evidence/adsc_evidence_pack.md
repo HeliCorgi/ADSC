@@ -611,7 +611,7 @@ table: `tools/evidence/make_evidence.py::classify_importance` (a small
 explicit path+keyword table, not a formal per-line audit -- a handful of
 comment lines may land one bucket over from a stricter reading).
 
-Total marks: **168** (decision-critical: **56**, moderate: **71**, cosmetic: **41**)
+Total marks: **169** (decision-critical: **56**, moderate: **72**, cosmetic: **41**)
 
 | location | importance | line |
 |---|---|---|
@@ -668,7 +668,7 @@ Total marks: **168** (decision-critical: **56**, moderate: **71**, cosmetic: **4
 | `include/adsc/decay.hpp:34` | moderate | DebrisCatalog catalog_D();  // US Delta-class stage (PLACEHOLDER) |
 | `include/adsc/decay.hpp:111` | decision-critical | double kit_mass_kg = 20.0;          // PLACEHOLDER EDT kit mass (tether + deployer + electron... |
 | `include/adsc/decay.hpp:112` | decision-critical | double avg_current_a = 2.0;         // PLACEHOLDER average bare-tether collected current, BET... |
-| `include/adsc/decay.hpp:113` | decision-critical | double eta_libration = 0.75;        // PLACEHOLDER libration/duty-cycle efficiency penalty [-... |
+| `include/adsc/decay.hpp:113` | decision-critical | double eta_libration = 0.75;        // PLACEHOLDER average-thrust bookkeeping factor ONLY, NO... |
 | `include/adsc/decay.hpp:114` | decision-critical | double deploy_failure_prob = 0.05;  // PLACEHOLDER deployment-failure probability [-] (report... |
 | `include/adsc/flux.hpp:21` | moderate | // them. All debris-population figures are PLACEHOLDER, marked below and to be |
 | `include/adsc/flux.hpp:26` | moderate | // PLACEHOLDER-marked flux parameters (R10); the physical constants (aluminium |
@@ -692,16 +692,16 @@ Total marks: **168** (decision-critical: **56**, moderate: **71**, cosmetic: **4
 | `include/adsc/mission.hpp:135` | moderate | double range_bias_walk_m_per_sqrt_s = 1.0e-3;  // PLACEHOLDER unestimated range-bias random-w... |
 | `include/adsc/mission.hpp:266` | moderate | double min_impulse_bit_nms = 0.0;  // PLACEHOLDER MIB angular-impulse quantum [N m s], per ax... |
 | `include/adsc/propagation.hpp:84` | moderate | // ---- Physical constants (cited, not PLACEHOLDER) ---- |
-| `include/adsc/tether.hpp:117` | moderate | // All PLACEHOLDER values are marked; none is a physically validated figure |
-| `include/adsc/tether.hpp:129` | moderate | double m_tip_kg         = 20.0;    // PLACEHOLDER (= EdtConfig::kit_mass_kg) |
-| `include/adsc/tether.hpp:130` | moderate | double lambda_tether_kg_per_m = 2.7e-3;  // PLACEHOLDER tether linear density [kg/m] (BETs-sc... |
-| `include/adsc/tether.hpp:132` | moderate | // --- segment stiffness / damping (PLACEHOLDER "design" softened |
-| `include/adsc/tether.hpp:136` | moderate | double EA_design_N        = 250.0;  // PLACEHOLDER softened axial stiffness [N] |
-| `include/adsc/tether.hpp:137` | moderate | double damping_c_Ns_per_m = 0.05;   // PLACEHOLDER per-segment dashpot [N.s/m] |
-| `include/adsc/tether.hpp:141` | moderate | double eta_I    = 0.7;  // PLACEHOLDER collection efficiency [-] in [0,1]; the effective curr... |
-| `include/adsc/tether.hpp:151` | moderate | double gate_hysteresis  = 0.02;  // PLACEHOLDER PhaseGated (C1) hysteresis band applied to th... |
-| `include/adsc/tether.hpp:157` | moderate | // PLACEHOLDER RK4 step [s] (Deliverable-3 recommended MC pair for |
-| `include/adsc/tether.hpp:170` | moderate | double sim_orbits = 20.0;   // PLACEHOLDER Phase-1 simulation horizon [orbits] -- deliberatel... |
+| `include/adsc/tether.hpp:153` | moderate | // All PLACEHOLDER values are marked; none is a physically validated figure |
+| `include/adsc/tether.hpp:165` | moderate | double m_tip_kg         = 20.0;    // PLACEHOLDER (= EdtConfig::kit_mass_kg) |
+| `include/adsc/tether.hpp:166` | moderate | double lambda_tether_kg_per_m = 2.7e-3;  // PLACEHOLDER tether linear density [kg/m] (BETs-sc... |
+| `include/adsc/tether.hpp:168` | moderate | // --- segment stiffness / damping (PLACEHOLDER "design" softened |
+| `include/adsc/tether.hpp:172` | moderate | double EA_design_N        = 250.0;  // PLACEHOLDER softened axial stiffness [N] |
+| `include/adsc/tether.hpp:173` | moderate | double damping_c_Ns_per_m = 0.05;   // PLACEHOLDER per-segment dashpot [N.s/m] |
+| `include/adsc/tether.hpp:177` | moderate | double eta_I    = 0.7;  // PLACEHOLDER collection efficiency [-] in [0,1]; the effective curr... |
+| `include/adsc/tether.hpp:187` | moderate | double gate_hysteresis  = 0.02;  // PLACEHOLDER PhaseGated (C1) hysteresis band applied to th... |
+| `include/adsc/tether.hpp:211` | moderate | // PLACEHOLDER RK4 step [s] (Deliverable-3 recommended MC pair for |
+| `include/adsc/tether.hpp:224` | moderate | double sim_orbits = 20.0;   // PLACEHOLDER Phase-1 simulation horizon [orbits] -- deliberatel... |
 | `include/adsc/twin.hpp:54` | moderate | // sensor-noise model. All PLACEHOLDER. |
 | `include/adsc/twin.hpp:57` | moderate | double sigma_theta_deg = 0.5;   // PLACEHOLDER angle-sensor noise (1-sigma) [deg] |
 | `include/adsc/twin.hpp:58` | moderate | double sigma_tension_n = 0.05;  // PLACEHOLDER tension-sensor noise (1-sigma) [N] |
@@ -764,16 +764,17 @@ Total marks: **168** (decision-critical: **56**, moderate: **71**, cosmetic: **4
 | `src/main_metrics.cpp:348` | moderate | // at a 1e-3 m/s PLACEHOLDER translation MIB and re-checking the |
 | `src/main_metrics.cpp:353` | moderate | const double mib_m_s = 1.0e-3;  // PLACEHOLDER translation MIB [m/s] |
 | `src/main_metrics.cpp:357` | cosmetic | "contact velocity quantized at a 1e-3 m/s PLACEHOLDER translation " |
-| `src/main_twin.cpp:156` | moderate | base.EA_design_N = 10000.0;         // PLACEHOLDER rigid-limit stiffness (validation only) |
-| `src/main_twin.cpp:247` | moderate | cfg.sim_orbits = 5.0;  // PLACEHOLDER MC runtime-scoped horizon (see tether.hpp's sim_orbits ... |
-| `src/main_twin.cpp:376` | moderate | tc.sigma_theta_deg = 0.5;   // PLACEHOLDER |
-| `src/main_twin.cpp:377` | moderate | tc.sigma_tension_n = 0.05;  // PLACEHOLDER |
-| `src/main_twin.cpp:383` | moderate | const double sim_orbits = 10.0;  // PLACEHOLDER runtime-scoped horizon, long enough for the 5... |
-| `src/twin.cpp:136` | moderate | // PLACEHOLDER initial parameter guesses: the virtual twin starts from a |
-| `src/twin.cpp:146` | moderate | x0.P(0, 0) = (2.0 * kPi / 180.0) * (2.0 * kPi / 180.0);  // PLACEHOLDER initial angle uncerta... |
-| `src/twin.cpp:147` | moderate | x0.P(1, 1) = 1.0e-4 * 1.0e-4;                            // PLACEHOLDER initial rate uncertainty |
-| `src/twin.cpp:148` | moderate | x0.P(2, 2) = 1.0 * 1.0;                                  // PLACEHOLDER initial I_eff uncerta... |
-| `src/twin.cpp:149` | moderate | x0.P(3, 3) = 0.1 * 0.1;                                  // PLACEHOLDER initial c_hat uncerta... |
+| `src/main_twin.cpp:180` | moderate | base.EA_design_N = 10000.0;         // PLACEHOLDER rigid-limit stiffness (validation only) |
+| `src/main_twin.cpp:432` | moderate | cfg.sim_orbits = 5.0;  // PLACEHOLDER MC runtime-scoped horizon (see tether.hpp's sim_orbits ... |
+| `src/main_twin.cpp:571` | moderate | cfg.sim_orbits = 5.0;  // PLACEHOLDER MC runtime-scoped horizon, matches the planar N=8 MC |
+| `src/main_twin.cpp:745` | moderate | tc.sigma_theta_deg = 0.5;   // PLACEHOLDER |
+| `src/main_twin.cpp:746` | moderate | tc.sigma_tension_n = 0.05;  // PLACEHOLDER |
+| `src/main_twin.cpp:752` | moderate | const double sim_orbits = 10.0;  // PLACEHOLDER runtime-scoped horizon, long enough for the 5... |
+| `src/twin.cpp:348` | moderate | // PLACEHOLDER initial parameter guesses: the virtual twin starts from a |
+| `src/twin.cpp:358` | moderate | x0.P(0, 0) = (2.0 * kPi / 180.0) * (2.0 * kPi / 180.0);  // PLACEHOLDER initial angle uncerta... |
+| `src/twin.cpp:359` | moderate | x0.P(1, 1) = 1.0e-4 * 1.0e-4;                            // PLACEHOLDER initial rate uncertainty |
+| `src/twin.cpp:360` | moderate | x0.P(2, 2) = 1.0 * 1.0;                                  // PLACEHOLDER initial I_eff uncerta... |
+| `src/twin.cpp:361` | moderate | x0.P(3, 3) = 0.1 * 0.1;                                  // PLACEHOLDER initial c_hat uncerta... |
 | `tools/docs/fill_docs_numbers.py:386` | moderate | L.append("PLACEHOLDER* %sv cost the two coincide numerically %s every aborting mission needs" |
 | `tools/docs/fill_docs_numbers.py:407` | moderate | L.append("percentiles matching across the two presets is expected (a flat PLACEHOLDER cost") |
 | `tools/docs/fill_docs_numbers.py:672` | moderate | L.append("/ catalog / sail kit mass [kg] / EDT kit mass [kg] (PLACEHOLDER) / " |
